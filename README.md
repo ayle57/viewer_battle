@@ -44,7 +44,9 @@ The system should remain flexible enough to add more games later.
 - pnpm
 - Node.js
 
-The project uses a **monorepo** architecture.
+The project is a single Next.js application (not a monorepo) with a custom
+server entrypoint attaching Socket.IO for realtime. See `AGENTS.md` for
+working conventions and known constraints.
 
 ## Project Status
 

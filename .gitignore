@@ -3,8 +3,24 @@
 
 .env
 .env.local
+.env.production
 # node
 node_modules
 
 secrets
 .log
+
+# next.js
+.next
+next-env.d.ts
+
+# vitest / coverage
+coverage
+
+# prisma
+prisma/*.db
+
+# misc
+*.tsbuildinfo
+.DS_Store
+/src/generated/prisma

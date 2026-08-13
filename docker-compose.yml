@@ -1,0 +1,49 @@
+services:
+  app:
+    build: .
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgresql://viewerbattle:${POSTGRES_PASSWORD}@postgres:5432/viewerbattle
+      # Phase 0 spike only — removed once real auth (Phase 1) lands.
+      SPIKE_TOKEN: ${SPIKE_TOKEN}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: viewerbattle
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: viewerbattle
+    volumes:
+      # Postgres 18+ images refuse to start if the volume is mounted
+      # directly on .../data (the old convention) — they now expect a
+      # single mount on the parent directory, with data living in a
+      # version-specific subdirectory underneath. Mounting on .../data
+      # fails fast with a "pg_ctlcluster-compatible layout" error.
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U viewerbattle"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+    depends_on:
+      - app
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  caddy_data:

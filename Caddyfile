@@ -1,0 +1,14 @@
+# Phase 0 spike: plain HTTP on :80, no real domain yet.
+#
+# In production, replace ":80" with the real domain, e.g.:
+#   viewerbattle.example.com {
+#       reverse_proxy app:3000
+#   }
+# and Caddy issues/renews a Let's Encrypt certificate automatically — no
+# other change needed. A single `reverse_proxy` directive handles both
+# normal HTTP requests and the Socket.IO WebSocket upgrade on /socket.io;
+# Caddy detects the Upgrade header and proxies it natively.
+
+:80 {
+	reverse_proxy app:3000
+}
