@@ -15,6 +15,8 @@ export type ParticipantRole = z.infer<typeof participantRoleSchema>;
 export const TEAM_ROLES = ["TEAM_A", "TEAM_B"] as const satisfies readonly ParticipantRole[];
 export type TeamRole = (typeof TEAM_ROLES)[number];
 
+export const teamRoleSchema = z.enum(TEAM_ROLES);
+
 export function isTeamRole(role: ParticipantRole): role is TeamRole {
   return (TEAM_ROLES as readonly string[]).includes(role);
 }

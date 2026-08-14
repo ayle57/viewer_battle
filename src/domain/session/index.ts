@@ -1,4 +1,4 @@
-export { participantRoleSchema, TEAM_ROLES, isTeamRole } from "./role";
+export { participantRoleSchema, teamRoleSchema, TEAM_ROLES, isTeamRole } from "./role";
 export type { ParticipantRole, TeamRole } from "./role";
 
 export { sessionStatusSchema } from "./status";
