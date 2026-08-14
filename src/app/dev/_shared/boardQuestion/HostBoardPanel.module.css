@@ -1,0 +1,71 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-4);
+}
+
+.errorBanner {
+  padding: var(--vb-space-2) var(--vb-space-3);
+  background: var(--vb-danger-bg);
+  color: var(--vb-danger);
+  border-radius: var(--vb-radius-sm);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.resultBanner {
+  padding: var(--vb-space-2) var(--vb-space-3);
+  background: var(--vb-surface-raised);
+  border-radius: var(--vb-radius-sm);
+  font-weight: 600;
+  text-align: center;
+}
+
+.statusBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--vb-space-2);
+  padding: var(--vb-space-4) 0;
+  text-align: center;
+}
+
+.hint {
+  margin: 0;
+  color: var(--vb-text-muted);
+  font-size: 0.9rem;
+}
+
+.bigBuzz {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.teamA {
+  color: var(--vb-team-a);
+}
+
+.teamB {
+  color: var(--vb-team-b);
+}
+
+.submittedAnswer {
+  margin: 0;
+  font-size: 1.4rem;
+  font-weight: 600;
+  font-style: italic;
+}
+
+.judgeRow {
+  display: flex;
+  gap: var(--vb-space-3);
+  margin-top: var(--vb-space-2);
+}
+
+.closeRow {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--vb-space-3);
+}

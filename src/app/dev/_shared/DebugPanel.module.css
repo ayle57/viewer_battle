@@ -1,0 +1,21 @@
+.details {
+  border: 1px dashed var(--vb-border);
+  border-radius: var(--vb-radius-md);
+  padding: var(--vb-space-2) var(--vb-space-3);
+}
+
+.summary {
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--vb-text-muted);
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-3);
+  margin-top: var(--vb-space-3);
+}

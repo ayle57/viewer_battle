@@ -1,0 +1,55 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-4);
+}
+
+.buzzArea {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-2);
+}
+
+.statusLine {
+  text-align: center;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--vb-text-muted);
+  padding: var(--vb-space-3);
+}
+
+.resultBanner {
+  padding: var(--vb-space-2) var(--vb-space-3);
+  background: var(--vb-surface-raised);
+  border-radius: var(--vb-radius-sm);
+  font-weight: 600;
+  text-align: center;
+}
+
+.errorBanner {
+  padding: var(--vb-space-2) var(--vb-space-3);
+  background: var(--vb-danger-bg);
+  color: var(--vb-danger);
+  border-radius: var(--vb-radius-sm);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.myTurn {
+  color: var(--vb-primary);
+  font-size: 1.1rem;
+}
+
+.otherTeamAnswering {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-1);
+  align-items: center;
+}
+
+.theirAnswer {
+  text-align: center;
+  font-style: italic;
+  color: var(--vb-text-muted);
+  margin: 0;
+}

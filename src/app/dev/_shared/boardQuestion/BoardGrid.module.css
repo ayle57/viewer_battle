@@ -1,0 +1,54 @@
+.board {
+  display: grid;
+  gap: var(--vb-space-2);
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-2);
+}
+
+.categoryHeader {
+  margin: 0 0 var(--vb-space-1);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-align: center;
+  color: var(--vb-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.cell {
+  border: 1px solid var(--vb-border);
+  border-radius: var(--vb-radius-sm);
+  padding: var(--vb-space-4) var(--vb-space-2);
+  text-align: center;
+  font-size: 1.1rem;
+  font-weight: 800;
+  background: var(--vb-surface);
+  color: var(--vb-accent);
+  cursor: default;
+  font-variant-numeric: tabular-nums;
+}
+
+.cellSelectable {
+  cursor: pointer;
+  border-color: var(--vb-primary);
+}
+
+.cellSelectable:hover {
+  background: var(--vb-surface-raised);
+  transform: translateY(-1px);
+}
+
+.cellPlayed {
+  background: var(--vb-surface-raised);
+  color: var(--vb-text-muted);
+  font-weight: 400;
+}
+
+.cellActive {
+  border-color: var(--vb-accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--vb-accent) 35%, transparent);
+}

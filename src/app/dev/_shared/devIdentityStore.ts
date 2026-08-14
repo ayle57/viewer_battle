@@ -37,16 +37,30 @@ interface DevIdentityState {
  * will carry the token differently, but resolve identity through the
  * exact same src/server/auth seam.
  */
-export const useDevIdentityStore = create<DevIdentityState>()(
-  persist(
-    (set) => ({
-      identity: null,
-      setIdentity: (identity) => set({ identity }),
-      clearIdentity: () => set({ identity: null }),
-    }),
-    {
-      name: "viewerbattle-dev-identity",
-      storage: createJSONStorage(() => sessionStorage),
-    },
-  ),
-);
+function createDevIdentityStore() {
+  return create<DevIdentityState>()(
+    persist(
+      (set) => ({
+        identity: null,
+        setIdentity: (identity) => set({ identity }),
+        clearIdentity: () => set({ identity: null }),
+      }),
+      {
+        name: "viewerbattle-dev-identity",
+        storage: createJSONStorage(() => sessionStorage),
+      },
+    ),
+  );
+}
+
+// Pinned to globalThis so a Fast Refresh re-execution of this module can't
+// hand out a second store instance mid-session — see gameStore.ts's
+// comment on useGameStore for the exact failure mode this avoids (a live
+// component reading a fresh, not-yet-rehydrated store while an unrelated
+// closure still points at the old one).
+const globalForDevIdentityStore = globalThis as unknown as {
+  viewerBattleDevIdentityStore?: ReturnType<typeof createDevIdentityStore>;
+};
+export const useDevIdentityStore =
+  globalForDevIdentityStore.viewerBattleDevIdentityStore ??
+  (globalForDevIdentityStore.viewerBattleDevIdentityStore = createDevIdentityStore());

@@ -1,0 +1,72 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-5);
+  max-width: 56rem;
+  margin: 0 auto;
+}
+
+.scoreCard {
+  padding: var(--vb-space-4) 0;
+}
+
+.buzzedBanner {
+  text-align: center;
+  padding: var(--vb-space-4);
+  border-radius: var(--vb-radius-lg);
+  font-size: 1.5rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.buzzedTeamA {
+  background: var(--vb-team-a-bg);
+  color: var(--vb-team-a);
+  border: 2px solid var(--vb-team-a);
+}
+
+.buzzedTeamB {
+  background: var(--vb-team-b-bg);
+  color: var(--vb-team-b);
+  border: 2px solid var(--vb-team-b);
+}
+
+.statusLine {
+  text-align: center;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--vb-text-muted);
+  padding: var(--vb-space-4);
+}
+
+.finishedBanner {
+  text-align: center;
+  padding: var(--vb-space-5);
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: var(--vb-accent);
+}
+
+.buzzedBlock {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-3);
+}
+
+.submittedAnswer {
+  text-align: center;
+  font-size: 1.5rem;
+  font-weight: 600;
+  font-style: italic;
+  margin: 0;
+}
+
+.resultBanner {
+  text-align: center;
+  padding: var(--vb-space-4);
+  font-size: 1.25rem;
+  font-weight: 700;
+  background: var(--vb-surface-raised);
+  border-radius: var(--vb-radius-lg);
+}

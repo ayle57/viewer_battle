@@ -1,56 +1,71 @@
 "use client";
 
-import { Badge } from "@/ui";
+import { Badge, Card, CardBody } from "@/ui";
+import { PlayerBoardPanel } from "../_shared/boardQuestion/PlayerBoardPanel";
+import { ConnectionBadge } from "../_shared/ConnectionBadge";
+import { DebugPanel } from "../_shared/DebugPanel";
+import { useGameStore } from "../_shared/gameStore";
+import { useGameSocket } from "../_shared/useGameSocket";
 import { RequireIdentity } from "../_shared/RequireIdentity";
 import { TodoPanel } from "../_shared/TodoPanel";
 import styles from "../_shared/skeletonPage.module.css";
+import type { BoardQuestionState } from "@/domain/game/boardQuestion";
+import type { DevIdentity } from "../_shared/devIdentityStore";
 
 export default function PlayerPage() {
   return (
     <main className={styles.page}>
       <h1>Player</h1>
       <p className={styles.hint}>
-        Skeleton — will grow into the real player view as each backend piece lands. Nothing below is faked; panels
-        say TODO until there is a real feature to show.
+        Real vertical slice: buzzing sends a real <code>game:action</code>, judged server-side — this page never
+        decides for itself whether a buzz was legal, and never sees an answer the server didn&apos;t send it.
       </p>
 
-      <RequireIdentity allow={["TEAM_A", "TEAM_B"]}>
-        {(identity) => (
-          <>
-            <Badge variant={identity.role === "TEAM_A" ? "teamA" : "teamB"}>
-              Session {identity.sessionCode} · {identity.displayName}
-            </Badge>
-            <div className={styles.grid}>
-              <TodoPanel
-                title="Connection"
-                description="Real Socket.IO connection status and reconnection already exist today — see /dev/chat's status badge. Will surface here directly next."
-              />
-              <TodoPanel
-                title="Presence"
-                description="Which teammates and opponents are currently connected."
-                blockedBy="Player identity + presence tracking"
-              />
-              <TodoPanel title="Chat" description="Embed the real chat panel scoped to this session." blockedBy="wiring shared chat hook here" />
-              <TodoPanel
-                title="Game state"
-                description="What this player currently sees/needs to respond to."
-                blockedBy="src/domain/game (Game Kernel)"
-              />
-              <TodoPanel
-                title="Available actions"
-                description="Buttons for whatever the current game state allows (buzz in, answer, draw, ...)."
-                blockedBy="Game Kernel + per-game action schemas"
-              />
-              <TodoPanel title="Score" description="This player's team score, live." blockedBy="Game Kernel + score model" />
-              <TodoPanel
-                title="Errors / reconnection"
-                description="Surfaced action failures and what happens to in-flight state on reconnect."
-                blockedBy="Game Kernel action handling"
-              />
-            </div>
-          </>
-        )}
-      </RequireIdentity>
+      <RequireIdentity allow={["TEAM_A", "TEAM_B"]}>{(identity) => <PlayerGame identity={identity} />}</RequireIdentity>
     </main>
+  );
+}
+
+function PlayerGame({ identity }: { identity: DevIdentity }) {
+  const { sendAction } = useGameSocket(identity.token);
+  const gameId = useGameStore((state) => state.gameId);
+  const gameState = useGameStore((state) => state.gameState);
+  const status = useGameStore((state) => state.status);
+  const lastEvents = useGameStore((state) => state.lastEvents);
+
+  return (
+    <>
+      <div className={styles.hint} style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+        <Badge variant={identity.role === "TEAM_A" ? "teamA" : "teamB"}>
+          Session {identity.sessionCode} · {identity.displayName}
+        </Badge>
+        <ConnectionBadge status={status} />
+      </div>
+
+      {!gameId && (
+        <Card>
+          <CardBody>
+            <p>No game running yet — waiting for the host to start Mini Jeopardy.</p>
+          </CardBody>
+        </Card>
+      )}
+
+      {gameId && gameState && (
+        <PlayerBoardPanel
+          state={gameState as unknown as BoardQuestionState}
+          role={identity.role as "TEAM_A" | "TEAM_B"}
+          lastEvents={lastEvents}
+          sendAction={sendAction}
+        />
+      )}
+
+      <DebugPanel>
+        <TodoPanel
+          title="Presence"
+          description="Which teammates and opponents are currently connected."
+          blockedBy="presence tracking (separate from game state)"
+        />
+      </DebugPanel>
+    </>
   );
 }
