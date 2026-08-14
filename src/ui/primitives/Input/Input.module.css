@@ -13,12 +13,26 @@
 .input {
   font-family: var(--vb-font-sans);
   font-size: 0.9375rem;
+  line-height: 1.2;
   color: var(--vb-text);
   background: var(--vb-surface);
   border: 1px solid var(--vb-border);
   border-radius: var(--vb-radius-sm);
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.sm {
+  padding: var(--vb-space-1) var(--vb-space-2);
+  font-size: 0.875rem;
+}
+
+.md {
   padding: var(--vb-space-2) var(--vb-space-3);
-  transition: border-color 120ms ease;
+}
+
+.lg {
+  padding: var(--vb-space-3) var(--vb-space-4);
+  font-size: 1rem;
 }
 
 .input::placeholder {
@@ -28,6 +42,7 @@
 .input:focus-visible {
   outline: none;
   border-color: var(--vb-primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--vb-primary) 20%, transparent);
 }
 
 .input:disabled {
@@ -37,6 +52,12 @@
 
 .errorInput {
   border-color: var(--vb-danger);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--vb-danger) 14%, transparent);
+}
+
+.hintText {
+  font-size: 0.8125rem;
+  color: var(--vb-text-muted);
 }
 
 .errorText {

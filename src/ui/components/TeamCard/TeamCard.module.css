@@ -20,12 +20,25 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: var(--vb-space-3);
 }
 
 .name {
-  margin: 0;
+  margin: var(--vb-space-1) 0 0;
   font-size: 1.0625rem;
   font-weight: 800;
+}
+
+.subtitle {
+  margin: 0.1rem 0 0;
+  color: var(--vb-text-muted);
+  font-size: 0.75rem;
+}
+
+.badges {
+  display: flex;
+  align-items: center;
+  gap: var(--vb-space-2);
 }
 
 .score {
@@ -38,4 +51,10 @@
   display: flex;
   flex-direction: column;
   gap: var(--vb-space-2);
+}
+
+.empty {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--vb-text-muted);
 }

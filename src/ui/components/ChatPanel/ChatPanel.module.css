@@ -5,6 +5,28 @@
   min-height: 0;
 }
 
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--vb-space-2);
+  padding: var(--vb-space-2) var(--vb-space-3);
+  border-bottom: 1px solid var(--vb-border);
+  background: var(--vb-surface-raised);
+}
+
+.title {
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.readOnly {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--vb-text-muted);
+}
+
 .messages {
   flex: 1;
   min-height: 0;

@@ -1,7 +1,7 @@
 .overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--vb-overlay);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -11,11 +11,22 @@
 
 .dialog {
   width: 100%;
-  max-width: 28rem;
   background: var(--vb-surface);
   border: 1px solid var(--vb-border);
   border-radius: var(--vb-radius-lg);
   box-shadow: var(--vb-shadow-md);
+}
+
+.sm {
+  max-width: 24rem;
+}
+
+.md {
+  max-width: 30rem;
+}
+
+.lg {
+  max-width: 40rem;
 }
 
 .header {
@@ -26,10 +37,22 @@
   padding: var(--vb-space-4) var(--vb-space-4) 0;
 }
 
+.titleBlock {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-1);
+}
+
 .title {
   margin: 0;
   font-size: 1.0625rem;
   font-weight: 700;
+}
+
+.description {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--vb-text-muted);
 }
 
 .closeButton {

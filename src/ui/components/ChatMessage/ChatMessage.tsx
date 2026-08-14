@@ -15,6 +15,7 @@ export interface ChatMessageData {
   role: ChatMessageRole;
   body: string;
   createdAt: Date;
+  system?: boolean;
 }
 
 const ROLE_BADGE: Record<ChatMessageRole, { variant: BadgeVariant; label: string }> = {
@@ -37,17 +38,19 @@ function formatTime(date: Date): string {
   return `${hours}:${minutes}`;
 }
 
-export function ChatMessage({ senderName, role, body, createdAt }: ChatMessageData) {
+export function ChatMessage({ senderName, role, body, createdAt, system = false }: ChatMessageData) {
   const badge = ROLE_BADGE[role];
 
   return (
-    <div className={styles.message}>
+    <div className={[styles.message, system && styles.systemMessage].filter(Boolean).join(" ")}>
       <div className={styles.metaRow}>
         <span className={styles.sender}>{senderName}</span>
-        <Badge variant={badge.variant}>{badge.label}</Badge>
+        <Badge variant={badge.variant} size="sm">
+          {badge.label}
+        </Badge>
         <span className={styles.time}>{formatTime(createdAt)}</span>
       </div>
-      <p className={styles.body}>{body}</p>
+      <p className={[styles.body, system && styles.system].filter(Boolean).join(" ")}>{body}</p>
     </div>
   );
 }

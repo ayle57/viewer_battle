@@ -1,13 +1,16 @@
 import type { HTMLAttributes, ReactNode } from "react";
 import styles from "./Card.module.css";
 
+export type CardVariant = "default" | "raised" | "subtle";
+
 export interface CardProps extends HTMLAttributes<HTMLDivElement> {
   children: ReactNode;
+  variant?: CardVariant;
 }
 
-export function Card({ children, className, ...rest }: CardProps) {
+export function Card({ children, variant = "default", className, ...rest }: CardProps) {
   return (
-    <div className={[styles.card, className].filter(Boolean).join(" ")} {...rest}>
+    <div className={[styles.card, styles[variant], className].filter(Boolean).join(" ")} {...rest}>
       {children}
     </div>
   );

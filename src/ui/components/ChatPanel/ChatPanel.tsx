@@ -11,7 +11,9 @@ export interface ChatPanelProps {
   onSend?: (body: string) => void;
   /** Read-only mode (e.g. the Display role can watch but not post). */
   disabled?: boolean;
+  title?: string;
   placeholder?: string;
+  sendLabel?: string;
   emptyLabel?: string;
 }
 
@@ -24,7 +26,9 @@ export function ChatPanel({
   messages,
   onSend,
   disabled = false,
+  title,
   placeholder = "Message...",
+  sendLabel = "Send",
   emptyLabel = "No messages yet.",
 }: ChatPanelProps) {
   const [draft, setDraft] = useState("");
@@ -39,6 +43,12 @@ export function ChatPanel({
 
   return (
     <div className={styles.panel}>
+      {(title || disabled) && (
+        <div className={styles.header}>
+          {title ? <p className={styles.title}>{title}</p> : <span />}
+          {disabled && <p className={styles.readOnly}>Read-only</p>}
+        </div>
+      )}
       <div className={styles.messages}>
         {messages.length === 0 && <p className={styles.empty}>{emptyLabel}</p>}
         {messages.map((message) => (
@@ -56,7 +66,7 @@ export function ChatPanel({
           />
         </div>
         <Button type="submit" disabled={disabled || draft.trim().length === 0}>
-          Send
+          {sendLabel}
         </Button>
       </form>
     </div>

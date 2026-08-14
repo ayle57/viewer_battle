@@ -22,9 +22,21 @@
 }
 
 .name {
-  flex: 1;
   font-size: 0.875rem;
   font-weight: 600;
+}
+
+.identity {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.detail {
+  font-size: 0.75rem;
+  color: var(--vb-text-muted);
 }
 
 .disconnected {

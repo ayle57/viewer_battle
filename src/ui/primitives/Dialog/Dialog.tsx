@@ -1,17 +1,23 @@
 "use client";
 
-import { useEffect, useRef, type MouseEvent, type ReactNode } from "react";
+import { useEffect, useId, useRef, type MouseEvent, type ReactNode } from "react";
 import styles from "./Dialog.module.css";
+
+export type DialogSize = "sm" | "md" | "lg";
 
 export interface DialogProps {
   open: boolean;
   onClose: () => void;
   title: ReactNode;
+  description?: ReactNode;
+  size?: DialogSize;
   children: ReactNode;
 }
 
-export function Dialog({ open, onClose, title, children }: DialogProps) {
+export function Dialog({ open, onClose, title, description, size = "md", children }: DialogProps) {
   const overlayRef = useRef<HTMLDivElement>(null);
+  const titleId = useId();
+  const descriptionId = useId();
 
   useEffect(() => {
     if (!open) return;
@@ -30,12 +36,25 @@ export function Dialog({ open, onClose, title, children }: DialogProps) {
 
   return (
     <div className={styles.overlay} ref={overlayRef} onClick={handleOverlayClick}>
-      <div className={styles.dialog} role="dialog" aria-modal="true" aria-labelledby="vb-dialog-title">
+      <div
+        className={[styles.dialog, styles[size]].join(" ")}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        aria-describedby={description ? descriptionId : undefined}
+      >
         <div className={styles.header}>
-          <h2 className={styles.title} id="vb-dialog-title">
-            {title}
-          </h2>
-          <button className={styles.closeButton} onClick={onClose} aria-label="Close dialog">
+          <div className={styles.titleBlock}>
+            <h2 className={styles.title} id={titleId}>
+              {title}
+            </h2>
+            {description && (
+              <p className={styles.description} id={descriptionId}>
+                {description}
+              </p>
+            )}
+          </div>
+          <button type="button" className={styles.closeButton} onClick={onClose} aria-label="Close dialog">
             ×
           </button>
         </div>

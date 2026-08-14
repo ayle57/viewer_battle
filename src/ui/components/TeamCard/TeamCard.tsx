@@ -9,22 +9,28 @@ export interface TeamCardProps {
   name: string;
   score: number;
   players: PlayerCardData[];
+  subtitle?: string;
 }
 
-export function TeamCard({ side, name, score, players }: TeamCardProps) {
+export function TeamCard({ side, name, score, players, subtitle }: TeamCardProps) {
   return (
     <div className={[styles.card, side === "A" ? styles.teamA : styles.teamB].join(" ")}>
       <div className={styles.headerRow}>
         <div>
-          <Badge variant={side === "A" ? "teamA" : "teamB"}>Team {side}</Badge>
+          <div className={styles.badges}>
+            <Badge variant={side === "A" ? "teamA" : "teamB"}>Team {side}</Badge>
+            <Badge variant="neutral" size="sm">
+              {players.length} player{players.length === 1 ? "" : "s"}
+            </Badge>
+          </div>
           <h3 className={styles.name}>{name}</h3>
+          {subtitle && <p className={styles.subtitle}>{subtitle}</p>}
         </div>
         <span className={styles.score}>{score}</span>
       </div>
       <div className={styles.players}>
-        {players.map((player) => (
-          <PlayerCard key={player.name} {...player} />
-        ))}
+        {players.length === 0 ? <p className={styles.empty}>No players connected yet.</p> : null}
+        {players.map((player) => <PlayerCard key={player.name} {...player} />)}
       </div>
     </div>
   );

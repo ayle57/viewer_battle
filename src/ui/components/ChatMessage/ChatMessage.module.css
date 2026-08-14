@@ -5,6 +5,11 @@
   padding: var(--vb-space-1) 0;
 }
 
+.systemMessage {
+  border-left: 2px solid var(--vb-border);
+  padding-left: var(--vb-space-2);
+}
+
 .metaRow {
   display: flex;
   align-items: baseline;

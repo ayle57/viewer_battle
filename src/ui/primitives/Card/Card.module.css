@@ -5,6 +5,19 @@
   box-shadow: var(--vb-shadow-sm);
 }
 
+.default {
+  background: var(--vb-surface);
+}
+
+.raised {
+  background: var(--vb-surface);
+  box-shadow: var(--vb-shadow-md);
+}
+
+.subtle {
+  background: var(--vb-surface-raised);
+}
+
 .header {
   padding: var(--vb-space-4) var(--vb-space-4) 0;
 }

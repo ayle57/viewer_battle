@@ -7,8 +7,14 @@
   border-radius: var(--vb-radius-sm);
   font-family: var(--vb-font-sans);
   font-weight: 600;
+  line-height: 1.2;
   cursor: pointer;
-  transition: background-color 120ms ease, border-color 120ms ease, opacity 120ms ease;
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease,
+    opacity 120ms ease,
+    transform 120ms ease;
   white-space: nowrap;
 }
 
@@ -20,6 +26,10 @@
 .button:focus-visible {
   outline: 2px solid var(--vb-primary);
   outline-offset: 2px;
+}
+
+.button:not(:disabled):active {
+  transform: translateY(1px);
 }
 
 /* sizes */
@@ -34,6 +44,10 @@
 .lg {
   padding: var(--vb-space-3) var(--vb-space-5);
   font-size: 1rem;
+}
+
+.fullWidth {
+  width: 100%;
 }
 
 /* variants */
@@ -52,6 +66,7 @@
 }
 .secondary:not(:disabled):hover {
   border-color: var(--vb-primary);
+  color: var(--vb-primary);
 }
 
 .ghost {
@@ -68,6 +83,11 @@
 }
 .danger:not(:disabled):hover {
   background: var(--vb-danger-hover);
+}
+
+.label {
+  display: inline-flex;
+  align-items: center;
 }
 
 .spinner {

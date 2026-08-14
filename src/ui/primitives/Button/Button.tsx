@@ -8,6 +8,7 @@ export interface ButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement
   variant?: ButtonVariant;
   size?: ButtonSize;
   loading?: boolean;
+  fullWidth?: boolean;
   children: ReactNode;
 }
 
@@ -15,17 +16,20 @@ export function Button({
   variant = "primary",
   size = "md",
   loading = false,
+  fullWidth = false,
   disabled,
   className,
   children,
   ...rest
 }: ButtonProps) {
-  const classes = [styles.button, styles[variant], styles[size], className].filter(Boolean).join(" ");
+  const classes = [styles.button, styles[variant], styles[size], fullWidth && styles.fullWidth, className]
+    .filter(Boolean)
+    .join(" ");
 
   return (
     <button className={classes} disabled={disabled || loading} aria-busy={loading || undefined} {...rest}>
       {loading && <span className={styles.spinner} aria-hidden="true" />}
-      {children}
+      <span className={styles.label}>{children}</span>
     </button>
   );
 }

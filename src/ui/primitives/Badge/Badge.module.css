@@ -10,6 +10,15 @@
   white-space: nowrap;
 }
 
+.sm {
+  font-size: 0.6875rem;
+  padding: 0.05rem var(--vb-space-2);
+}
+
+.md {
+  font-size: 0.75rem;
+}
+
 .dot {
   width: 0.4em;
   height: 0.4em;
@@ -22,15 +31,15 @@
   color: var(--vb-text-muted);
 }
 .success {
-  background: rgba(51, 193, 122, 0.16);
+  background: var(--vb-success-bg);
   color: var(--vb-success);
 }
 .warning {
-  background: rgba(231, 185, 63, 0.16);
+  background: var(--vb-warning-bg);
   color: var(--vb-warning);
 }
 .danger {
-  background: rgba(239, 93, 93, 0.16);
+  background: var(--vb-danger-bg);
   color: var(--vb-danger);
 }
 .teamA {
