@@ -1,24 +1,26 @@
 import { Server as SocketIOServer } from "socket.io";
 import type { Server as HTTPServer } from "node:http";
 import { logger } from "@/server/logger";
+import { chatAuthMiddleware, registerChatHandlers } from "@/server/sockets/chat";
 
 /**
- * Attaches Socket.IO to an existing http.Server.
- *
- * This file only owns the io instance and connection/disconnection
- * logging. Feature-specific auth middleware, rooms, and event handlers are
- * registered by dedicated modules (see src/server/sockets/chat.ts for the
- * first one) — this is the auth-middleware + room + broadcast pattern
- * proven during the Phase 0 spike, kept generic so more features can plug
- * into the same io instance the same way.
+ * Attaches Socket.IO to an existing http.Server and wires up the chat
+ * feature (auth middleware + rooms + broadcast — see
+ * src/server/sockets/chat.ts). This is the pattern proven during the
+ * Phase 0 spike: more realtime features register the same way, each in
+ * their own module, plugged in here.
  */
 export function createSocketServer(httpServer: HTTPServer) {
   const io = new SocketIOServer(httpServer, {
     path: "/socket.io",
   });
 
+  io.use(chatAuthMiddleware);
+
   io.on("connection", (socket) => {
-    logger.info({ socketId: socket.id }, "socket connected");
+    logger.info({ socketId: socket.id, identity: socket.data.identity }, "socket connected");
+
+    registerChatHandlers(io, socket);
 
     socket.on("disconnect", (reason) => {
       logger.info({ socketId: socket.id, reason }, "socket disconnected");

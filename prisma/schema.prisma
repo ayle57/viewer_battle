@@ -7,6 +7,43 @@ datasource db {
   provider = "postgresql"
 }
 
-// Real models start here. First one lands with the chat vertical slice
-// (Session, ChatMessage) — see AGENTS.md for the Phase 0 spike this
-// replaced.
+// Real models start here.
+//
+// Session is intentionally minimal: just enough to scope a chat room and
+// persist history. It is NOT the real session/auth model — no host
+// ownership, no tokens, no expiry yet. That lands in the next phase
+// (sessions -> real Host/Player/Display tokens -> Game Kernel). See
+// src/server/auth/devIdentity.ts for the dev-only stand-in auth this
+// currently pairs with.
+model Session {
+  id        String        @id @default(cuid())
+  code      String        @unique
+  createdAt DateTime      @default(now())
+  messages  ChatMessage[]
+}
+
+enum ChatRole {
+  HOST
+  TEAM_A
+  TEAM_B
+  DISPLAY
+}
+
+enum ChatChannel {
+  TEAM_A
+  TEAM_B
+  PUBLIC
+}
+
+model ChatMessage {
+  id         String      @id @default(cuid())
+  sessionId  String
+  session    Session     @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  channel    ChatChannel
+  role       ChatRole
+  senderName String
+  body       String
+  createdAt  DateTime    @default(now())
+
+  @@index([sessionId, channel, createdAt])
+}
