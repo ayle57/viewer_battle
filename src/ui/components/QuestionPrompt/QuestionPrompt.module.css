@@ -49,3 +49,12 @@
   letter-spacing: 0.05em;
   margin-right: var(--vb-space-2);
 }
+
+/* OBS-scale hero treatment — see ScoreDisplay's .lg for the same pattern. */
+.lg .kicker {
+  font-size: clamp(0.9rem, 1.6vw, 1.25rem);
+}
+
+.lg .prompt {
+  font-size: clamp(1.75rem, 4vw, 3.25rem);
+}

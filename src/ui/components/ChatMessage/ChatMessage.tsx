@@ -16,6 +16,8 @@ export interface ChatMessageData {
   body: string;
   createdAt: Date;
   system?: boolean;
+  /** Sent by whoever's looking at this list — right-aligned, tinted bubble, no need to print your own name back at you. The caller decides (comparing against its own identity); this component just renders the flag. */
+  isOwn?: boolean;
 }
 
 const ROLE_BADGE: Record<ChatMessageRole, { variant: BadgeVariant; label: string }> = {
@@ -38,19 +40,29 @@ function formatTime(date: Date): string {
   return `${hours}:${minutes}`;
 }
 
-export function ChatMessage({ senderName, role, body, createdAt, system = false }: ChatMessageData) {
+export function ChatMessage({ senderName, role, body, createdAt, system = false, isOwn = false }: ChatMessageData) {
   const badge = ROLE_BADGE[role];
 
+  if (system) {
+    return (
+      <div className={styles.systemMessage}>
+        <p className={styles.systemBody}>{body}</p>
+      </div>
+    );
+  }
+
   return (
-    <div className={[styles.message, system && styles.systemMessage].filter(Boolean).join(" ")}>
-      <div className={styles.metaRow}>
-        <span className={styles.sender}>{senderName}</span>
-        <Badge variant={badge.variant} size="sm">
-          {badge.label}
-        </Badge>
+    <div className={[styles.row, isOwn && styles.rowOwn].filter(Boolean).join(" ")}>
+      <div className={[styles.bubble, isOwn ? styles.bubbleOwn : styles.bubbleOther].join(" ")}>
+        <div className={styles.metaRow}>
+          <span className={styles.sender}>{isOwn ? "You" : senderName}</span>
+          <Badge variant={badge.variant} size="sm">
+            {badge.label}
+          </Badge>
+        </div>
+        <p className={styles.body}>{body}</p>
         <span className={styles.time}>{formatTime(createdAt)}</span>
       </div>
-      <p className={[styles.body, system && styles.system].filter(Boolean).join(" ")}>{body}</p>
     </div>
   );
 }

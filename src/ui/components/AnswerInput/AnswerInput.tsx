@@ -55,6 +55,7 @@ export function AnswerInput({
     <form className={styles.form} onSubmit={handleSubmit}>
       <div className={styles.inputWrap}>
         <Input
+          size="lg"
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
           placeholder={placeholder}
@@ -63,7 +64,7 @@ export function AnswerInput({
           autoFocus
         />
       </div>
-      <Button type="submit" loading={pending} disabled={draft.trim().length === 0}>
+      <Button type="submit" size="lg" className={styles.sendButton} loading={pending} disabled={draft.trim().length === 0}>
         {submitLabel}
       </Button>
     </form>

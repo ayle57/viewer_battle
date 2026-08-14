@@ -32,16 +32,21 @@
   transform: translateY(1px);
 }
 
-/* sizes */
+/* sizes — min-height guarantees a real tap target regardless of how
+   little text/padding a given label needs (WCAG 2.5.8; this app is
+   played from a phone mid-buzz, so this isn't academic). */
 .sm {
+  min-height: 32px;
   padding: var(--vb-space-1) var(--vb-space-3);
   font-size: 0.8125rem;
 }
 .md {
+  min-height: var(--vb-tap-target);
   padding: var(--vb-space-2) var(--vb-space-4);
   font-size: 0.9375rem;
 }
 .lg {
+  min-height: 48px;
   padding: var(--vb-space-3) var(--vb-space-5);
   font-size: 1rem;
 }

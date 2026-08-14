@@ -5,6 +5,21 @@
 
 .inputWrap {
   flex: 1;
+  min-width: 0;
+}
+
+/* Stacked, full-width Send button below a full-width input — easier to
+   hit with a thumb than a cramped inline row once the screen gets
+   narrow, and this is the single most time-sensitive action a player
+   takes. */
+@media (max-width: 26rem) {
+  .form {
+    flex-direction: column;
+  }
+
+  .sendButton {
+    width: 100%;
+  }
 }
 
 .confirmation {

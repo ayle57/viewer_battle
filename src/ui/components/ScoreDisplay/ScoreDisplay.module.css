@@ -56,3 +56,33 @@
   font-weight: 700;
   color: var(--vb-text-muted);
 }
+
+/* OBS-scale hero treatment — same layout, sized to read from across a
+   room. clamp() so it scales with the capture canvas instead of jumping
+   at fixed breakpoints (1920x1080, 1280x720, and everything between). */
+.lg .name {
+  font-size: clamp(1rem, 2vw, 1.5rem);
+}
+
+.lg .score {
+  font-size: clamp(3.5rem, 9vw, 7rem);
+}
+
+.lg .vs {
+  font-size: clamp(1rem, 2vw, 1.5rem);
+}
+
+.lg .label {
+  font-size: clamp(0.8rem, 1.4vw, 1rem);
+}
+
+@media (max-width: 26rem) {
+  .row {
+    gap: var(--vb-space-2);
+    padding: var(--vb-space-4) var(--vb-space-2) var(--vb-space-3);
+  }
+
+  .score {
+    font-size: 1.9rem;
+  }
+}

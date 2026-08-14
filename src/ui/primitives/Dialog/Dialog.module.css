@@ -56,18 +56,28 @@
 }
 
 .closeButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--vb-tap-target);
+  min-height: var(--vb-tap-target);
+  flex-shrink: 0;
   background: transparent;
   border: none;
   color: var(--vb-text-muted);
   font-size: 1.25rem;
   line-height: 1;
   cursor: pointer;
-  padding: var(--vb-space-1);
   border-radius: var(--vb-radius-sm);
+  transition: background-color var(--vb-transition-fast), color var(--vb-transition-fast);
 }
 .closeButton:hover {
   background: var(--vb-surface-raised);
   color: var(--vb-text);
+}
+.closeButton:focus-visible {
+  outline: 2px solid var(--vb-primary);
+  outline-offset: 2px;
 }
 
 .body {

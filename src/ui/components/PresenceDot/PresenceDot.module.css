@@ -1,0 +1,30 @@
+.wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--vb-space-1);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.connected {
+  color: var(--vb-success);
+}
+
+.connected .dot {
+  background: var(--vb-success);
+}
+
+.offline {
+  color: var(--vb-text-muted);
+}
+
+.offline .dot {
+  background: var(--vb-text-muted);
+}

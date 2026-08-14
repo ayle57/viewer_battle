@@ -21,3 +21,9 @@ export type { QuestionPromptProps } from "./QuestionPrompt/QuestionPrompt";
 
 export { AnswerInput } from "./AnswerInput/AnswerInput";
 export type { AnswerInputProps } from "./AnswerInput/AnswerInput";
+
+export { PresenceDot } from "./PresenceDot/PresenceDot";
+export type { PresenceDotProps } from "./PresenceDot/PresenceDot";
+
+export { TeamRoster } from "./TeamRoster/TeamRoster";
+export type { TeamRosterProps, TeamRosterSeat } from "./TeamRoster/TeamRoster";

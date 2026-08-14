@@ -8,6 +8,8 @@ export interface QuestionPromptProps {
   /** Only pass this if the caller is actually allowed to show it (e.g. the host) — this component doesn't know or enforce who's allowed to see it, it just renders what it's given. */
   answer?: string;
   emptyLabel?: string;
+  /** "md" (default) fits Host/Player. "lg" is the OBS-scale hero treatment Display needs — same layout, much bigger type. */
+  size?: "md" | "lg";
 }
 
 /**
@@ -18,9 +20,9 @@ export interface QuestionPromptProps {
  * itself stays with Mini Jeopardy's own view code since a category x
  * point-value grid isn't a shape other games share.
  */
-export function QuestionPrompt({ category, points, prompt, answer, emptyLabel = "No active question." }: QuestionPromptProps) {
+export function QuestionPrompt({ category, points, prompt, answer, emptyLabel = "No active question.", size = "md" }: QuestionPromptProps) {
   return (
-    <div className={styles.card}>
+    <div className={[styles.card, size === "lg" && styles.lg].filter(Boolean).join(" ")}>
       {(category || points !== undefined) && (
         <p className={styles.kicker}>
           {category}

@@ -52,4 +52,8 @@
 
 .composerInput {
   flex: 1;
+  /* Without this, a flex item's default min-width is its content's
+     intrinsic width — on a narrow phone that pushes the Send button
+     half off-screen instead of letting the input shrink. */
+  min-width: 0;
 }

@@ -2,6 +2,12 @@
   display: flex;
   gap: var(--vb-space-1);
   border-bottom: 1px solid var(--vb-border);
+  /* A tab bar that doesn't fit a narrow screen scrolls horizontally
+     instead of wrapping into a second row or overflowing the page. */
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
 }
 
 .trigger {
@@ -12,10 +18,13 @@
   font-family: var(--vb-font-sans);
   font-size: 0.875rem;
   font-weight: 600;
+  min-height: var(--vb-tap-target);
   padding: var(--vb-space-2) var(--vb-space-3);
   cursor: pointer;
+  flex-shrink: 0;
+  white-space: nowrap;
   transform: translateY(1px);
-  transition: color 120ms ease, border-color 120ms ease, background-color 120ms ease;
+  transition: color var(--vb-transition-fast), border-color var(--vb-transition-fast), background-color var(--vb-transition-fast);
 }
 
 .trigger:hover {

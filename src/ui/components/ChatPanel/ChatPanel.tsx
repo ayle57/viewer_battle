@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Button } from "../../primitives/Button/Button";
 import { Input } from "../../primitives/Input/Input";
 import { ChatMessage, type ChatMessageData } from "../ChatMessage/ChatMessage";
@@ -32,6 +32,15 @@ export function ChatPanel({
   emptyLabel = "No messages yet.",
 }: ChatPanelProps) {
   const [draft, setDraft] = useState("");
+  const messagesRef = useRef<HTMLDivElement>(null);
+
+  // New messages arrive at the bottom of a scrollable list — without this
+  // they'd land out of view unless the reader happened to already be
+  // scrolled all the way down, which is the opposite of what a chat is for.
+  useEffect(() => {
+    const el = messagesRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [messages.length]);
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -49,7 +58,7 @@ export function ChatPanel({
           {disabled && <p className={styles.readOnly}>Read-only</p>}
         </div>
       )}
-      <div className={styles.messages}>
+      <div className={styles.messages} ref={messagesRef}>
         {messages.length === 0 && <p className={styles.empty}>{emptyLabel}</p>}
         {messages.map((message) => (
           <ChatMessage key={message.id} {...message} />

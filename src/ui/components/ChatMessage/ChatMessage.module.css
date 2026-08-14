@@ -1,13 +1,29 @@
-.message {
+.row {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.rowOwn {
+  justify-content: flex-end;
+}
+
+.bubble {
   display: flex;
   flex-direction: column;
   gap: 0.125rem;
-  padding: var(--vb-space-1) 0;
+  max-width: 80%;
+  padding: var(--vb-space-2) var(--vb-space-3);
+  border-radius: var(--vb-radius-md);
 }
 
-.systemMessage {
-  border-left: 2px solid var(--vb-border);
-  padding-left: var(--vb-space-2);
+.bubbleOther {
+  background: var(--vb-surface-raised);
+  border-bottom-left-radius: var(--vb-radius-sm);
+}
+
+.bubbleOwn {
+  background: var(--vb-host-bg);
+  border-bottom-right-radius: var(--vb-radius-sm);
 }
 
 .metaRow {
@@ -22,17 +38,28 @@
 }
 
 .time {
+  align-self: flex-end;
   font-size: 0.6875rem;
   color: var(--vb-text-muted);
 }
 
 .body {
+  margin: 0;
   font-size: 0.875rem;
   color: var(--vb-text);
   word-break: break-word;
+  white-space: pre-wrap;
 }
 
-.system {
+.systemMessage {
+  display: flex;
+  justify-content: center;
+  padding: var(--vb-space-1) 0;
+}
+
+.systemBody {
+  margin: 0;
+  font-size: 0.8125rem;
   font-style: italic;
   color: var(--vb-text-muted);
 }
