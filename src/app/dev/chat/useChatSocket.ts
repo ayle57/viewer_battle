@@ -2,38 +2,30 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { io, type Socket } from "socket.io-client";
-import type { ChatChannel, ChatRole } from "@/domain/chat";
+import type { ChatChannel } from "@/domain/chat";
 import type { ChatMessageWire } from "@/server/sockets/chat";
 
 export type ConnectionStatus = "connecting" | "connected" | "disconnected" | "unauthorized";
 
-/**
- * Shape the dev/chat join form collects and hands to the socket handshake.
- * This is the ONE place that couples to the dev-only auth stand-in
- * (src/server/auth/devIdentity.ts) — swapping in real Host/Player/Display
- * tokens later means changing this input + what gets passed as `auth`
- * below, nothing in the chat UI components or the socket handler code.
- */
-export interface ChatIdentityInput {
-  sessionCode: string;
-  role: ChatRole;
-  displayName: string;
-}
-
 type ChatSendResult = { ok: true; message: ChatMessageWire } | { ok: false; error: string };
 
-export function useChatSocket(identity: ChatIdentityInput | null) {
+/**
+ * Connects to the real chat socket using a real bearer token — the
+ * Socket.IO auth middleware resolves it the same way an authenticated
+ * tRPC call would (see src/server/auth). Takes just the token, not a
+ * full identity: who you are is now something the server tells the
+ * client (via chat:history/chat:message's sender info), not a claim the
+ * client makes at connect time.
+ */
+export function useChatSocket(token: string | null) {
   const [status, setStatus] = useState<ConnectionStatus>("connecting");
   const [messagesByChannel, setMessagesByChannel] = useState<Partial<Record<ChatChannel, ChatMessageWire[]>>>({});
   const socketRef = useRef<Socket | null>(null);
 
   useEffect(() => {
-    if (!identity) return;
+    if (!token) return;
 
-    // No manual "reset to connecting" here on purpose: this hook's caller
-    // remounts (via a React `key`) on identity change, so initial state
-    // already starts fresh — see ChatRoom in page.tsx.
-    const socket = io({ path: "/socket.io", auth: identity });
+    const socket = io({ path: "/socket.io", auth: { token } });
     socketRef.current = socket;
 
     socket.on("connect", () => setStatus("connected"));
@@ -55,8 +47,7 @@ export function useChatSocket(identity: ChatIdentityInput | null) {
       socket.disconnect();
       socketRef.current = null;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [identity?.sessionCode, identity?.role, identity?.displayName]);
+  }, [token]);
 
   const send = useCallback((channel: ChatChannel, body: string) => {
     return new Promise<ChatSendResult>((resolve) => {

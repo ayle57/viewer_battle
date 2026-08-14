@@ -1,6 +1,7 @@
 import type { Server as SocketIOServer, Socket } from "socket.io";
 import { canPostToChannel, channelsForRole, chatRoomName, sendChatMessageSchema } from "@/domain/chat";
 import type { ChatChannel, ChatRole } from "@/domain/chat";
+import { SessionError, type SessionErrorCode } from "@/domain/session";
 import { resolveIdentity } from "@/server/auth";
 import type { SocketIdentity } from "@/server/auth";
 import { prisma } from "@/server/db/client";
@@ -43,6 +44,12 @@ function toWire(row: ChatMessageRow): ChatMessageWire {
  * Socket.IO auth middleware: resolves the connecting socket's identity
  * (see src/server/auth) and rejects the connection if it can't. Register
  * with `io.use(chatAuthMiddleware)` before any other middleware/handlers.
+ *
+ * Rejections carry the same SessionError business code tRPC exposes (see
+ * src/server/trpc/errors.ts) — as both the error message (so
+ * `connect_error.message` alone is already useful) and `.data.code` (the
+ * structured form). One resolver, one error type, two thin transport
+ * translations — not two copies of the auth logic.
  */
 export function chatAuthMiddleware(socket: Socket, next: (err?: Error) => void) {
   resolveIdentity(socket.handshake.auth)
@@ -52,7 +59,10 @@ export function chatAuthMiddleware(socket: Socket, next: (err?: Error) => void) 
     })
     .catch((error: unknown) => {
       logger.warn({ socketId: socket.id, error }, "socket auth rejected");
-      next(new Error("unauthorized"));
+      const code: SessionErrorCode = error instanceof SessionError ? error.code : "INVALID_TOKEN";
+      const err = new Error(code) as Error & { data?: { code: SessionErrorCode } };
+      err.data = { code };
+      next(err);
     });
 }
 

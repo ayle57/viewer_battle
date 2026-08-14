@@ -7,22 +7,29 @@ datasource db {
   provider = "postgresql"
 }
 
-// Real models start here.
-//
-// Session is intentionally minimal: just enough to scope a chat room and
-// persist history. It is NOT the real session/auth model — no host
-// ownership, no tokens, no expiry yet. That lands in the next phase
-// (sessions -> real Host/Player/Display tokens -> Game Kernel). See
-// src/server/auth/devIdentity.ts for the dev-only stand-in auth this
-// currently pairs with.
-model Session {
-  id        String        @id @default(cuid())
-  code      String        @unique
-  createdAt DateTime      @default(now())
-  messages  ChatMessage[]
+// --- Session invariants (see AGENTS.md "Session invariants" for the
+// full rationale) ---
+//   - exactly 1 HOST per session: enforced by a hand-written partial
+//     unique index in this migration's SQL (`WHERE role = 'HOST'`) —
+//     not expressible via @@unique in the Prisma schema DSL.
+//   - max 2 players per team (TEAM_A / TEAM_B): enforced by the
+//     @@unique([sessionId, role, seat]) below. NULL is never equal to
+//     NULL in a unique index, so HOST/DISPLAY rows (seat: null) never
+//     collide with each other through this constraint — it only ever
+//     restricts TEAM_A/TEAM_B, to at most 2 distinct seat values.
+//   - unlimited DISPLAY connections tolerated, on purpose (OBS/dev) —
+//     never counted as a player.
+// These are real Postgres constraints, not just application checks —
+// see src/server/db/participant.ts for how a race that loses at the
+// constraint (P2002) gets turned into a SessionError.
+
+enum SessionStatus {
+  CREATED
+  ACTIVE
+  FINISHED
 }
 
-enum ChatRole {
+enum ParticipantRole {
   HOST
   TEAM_A
   TEAM_B
@@ -35,15 +42,44 @@ enum ChatChannel {
   PUBLIC
 }
 
+model Session {
+  id           String          @id @default(cuid())
+  code         String          @unique
+  status       SessionStatus   @default(CREATED)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  participants Participant[]
+  messages     ChatMessage[]
+}
+
+model Participant {
+  id          String          @id @default(cuid())
+  sessionId   String
+  session     Session         @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  role        ParticipantRole
+  /// Which seat (1 or 2) within the team — null for HOST/DISPLAY, which
+  /// aren't seat-limited the same way. This column, not application code,
+  /// is what makes "2 players per team" atomic — see @@unique below.
+  seat        Int?
+  displayName String
+  /// SHA-256 hash of the bearer token handed to the client at join time.
+  /// The plaintext token is never stored — see src/server/auth/token.ts.
+  tokenHash   String          @unique
+  createdAt   DateTime        @default(now())
+
+  @@unique([sessionId, role, seat])
+  @@index([sessionId, role])
+}
+
 model ChatMessage {
-  id         String      @id @default(cuid())
+  id         String          @id @default(cuid())
   sessionId  String
-  session    Session     @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  session    Session         @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   channel    ChatChannel
-  role       ChatRole
+  role       ParticipantRole
   senderName String
   body       String
-  createdAt  DateTime    @default(now())
+  createdAt  DateTime        @default(now())
 
   @@index([sessionId, channel, createdAt])
 }

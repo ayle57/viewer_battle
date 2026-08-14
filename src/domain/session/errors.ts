@@ -1,0 +1,37 @@
+/**
+ * Explicit, UI-actionable business error codes for session/participant
+ * operations — never a generic error. Thrown from src/server/db (the I/O
+ * layer) and mapped to a transport-specific shape at the edge:
+ *   - tRPC: src/server/trpc/errors.ts -> TRPCError with this code on
+ *     error.data.sessionErrorCode.
+ *   - Socket.IO: src/server/sockets/chat.ts's auth middleware -> the
+ *     connect_error's message/data.
+ * One place throws these; each transport just translates, so tRPC and
+ * Socket.IO never duplicate the actual authorization logic.
+ */
+export type SessionErrorCode =
+  | "SESSION_NOT_FOUND"
+  | "SESSION_CLOSED"
+  | "HOST_ALREADY_CONNECTED"
+  | "TEAM_FULL"
+  | "INVALID_TOKEN"
+  | "FORBIDDEN";
+
+const MESSAGES: Record<SessionErrorCode, string> = {
+  SESSION_NOT_FOUND: "No session with that code exists.",
+  SESSION_CLOSED: "This session has finished and can no longer be joined.",
+  HOST_ALREADY_CONNECTED: "This session already has a host.",
+  TEAM_FULL: "This team already has 2 players.",
+  INVALID_TOKEN: "This token is invalid or has expired.",
+  FORBIDDEN: "You don't have permission to do that.",
+};
+
+export class SessionError extends Error {
+  readonly code: SessionErrorCode;
+
+  constructor(code: SessionErrorCode) {
+    super(MESSAGES[code]);
+    this.name = "SessionError";
+    this.code = code;
+  }
+}

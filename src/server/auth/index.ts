@@ -2,9 +2,9 @@ export type { SocketIdentity, IdentityResolver } from "./identity";
 
 /**
  * Single swap point: the active identity resolver used by every socket
- * feature. Currently the dev-only stand-in (see devIdentity.ts) — replace
- * this one export with a real token-based resolver when Phase 1's next
- * step (sessions -> real tokens) lands. Same `IdentityResolver` signature,
- * so nothing importing `resolveIdentity` needs to change.
+ * feature and any authenticated tRPC procedure. Now the real one — see
+ * tokenIdentity.ts. (The dev-only stand-in that used to be here,
+ * devIdentity.ts, is gone: /dev/session's `session.join` now issues real
+ * tokens the same way the eventual production join flow will.)
  */
-export { resolveDevIdentity as resolveIdentity } from "./devIdentity";
+export { resolveTokenIdentity as resolveIdentity } from "./tokenIdentity";

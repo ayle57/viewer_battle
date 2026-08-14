@@ -1,0 +1,96 @@
+.page {
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: var(--vb-space-6) var(--vb-space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-4);
+}
+
+.codeRow {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--vb-space-2);
+}
+
+.codeInput {
+  flex: 1;
+}
+
+.stateGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: var(--vb-space-3);
+}
+
+.slot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--vb-space-2);
+  padding: var(--vb-space-2) var(--vb-space-3);
+  background: var(--vb-surface-raised);
+  border-radius: var(--vb-radius-sm);
+  font-size: 0.85rem;
+}
+
+.slotEmpty {
+  color: var(--vb-text-muted);
+  font-style: italic;
+}
+
+.errorBanner {
+  padding: var(--vb-space-2) var(--vb-space-3);
+  background: var(--vb-danger-bg);
+  color: var(--vb-danger);
+  border-radius: var(--vb-radius-sm);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.hint {
+  color: var(--vb-text-muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-3);
+}
+
+.selectField {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-1);
+}
+
+.selectLabel {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--vb-text-muted);
+}
+
+.select {
+  font-family: var(--vb-font-sans);
+  font-size: 0.9375rem;
+  color: var(--vb-text);
+  background: var(--vb-surface);
+  border: 1px solid var(--vb-border);
+  border-radius: var(--vb-radius-sm);
+  padding: var(--vb-space-2) var(--vb-space-3);
+}
+
+.currentRow {
+  display: flex;
+  align-items: center;
+  gap: var(--vb-space-2);
+  flex-wrap: wrap;
+}
+
+.jumpGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+  gap: var(--vb-space-2);
+}

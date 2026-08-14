@@ -114,6 +114,87 @@ this list updated when new ones surface.
   the import no-ops there and docker-compose's directly-injected env vars
   are used untouched (dotenv never overwrites an already-set variable).
 
+## Session invariants (locked)
+
+These are real constraints, not UI hints — enforced server-side, several
+of them by Postgres itself, not just application code. Changing any of
+them is a product decision, not a refactor.
+
+- **Exactly 1 HOST per session.** Enforced by a hand-written partial
+  unique index (`CREATE UNIQUE INDEX ... ON "Participant"("sessionId")
+  WHERE role = 'HOST'`) — not expressible via `@@unique` in the Prisma
+  schema DSL, so it's raw SQL in the migration, not something
+  `prisma migrate diff` will ever regenerate on its own. See the comment
+  block at the top of `prisma/schema.prisma`.
+- **Exactly 2 teams, TEAM_A and TEAM_B** — not dynamic/configurable teams.
+- **Max 2 players per team (4 total).** Enforced by
+  `@@unique([sessionId, role, seat])` on `Participant`. `seat` (1 or 2) is
+  assigned inside the join transaction; NULL is never equal to NULL in a
+  unique index, so HOST/DISPLAY rows (`seat: null`) never collide with
+  each other through this constraint — it only ever restricts
+  TEAM_A/TEAM_B. `src/domain/session/limits.ts`'s `MAX_PLAYERS_PER_TEAM`
+  is documentation/application-side reflection of this number, not the
+  enforcement — bumping the constant alone does NOT change the real
+  limit, the migration has to change too.
+- **Unlimited DISPLAY connections tolerated on purpose** (OBS + dev
+  workflows both want to open more than one) — never counted as a
+  player, never seat-limited.
+- **A participant is one role for its whole life.** `Participant.role` is
+  a single non-nullable column; there's no multi-role participant by
+  construction. `session.join` treats an existing valid token for the
+  same session as a reconnect (idempotent — same seat, no duplicate row)
+  rather than a second join.
+- **What's honestly NOT enforced:** "the same human can't hold two
+  different roles in one session" only holds at the level of a single
+  token — if a client already holds a token for a session and tries to
+  join again, they get back their existing seat (see above). Nothing
+  stops a genuinely fresh join attempt (no token, or a token from a
+  different session) from claiming a second seat, because there is no
+  persistent "person" identity (account, device fingerprint) to link the
+  two attempts — only tokens. Don't build workarounds for this in the
+  playground; it needs real accounts to close for real, which is out of
+  scope for now.
+- **Lifecycle: `CREATED -> ACTIVE -> FINISHED`.** `CREATED` on
+  `session.create`; moves to `ACTIVE` on the first successful join;
+  `FINISHED` only via `session.finish` (HOST-only). No `CLOSED`/`EXPIRED`
+  — nothing produces those transitions today; don't add states with no
+  way to reach them, add them when a real trigger shows up (e.g.
+  abandoned-session cleanup).
+- **Races are broken by Postgres constraints, not application locking.**
+  `src/server/db/participant.ts`'s `joinSession` does a capacity
+  pre-check for a friendly error in the common case, but under READ
+  COMMITTED (Postgres's default) two concurrent joins CAN both pass that
+  pre-check — whichever `INSERT` loses hits the unique constraint (P2002)
+  and gets converted to the same `SessionError`. The pre-check is an
+  optimization, not the safety mechanism; see the tests under
+  `describe("concurrency", ...)` in `tests/integration/session.test.ts`
+  for exactly what this guarantees (two simultaneous joins for the last
+  seat, two simultaneous HOST joins, four-way team races, ...).
+- **One identity resolution, shared by tRPC and Socket.IO.**
+  `src/server/auth/tokenIdentity.ts` -> `resolveParticipantByToken`
+  (`src/server/db/participant.ts`) is the only place a token gets turned
+  into an identity. Socket.IO's auth middleware and any authenticated
+  tRPC procedure both call `resolveIdentity` (`src/server/auth`) — the
+  capacity/role rules and the token lookup live in exactly one place.
+- **Explicit business error codes, not generic errors.**
+  `SessionErrorCode` (`src/domain/session/errors.ts`):
+  `SESSION_NOT_FOUND`, `SESSION_CLOSED`, `HOST_ALREADY_CONNECTED`,
+  `TEAM_FULL`, `INVALID_TOKEN`, `FORBIDDEN`. tRPC exposes this as
+  `error.data.sessionErrorCode` (`src/server/trpc/errors.ts`); Socket.IO
+  exposes it as `connect_error.message` and `connect_error.data.code`
+  (`src/server/sockets/chat.ts`). No separate `SESSION_FULL` code — every
+  real "session is full" case is actually one of `TEAM_FULL` or
+  `HOST_ALREADY_CONNECTED`; a generic code on top would just be redundant
+  with a more specific one that already fired.
+- **Tokens: one scheme for all four roles**, not a separate cookie
+  mechanism for Host. Opaque, `randomBytes(32)`, hashed with SHA-256
+  before storage (`src/server/auth/token.ts`) — a fast hash is correct
+  here (unlike a password hash) because the token already has 256 bits
+  of entropy; there's nothing for a slow hash to defend against. This is
+  a deliberate simplification: Host could get a cookie-based transport
+  later without touching identity resolution at all, since that's
+  already isolated behind `resolveIdentity`.
+
 ## Phase 0 spike — removed
 
 The infrastructure-only spike code (`SpikeCheck` model, `health.check`

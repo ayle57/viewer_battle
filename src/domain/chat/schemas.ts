@@ -1,25 +1,21 @@
 import { z } from "zod";
+import { displayNameSchema, participantRoleSchema } from "@/domain/session";
 
 /**
- * Canonical chat role/channel types, owned by the domain layer.
- *
- * These deliberately don't import the Prisma-generated enums (see
- * src/generated/prisma/enums.ts) — the domain must stay framework/ORM
- * agnostic. The string values are kept in sync with prisma/schema.prisma
- * by hand; tests/unit/chat-domain-prisma-sync.test.ts fails loudly if they
- * ever drift apart.
+ * ChatRole is the same role as everywhere else in the app now — see
+ * src/domain/session/role.ts, the canonical definition. Re-exported under
+ * this name so chat's existing call sites (permissions.ts, rooms.ts, the
+ * chat UI) don't need to change; only session's own definition needs to
+ * stay in sync with prisma/schema.prisma's ParticipantRole (see
+ * tests/unit/session-domain-prisma-sync.test.ts).
  */
-export const chatRoleSchema = z.enum(["HOST", "TEAM_A", "TEAM_B", "DISPLAY"]);
+export const chatRoleSchema = participantRoleSchema;
 export type ChatRole = z.infer<typeof chatRoleSchema>;
+
+export { displayNameSchema };
 
 export const chatChannelSchema = z.enum(["TEAM_A", "TEAM_B", "PUBLIC"]);
 export type ChatChannel = z.infer<typeof chatChannelSchema>;
-
-export const displayNameSchema = z
-  .string()
-  .trim()
-  .min(1, "Display name is required")
-  .max(40, "Display name is too long (max 40 characters)");
 
 export const sendChatMessageSchema = z.object({
   channel: chatChannelSchema,

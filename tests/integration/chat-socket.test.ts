@@ -3,21 +3,22 @@ import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { io as ioClient, type Socket as ClientSocket } from "socket.io-client";
 import { createSocketServer } from "@/server/sockets";
+import { createSession } from "@/server/db/session";
+import { joinSession } from "@/server/db/participant";
+import type { ParticipantRole } from "@/domain/session";
 import { prisma } from "@/server/db/client";
 import type { ChatMessageWire } from "@/server/sockets/chat";
 
 /**
  * Real end-to-end coverage of the chat vertical slice: the same
- * createSocketServer used by src/server/server.ts, a real Postgres via
- * Prisma, actual Socket.IO clients. This is the "replace, don't just
- * delete" successor to the Phase 0 spike's socket/prisma tests — same
- * shape (auth middleware, room-scoped broadcast, DB round-trip), now
- * exercised through real chat behavior instead of spike:* events.
+ * createSocketServer used by src/server/server.ts, real sessions/tokens
+ * via createSession + joinSession (the exact functions the tRPC session
+ * router calls), a real Postgres via Prisma, actual Socket.IO clients.
  */
 describe("Chat vertical slice (Socket.IO auth + rooms + permissions + Prisma)", () => {
   let baseUrl: string;
   let httpServer: ReturnType<typeof createServer>;
-  const createdSessionCodes = new Set<string>();
+  const createdSessionIds = new Set<string>();
 
   beforeAll(async () => {
     httpServer = createServer();
@@ -29,20 +30,21 @@ describe("Chat vertical slice (Socket.IO auth + rooms + permissions + Prisma)", 
 
   afterAll(async () => {
     await new Promise<void>((resolve) => httpServer.close(() => resolve()));
-    await prisma.session.deleteMany({ where: { code: { in: Array.from(createdSessionCodes) } } });
+    await prisma.session.deleteMany({ where: { id: { in: Array.from(createdSessionIds) } } });
     await prisma.$disconnect();
   });
 
-  function sessionCode(label: string) {
-    const code = `test-${label}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    createdSessionCodes.add(code);
-    return code;
+  async function joinAs(role: ParticipantRole, displayName: string) {
+    const session = await createSession();
+    createdSessionIds.add(session.id);
+    const result = await joinSession({ sessionCode: session.code, role, displayName });
+    return { token: result.token, sessionCode: session.code };
   }
 
-  function connect(auth: Record<string, unknown>): ClientSocket {
+  function connect(token: string): ClientSocket {
     return ioClient(baseUrl, {
       path: "/socket.io",
-      auth,
+      auth: { token },
       transports: ["websocket"],
       forceNew: true,
     });
@@ -74,29 +76,29 @@ describe("Chat vertical slice (Socket.IO auth + rooms + permissions + Prisma)", 
     });
   }
 
-  it("rejects a connection with an invalid handshake payload", async () => {
-    const client = connect({ sessionCode: "x", role: "NOT_A_ROLE", displayName: "Bob" });
+  it("rejects a connection with an invalid token", async () => {
+    const client = connect("not-a-real-token");
     const error = await waitForConnectError(client);
-    expect(error.message).toBe("unauthorized");
+    expect(error.message).toBe("INVALID_TOKEN");
     client.close();
   });
 
-  it("accepts a valid handshake and auto-creates the session", async () => {
-    const code = sessionCode("accept");
-    const client = connect({ sessionCode: code, role: "HOST", displayName: "Host Alex" });
+  it("accepts a connection with a real token", async () => {
+    const { token } = await joinAs("HOST", "Host Alex");
+    const client = connect(token);
     await waitForConnect(client);
     expect(client.connected).toBe(true);
-
-    const session = await prisma.session.findUnique({ where: { code } });
-    expect(session).not.toBeNull();
-
     client.close();
   });
 
   it("host joins all 3 channels; team A joins only its own + public", async () => {
-    const code = sessionCode("rooms");
-    const host = connect({ sessionCode: code, role: "HOST", displayName: "Host" });
-    const teamA = connect({ sessionCode: code, role: "TEAM_A", displayName: "A1" });
+    const session = await createSession();
+    createdSessionIds.add(session.id);
+    const hostJoin = await joinSession({ sessionCode: session.code, role: "HOST", displayName: "Host" });
+    const teamAJoin = await joinSession({ sessionCode: session.code, role: "TEAM_A", displayName: "A1" });
+
+    const host = connect(hostJoin.token);
+    const teamA = connect(teamAJoin.token);
 
     const hostHistory = collectHistory(host, 3);
     const teamAHistory = collectHistory(teamA, 2);
@@ -110,10 +112,15 @@ describe("Chat vertical slice (Socket.IO auth + rooms + permissions + Prisma)", 
   });
 
   it("broadcasts a team-A message to team A + host, but not team B", async () => {
-    const code = sessionCode("broadcast");
-    const host = connect({ sessionCode: code, role: "HOST", displayName: "Host" });
-    const teamA = connect({ sessionCode: code, role: "TEAM_A", displayName: "A1" });
-    const teamB = connect({ sessionCode: code, role: "TEAM_B", displayName: "B1" });
+    const session = await createSession();
+    createdSessionIds.add(session.id);
+    const hostJoin = await joinSession({ sessionCode: session.code, role: "HOST", displayName: "Host" });
+    const teamAJoin = await joinSession({ sessionCode: session.code, role: "TEAM_A", displayName: "A1" });
+    const teamBJoin = await joinSession({ sessionCode: session.code, role: "TEAM_B", displayName: "B1" });
+
+    const host = connect(hostJoin.token);
+    const teamA = connect(teamAJoin.token);
+    const teamB = connect(teamBJoin.token);
 
     await Promise.all([waitForConnect(host), waitForConnect(teamA), waitForConnect(teamB)]);
     await new Promise((resolve) => setTimeout(resolve, 100)); // let initial history settle
@@ -138,8 +145,8 @@ describe("Chat vertical slice (Socket.IO auth + rooms + permissions + Prisma)", 
   });
 
   it("rejects team A posting into team B's channel", async () => {
-    const code = sessionCode("perm-a-to-b");
-    const teamA = connect({ sessionCode: code, role: "TEAM_A", displayName: "A1" });
+    const { token } = await joinAs("TEAM_A", "A1");
+    const teamA = connect(token);
     await waitForConnect(teamA);
 
     const ack = await send(teamA, "TEAM_B", "sneaky");
@@ -149,8 +156,8 @@ describe("Chat vertical slice (Socket.IO auth + rooms + permissions + Prisma)", 
   });
 
   it("rejects the display role trying to send any message", async () => {
-    const code = sessionCode("perm-display");
-    const display = connect({ sessionCode: code, role: "DISPLAY", displayName: "OBS" });
+    const { token } = await joinAs("DISPLAY", "OBS");
+    const display = connect(token);
     await waitForConnect(display);
 
     const ack = await send(display, "PUBLIC", "I should not be able to do this");
@@ -160,14 +167,14 @@ describe("Chat vertical slice (Socket.IO auth + rooms + permissions + Prisma)", 
   });
 
   it("persists sent messages to Postgres", async () => {
-    const code = sessionCode("persist");
-    const host = connect({ sessionCode: code, role: "HOST", displayName: "Host" });
+    const { token, sessionCode } = await joinAs("HOST", "Host");
+    const host = connect(token);
     await waitForConnect(host);
 
     const ack = await send(host, "PUBLIC", "persisted message");
     expect(ack.ok).toBe(true);
 
-    const session = await prisma.session.findUniqueOrThrow({ where: { code } });
+    const session = await prisma.session.findUniqueOrThrow({ where: { code: sessionCode } });
     const rows = await prisma.chatMessage.findMany({ where: { sessionId: session.id } });
     expect(rows).toHaveLength(1);
     expect(rows[0]?.body).toBe("persisted message");
@@ -176,16 +183,28 @@ describe("Chat vertical slice (Socket.IO auth + rooms + permissions + Prisma)", 
   });
 
   it("sends full history to a fresh connection, covering messages sent before it joined", async () => {
-    const code = sessionCode("history");
-    const host = connect({ sessionCode: code, role: "HOST", displayName: "Host" });
+    const { token } = await joinAs("HOST", "Host");
+    const host = connect(token);
     await waitForConnect(host);
     await send(host, "PUBLIC", "first message");
     host.close();
 
-    const rejoined = connect({ sessionCode: code, role: "HOST", displayName: "Host" });
+    const rejoined = connect(token);
     const history = await collectHistory(rejoined, 3);
     expect(history.PUBLIC?.map((m) => m.body)).toContain("first message");
 
     rejoined.close();
+  });
+
+  it("rejects a token whose session has finished", async () => {
+    const session = await createSession();
+    createdSessionIds.add(session.id);
+    const hostJoin = await joinSession({ sessionCode: session.code, role: "HOST", displayName: "Host" });
+    await prisma.session.update({ where: { id: session.id }, data: { status: "FINISHED" } });
+
+    const client = connect(hostJoin.token);
+    const error = await waitForConnectError(client);
+    expect(error.message).toBe("SESSION_CLOSED");
+    client.close();
   });
 });
