@@ -160,6 +160,28 @@ describe("Session + Participant", () => {
     await expect(resolveParticipantByToken(join.token)).rejects.toMatchObject({ code: "SESSION_CLOSED" });
   });
 
+  it("a second session.finish with the same host token fails predictably, and getSessionState keeps working (Quick Demo Reset repro)", async () => {
+    // Mirrors the tRPC `session.finish` handler exactly: resolve the
+    // token, then finish. Calling that twice in a row — e.g. a stale demo
+    // record surviving in a second tab, or a double click before the
+    // button's `loading` state paints — is the scenario reported against
+    // the Quick Demo's Reset button: first call must succeed, the second
+    // must fail with a stable, expected SESSION_CLOSED (not loop, not
+    // throw something unclassified), and session.getState must keep
+    // answering normally afterward rather than getting stuck or erroring.
+    const session = await freshSession();
+    const host = await joinSession({ sessionCode: session.code, role: "HOST", displayName: "Host" });
+
+    const first = await resolveParticipantByToken(host.token);
+    await finishSession(first.sessionId);
+
+    await expect(resolveParticipantByToken(host.token)).rejects.toMatchObject({ code: "SESSION_CLOSED" });
+    await expect(resolveParticipantByToken(host.token)).rejects.toMatchObject({ code: "SESSION_CLOSED" });
+
+    const state = await getSessionState(session.code);
+    expect(state.status).toBe("FINISHED");
+  });
+
   describe("concurrency", () => {
     it("two simultaneous joins for the last team seat: exactly one succeeds, one gets TEAM_FULL", async () => {
       const session = await freshSession();

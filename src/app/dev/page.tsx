@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { Badge, Card, CardBody, CardHeader } from "@/ui";
+import { Badge, Card, CardBody, CardHeader, Tabs } from "@/ui";
+import { DemoGamePanel } from "./_shared/DemoGamePanel";
 import { useServiceStatus, type ProbeStatus } from "./_shared/useServiceStatus";
 import styles from "./page.module.css";
 
@@ -22,33 +23,33 @@ const TOOLS: { href: string; title: string; status: ToolStatus; description: str
   },
   {
     href: "/dev/session",
-    title: "Session",
+    title: "Manual Session",
     status: "done",
-    description: "Create or join a real Session, pick a test identity for the rest of the playground.",
+    description: "Create/join a real session by hand, pick a role yourself — for testing edge cases Quick Demo skips.",
   },
   {
     href: "/dev/host",
     title: "Host",
-    status: "skeleton",
-    description: "Host control panel — teams, players, game state, score, timer, actions, events.",
+    status: "done",
+    description: "Real host control panel — board, judge/close, scores, connection status.",
   },
   {
     href: "/dev/player",
     title: "Player",
-    status: "skeleton",
-    description: "Player view — presence, game state, available actions, score, reconnection.",
+    status: "done",
+    description: "Real player view — buzz, board, live result, never sees an answer.",
   },
   {
     href: "/dev/display",
     title: "Display",
-    status: "skeleton",
-    description: "OBS overlay simulation — public session state, same permissions as the real display.",
+    status: "done",
+    description: "Read-only OBS-style overlay — board, scores, active question, no actions.",
   },
   {
     href: "/dev/game",
     title: "Game",
-    status: "skeleton",
-    description: "Game Kernel cockpit — engine state, actions, transitions, events, reset, replay.",
+    status: "done",
+    description: "Pure Game Kernel lab — runs the engine directly in the browser, no session needed.",
   },
 ];
 
@@ -70,14 +71,37 @@ export default function DevDashboardPage() {
   return (
     <main className={styles.page}>
       <div className={styles.intro}>
-        <h1>ViewerBattle — Dev Playground</h1>
+        <h1>ViewerBattle — Dev Game Room</h1>
         <p>
-          A permanent development lab, not a set of mockups: every tool here runs the real UI Kit, the real
-          Socket.IO server, the real tRPC routers, and the real database. Panels that don&apos;t have a backend yet
-          say so — nothing here fakes a feature that doesn&apos;t exist. Run one browser tab per role (Host, Team A,
-          Team B, Display) to watch a session synchronize for real, without building the final product first.
+          Click Create Demo Game, open Host/Team A/Team B/Display, and watch a real ViewerBattle game synchronize —
+          real Prisma session, real Socket.IO, real Game Kernel. No tokens to copy, no forms to fill in.
         </p>
       </div>
+
+      <Tabs
+        items={[
+          { value: "quick", label: "Quick Demo", content: <DemoGamePanel /> },
+          {
+            value: "manual",
+            label: "Manual Session",
+            content: (
+              <Card>
+                <CardHeader title="Manual Session" subtitle="For testing edge cases Quick Demo doesn't cover" />
+                <CardBody>
+                  <p className={styles.toolDescription}>
+                    Pick your own session code, role, and display name — the same tool Quick Demo uses under the
+                    hood, just one identity at a time instead of six at once. Use this for testing things like a
+                    full team (TEAM_FULL), a session that&apos;s already finished, or joining mid-game.
+                  </p>
+                  <Link href="/dev/session" className={styles.manualLink}>
+                    Open /dev/session →
+                  </Link>
+                </CardBody>
+              </Card>
+            ),
+          },
+        ]}
+      />
 
       <section>
         <h2>Services</h2>
@@ -92,7 +116,7 @@ export default function DevDashboardPage() {
       </section>
 
       <section>
-        <h2>Tools</h2>
+        <h2>All tools</h2>
         <div className={styles.toolGrid}>
           {TOOLS.map((tool) => (
             <Link key={tool.href} href={tool.href} className={styles.toolCard}>

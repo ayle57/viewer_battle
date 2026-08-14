@@ -45,3 +45,16 @@
   color: var(--vb-text-muted);
   line-height: 1.5;
 }
+
+.manualLink {
+  display: inline-block;
+  margin-top: var(--vb-space-3);
+  color: var(--vb-primary);
+  font-weight: 600;
+  font-size: 0.85rem;
+  text-decoration: none;
+}
+
+.manualLink:hover {
+  text-decoration: underline;
+}
