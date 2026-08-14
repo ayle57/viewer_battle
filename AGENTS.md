@@ -195,6 +195,283 @@ them is a product decision, not a refactor.
   later without touching identity resolution at all, since that's
   already isolated behind `resolveIdentity`.
 
+## Game Kernel contract (locked)
+
+`src/domain/game` is the real core: pure, deterministic, no Prisma, no
+Socket.IO, no Next.js, no React. It knows nothing about Session,
+Participant, tRPC, or UI components — only game concepts. The server's
+job (not built yet) is `load state -> engine.apply() -> persist ->
+broadcast`; every engine has to work identically called from a test with
+no server or DB running, which is how it's actually tested.
+
+**Shape:** `apply(state, action) -> EngineResult<state, events>` — kept
+close to the form proposed going in, with one refinement: errors are a
+separate `{ ok: false, error }` branch, not folded into the events array,
+because "the action was rejected" and "the action succeeded and here's
+what happened" are different things a caller needs to branch on
+differently (an error means state didn't change at all; events describe
+what changed). See `src/domain/game/kernel.ts` for the exact types
+(`GameEngine`, `EngineResult`, `GameError`).
+
+**Hard rules every engine follows** (see kernel.ts's own doc comment for
+the enforcement mechanism, this is the summary):
+- State is plain JSON-serializable data — no `Date`, `Map`, `Set`, class
+  instances, `undefined`. That's the entire persistence story for a
+  future `SessionGame.internal_state` JSONB column:
+  `JSON.stringify(state)` / `JSON.parse(...)`, nothing custom per engine.
+  (No `SessionGame` Prisma model exists yet — out of scope for this
+  pass, which is domain-only.)
+- No wall-clock reads inside `apply` (`Date.now()`, `setTimeout`). A
+  timer-driven engine gets `nowMs` handed to it as part of the action
+  (see `timer.ts`) — same state + same action always produces the same
+  result, which is what makes an engine replay-safe and testable with
+  plain equality instead of fake timers.
+- `apply` never throws. It re-validates its `action` argument with zod
+  internally regardless of the static `TAction` type, because the real
+  caller (a socket/tRPC handler) hands it untrusted JSON — the type is a
+  convenience for callers that already validated, not a guarantee `apply`
+  itself relies on.
+- A rejected action changes nothing. No partial application, ever.
+
+**Concrete engines, not one generic abstraction.** `GameEngine<TState,
+TAction, TEvent, TConfig>` (kernel.ts) names the shared SHAPE so
+`/dev/game` can treat engines polymorphically — it is a structural
+contract, not a base class; nothing about it is inherited or shared at
+runtime between engines. Each engine's `apply` is entirely its own
+implementation. Planned split, by actual behavior rather than a forced
+common abstraction:
+- **ManualScoreEngine-shaped** (host manually awards points, no board):
+  Guess the Music, Top 5, Steam Ratings, Story Time.
+- **BoardQuestionEngine** (categories x questions, reveal, judge): Mini
+  Jeopardy — the first one built, see below.
+- **DualSubmissionEngine-shaped** (both teams submit something, then
+  compared/judged): GeoGuessr-like, Guess the Price.
+- **TimedDrawingEngine-shaped**: Drawing.
+
+Only `BoardQuestionEngine` is implemented so far. The others are names
+for where real behavior will land, not stubs — don't create empty
+placeholder engines ahead of actually building them.
+
+**Shared pure helpers** (`src/domain/game/`, used because they're
+genuinely identical across engines, not to force uniformity):
+- `scoring.ts` — `Scoreboard` (`Record<TeamRole, number>`), `addScore`,
+  `checkFirstToN` (teams at/above a threshold — an engine calls this
+  right after applying a score change; since `apply` only ever handles
+  one action at a time, "first to N" falls out of "did this update cross
+  the line," no ordering/race logic needed), `leadingTeam`.
+- `events.ts` — `ScoreChangedEvent`, `GameFinishedEvent`: shapes reused
+  across engines whose events genuinely coincide; not mandatory for an
+  engine whose events don't fit.
+- `timer.ts` — `computeDeadline`/`isExpired`/`remainingMs`, the pattern
+  for a pure deadline (time in, time out, no engine reads the clock
+  itself). Not used by BoardQuestionEngine v1 (no rule needs a hard
+  timer yet) — written now because the pattern needed to exist to answer
+  "how would a pure timer work" concretely, and TimedDrawingEngine will
+  need it.
+
+### BoardQuestionEngine (Mini Jeopardy) — gameplay decisions
+
+None of these were specified anywhere before this engine; each is the
+minimum needed for a real vertical slice, not an assumption about "how
+Jeopardy works":
+
+- **The host selects every question** — teams don't pick from the board.
+  Keeps v1 free of a "who goes first" mechanic.
+- **The buzzed team submits its answer as text (SUBMIT_ANSWER)** — this
+  was "no typed submission, teams answer out loud, BUZZ is the whole
+  answer"; revised during the Dev Playground stabilization pass because
+  the playground needs to exercise the full protocol end-to-end, and a
+  verbal answer isn't something a client (or a test) can send. BUZZ still
+  gates WHO may answer; SUBMIT_ANSWER is what they answer with, and
+  JUDGE_ANSWER now requires a submission to exist first
+  (`ANSWER_NOT_SUBMITTED` otherwise) — the host judges what was actually
+  sent, not a verbal claim the app never recorded. `submittedAnswer` is
+  visible to every role once sent (host, both teams, display) — same as
+  speaking it aloud on stream, nothing to hide there; only the reference
+  `answer` stays host-only, that redaction is untouched.
+- **BUZZ is a real race, JUDGE_ANSWER applies to whoever's buzzed in and
+  has submitted.** After an incorrect judgment the other team may still
+  buzz (a steal, which clears `submittedAnswer` for the new attempt); a
+  team can't buzz twice on the same question. If both teams miss, the
+  question auto-closes with no winner — the host doesn't have to
+  separately close it (CLOSE_QUESTION still exists as a manual escape
+  hatch for dead air / no one buzzing at all).
+- **Correct = award the question's points. Incorrect = no penalty.** The
+  classic Jeopardy negative-scoring rule is a real, debatable format
+  choice, not assumed here — revisit explicitly if the product wants it.
+- **The board ends the game** — status flips to `finished` once every
+  question has been played (not on a score threshold). Winner is highest
+  score; equal scores finish in `"TIE"`.
+- **DISPLAY can never submit any action**, same as it can never post
+  chat — consistent read-only-everywhere posture for that role.
+
+Actions: `SELECT_QUESTION` (host), `BUZZ` (a team), `SUBMIT_ANSWER` (the
+team that buzzed), `JUDGE_ANSWER` (host), `CLOSE_QUESTION` (host). See
+`src/domain/game/boardQuestion/types.ts` for the exact zod shapes and
+`engine.ts` for the state machine; `engine.test.ts` is the executable
+spec of all of the above, including the races/edges (steal, both-miss,
+already-played, already-finished, wrong role, wrong phase, judging
+before a submission, double-submission).
+
+### /dev/game
+
+Runs the real engine directly in the browser — `src/domain/game` has no
+Node-only APIs, so no server round-trip is needed to exercise it for
+real. Board content comes from `boardQuestion/fixtures.ts`'s
+`sampleBoard`, explicitly fixture data, not real show content. This
+stays true once a real persistence layer exists (load/apply/persist/
+broadcast on the server) — the engine itself doesn't change, only who
+calls it.
+
+## Vertical slice: SessionGame + realtime bridge (locked)
+
+The proof that Game Kernel -> Prisma -> Socket.IO -> Zustand -> UI works
+end to end, built against Mini Jeopardy as the reference. The same shape
+is meant to carry the other engines later — read this before wiring a
+second game in.
+
+**`SessionGame` (prisma/schema.prisma) stores an opaque snapshot, zero
+game logic.** `internalState Json` is exactly whatever
+`engine.createInitialState`/`engine.apply` produced — the Game Kernel's
+"plain JSON, no custom (de)serialization" rule (see "Game Kernel
+contract" above) is what makes this column the entire persistence story.
+Prisma never branches on what's inside it. A session can have many
+SessionGame rows over its life (the product runs several mini-games per
+show); there's no unique constraint on `sessionId` and no separate
+"active game" pointer — "the current game" is simply the most recently
+started row (`src/server/game/service.ts`'s `getCurrentGame`).
+
+**Concurrency is `SessionGame.version` (optimistic), not a DB
+transaction wrapping read-apply-write.** A Postgres transaction can't
+protect this cycle anyway, since `engine.apply` runs in application code
+between the read and the write, not in SQL. The write is
+`UPDATE ... WHERE id = ... AND version = <version just read>`; zero rows
+matched means someone else's action landed first, and
+`applyGameAction` reloads the now-current state and retries the SAME
+action from the top (bounded, `MAX_APPLY_ATTEMPTS`). That's why a losing
+request gets a real rejection reason from the engine (e.g.
+`TEAM_ALREADY_ATTEMPTED`, `WRONG_PHASE`) instead of a generic "conflict,
+try again" — see the `describe("concurrency", ...)` blocks in
+`tests/integration/game-service.test.ts` for exactly what this
+guarantees. No Redis, no in-memory lock — same spirit as Participant's
+unique-constraint races.
+
+**`src/server/game/service.ts` is the ONLY Prisma<->Kernel bridge**,
+and deliberately knows nothing about Socket.IO — `startGame`,
+`applyGameAction`, `getCurrentGame`, `publicStateFor` are plain
+async functions, testable (and tested) with no live socket server. Two
+callers use them: the `game:action` socket handler
+(`src/server/sockets/game.ts`) and the tRPC `game.start` mutation
+(`src/server/trpc/router.ts`) — neither duplicates the bridge, both call
+the same functions.
+
+**Broadcasting is a separate, explicit step**, not something
+`service.ts` does itself, so the bridge stays testable without a real
+`io` instance. `src/server/sockets/game.ts` exports
+`broadcastGameSnapshot(io, sessionId, gameId, gameKey, state, events)`;
+the socket handler calls it after every successful `game:action`, and the
+tRPC `game.start` mutation calls it too (via
+`src/server/sockets/instance.ts`'s shared `io` reference — see below) so
+a client that was already connected before the host clicked "start"
+still hears about it, not just on their next reconnect. `gameId` is a
+required argument, not optional — it was omitted from the broadcast
+payload for a while (only `sendCurrentSnapshot`, the per-socket initial
+sync, included it), which meant a socket already connected and already
+showing a game had its own `gameId` clobbered to `undefined` by the very
+next action broadcast, flipping an in-progress board back to "no game
+running" client-side for no real reason. Every `game:state` event, initial
+snapshot or broadcast, carries `gameId` — that's the contract now, and
+`useGameSocket.ts`'s payload type is non-optional to match.
+
+**`src/server/sockets/instance.ts` stashes the live `io` instance on
+`globalThis`, not a plain module-level variable — this bit for real.**
+`src/app/api/trpc/[trpc]/route.ts` (under `src/app`, hot-reloaded by
+Next's Fast Refresh) and `src/server/server.ts` (its own module graph,
+restarted whole by `tsx watch` — see "Custom server constraints" above)
+can end up as genuinely different module instances of the same file
+after a dev-mode edit to `router.ts`. A plain `let ioInstance` gave each
+its own copy: the tRPC side read a variable that was never set and
+silently skipped the broadcast (an already-connected client never heard
+a game had started — caught by manually testing multiple real tabs
+against the running dev server, not by the automated suite, which
+spins up its own isolated `http.Server`+Socket.IO pair per test file and
+never exercises this specific cross-module-instance path). Fixed the
+same way `src/server/db/client.ts`'s Prisma singleton already handles
+the identical class of problem: stash it on `globalThis`, which is
+actually shared across those instances within one process.
+
+**The Dev Playground's zustand stores (`useGameStore`, `useDevIdentityStore`,
+`useDemoGameStore`, `usePresenceStore` — all under `src/app/dev/_shared`)
+are pinned to `globalThis` too, same reasoning as `instance.ts` above but
+on the client this time.** Found during the "reset mid-game" stabilization
+pass: Next's Fast Refresh can re-execute one of these store modules (any
+edit to the file itself, or to a file that imports it) WITHOUT unmounting
+the component tree that's using it. A plain `create()` there hands out a
+brand new store with fresh defaults; the live socket in `useGameSocket.ts`
+is sitting in a `useEffect` that never re-ran (its `[token]` dependency
+didn't change), so it keeps writing to the OLD store forever while every
+re-render reads the NEW one — which nothing is updating anymore. The
+board looks like it silently reset to "no game running" and never
+recovers short of a full page reload, even though the socket is alive and
+the actual game is fine. This can't be reproduced in an automated test
+(no bundler HMR runtime exists in Vitest/Node) — it was diagnosed by
+tracing the actual failure mode, matched against `instance.ts`'s already-
+proven fix for the identical class of bug, and applied the same way:
+reuse the same store object across module re-executions by checking
+`globalThis` first.
+
+**Visibility rules are game rules, so they live in the engine, not the
+bridge.** `GameEngine.toPublicView?(state, viewerRole)` (optional —
+see "Game Kernel contract") is what the bridge calls before sending
+state to a non-authoring role; `boardQuestion/view.ts`'s `toPublicView`
+is Jeopardy's actual rule: HOST sees everything; everyone else never
+sees `answer`, and never sees a question's `prompt` until it's the
+active question or already played (no reading ahead on the board).
+Redacted fields become `""`, not `null`, so the redacted state is still
+the exact same `BoardQuestionState` shape — no second, nullable-fields
+type needed just for the public view.
+
+**Two Socket.IO rooms per session** (`src/domain/game/rooms.ts`):
+`session:<id>:game:host` (HOST only, full state) and
+`session:<id>:game:public` (TEAM_A/TEAM_B/DISPLAY, redacted state).
+Socket.IO has no "different payload per room member" primitive, so a
+redaction that genuinely differed BY team (not needed by Jeopardy, whose
+`toPublicView` treats every non-host role identically) would need
+per-team rooms instead of one shared "public" room.
+
+**`by` on a game action is never taken from the client.** The socket
+handler always overwrites it with the resolved, server-trusted identity
+role (`{ ...payload, by: identity.role }`) before it ever reaches
+`engine.apply` — a socket can't claim `HOST` by putting it in the
+payload. Same posture as Session's tokens: the server decides who you
+are, the client doesn't get to assert it.
+
+**Presence (`src/server/sockets/presence.ts`) is transport-layer info,
+not gameplay — it stays out of the Game Kernel and out of Prisma.** An
+in-memory `Map<sessionId, Map<participantId, socketCount>>`, refcounted
+per socket (a participant can hold more than one open tab; presence only
+clears once the LAST one disconnects), broadcasting `presence:update` to
+both game rooms whenever it changes. Not persisted on purpose — a server
+restart legitimately means "everyone just disconnected," unlike game
+state, which the whole vertical slice above exists to survive. Powers the
+Quick Demo panel's live "N/6 clients connected" indicator.
+
+**Events, not just `game:error`.** `game:action`'s ack carries
+`{ ok: false, error }` on rejection (same ack-based pattern
+`chat:send` already uses) rather than a separate `game:error` broadcast
+— nothing needs a rejection broadcast to a whole room, only the actor
+who tried it needs to know.
+
+**`/dev/game` (the pure local Kernel lab, unchanged) and
+`/dev/host`/`/dev/player`/`/dev/display` (the real multi-client slice)
+are deliberately two different tools, not one replacing the other.**
+`/dev/game` still runs the engine directly in the browser with no
+session/server round-trip — fast iteration on kernel rules alone. The
+real slice needs a joined session (`/dev/session`) in each tab and
+exercises the actual Prisma/Socket.IO/tRPC path; open `/dev/session` +
+`/dev/host` + `/dev/player` (x2, one per team) + `/dev/display` in five
+tabs to watch one real game synchronize.
+
 ## Phase 0 spike — removed
 
 The infrastructure-only spike code (`SpikeCheck` model, `health.check`
