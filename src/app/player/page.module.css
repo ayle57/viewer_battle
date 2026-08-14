@@ -1,0 +1,106 @@
+.page {
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: var(--vb-space-6) var(--vb-space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-4);
+}
+
+.join {
+  max-width: 26rem;
+  margin: var(--vb-space-8) auto;
+  width: 100%;
+}
+
+.joinForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-4);
+}
+
+.teamChoice {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-1);
+}
+
+.teamChoiceLabel {
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--vb-text-muted);
+}
+
+.teamButtons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--vb-space-2);
+}
+
+.teamButton {
+  min-height: var(--vb-tap-target);
+  padding: var(--vb-space-3);
+  border-radius: var(--vb-radius-md);
+  border: 2px solid var(--vb-border);
+  background: var(--vb-surface);
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color var(--vb-transition-fast), background-color var(--vb-transition-fast);
+}
+
+.teamButton:focus-visible {
+  outline: 2px solid var(--vb-primary);
+  outline-offset: 2px;
+}
+
+.teamA {
+  color: var(--vb-team-a);
+}
+
+.teamB {
+  color: var(--vb-team-b);
+}
+
+.teamButtonActive.teamA {
+  border-color: var(--vb-team-a);
+  background: var(--vb-team-a-bg);
+}
+
+.teamButtonActive.teamB {
+  border-color: var(--vb-team-b);
+  background: var(--vb-team-b-bg);
+}
+
+.errorBanner {
+  padding: var(--vb-space-2) var(--vb-space-3);
+  background: var(--vb-danger-bg);
+  color: var(--vb-danger);
+  border-radius: var(--vb-radius-sm);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.header {
+  display: flex;
+  gap: var(--vb-space-2);
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.rosterRow {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: var(--vb-space-3);
+}
+
+@media (max-width: 30rem) {
+  .page {
+    padding: var(--vb-space-4) var(--vb-space-3);
+    gap: var(--vb-space-3);
+  }
+
+  .join {
+    margin: var(--vb-space-5) auto;
+  }
+}
