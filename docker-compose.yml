@@ -5,8 +5,6 @@ services:
       NODE_ENV: production
       PORT: 3000
       DATABASE_URL: postgresql://viewerbattle:${POSTGRES_PASSWORD}@postgres:5432/viewerbattle
-      # Phase 0 spike only — removed once real auth (Phase 1) lands.
-      SPIKE_TOKEN: ${SPIKE_TOKEN}
     depends_on:
       postgres:
         condition: service_healthy

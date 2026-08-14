@@ -104,26 +104,16 @@ this list updated when new ones surface.
   which binary variant to use; install it explicitly in the base Docker
   stage or Prisma silently guesses and prints a warning on every run.
 
-## Phase 0 spike — remove before Phase 1
+## Phase 0 spike — removed
 
-The following exist only to validate infrastructure and are not part of
-the real application. Delete them once real session/auth/game code lands:
-
-- `prisma/schema.prisma` — `SpikeCheck` model (and its migration).
-- `src/server/trpc/router.ts` — `health.check` procedure (a real health
-  check may stay, but not this exact shape).
-- `src/server/sockets/index.ts` — `spike:join-room` / `spike:ping` /
-  `spike:pong` events and the `SPIKE_TOKEN`-based auth check (replace with
-  real host session / player token / display token verification).
-  `src/server/sockets/index.ts` also just went from a working piece of
-  wiring to a working, tested reference implementation of the
-  auth-middleware + room + broadcast pattern that real events should copy.
-- `src/app/dev/spike/page.tsx` and its route.
-- `SPIKE_TOKEN` / `NEXT_PUBLIC_SPIKE_TOKEN` env vars.
-- `tests/integration/socket.test.ts` and `tests/integration/prisma.test.ts`
-  — replace with equivalent tests against real domain models, don't just
-  delete (the patterns they prove — auth middleware, room-scoped broadcast,
-  a real DB round-trip — must keep being tested).
+The infrastructure-only spike code (`SpikeCheck` model, `health.check`
+procedure, `spike:*` socket events, `SPIKE_TOKEN` auth, `/dev/spike`, and
+their tests) has been removed. The patterns it proved — custom server +
+Socket.IO, `io.use()` auth middleware, room-scoped broadcast, a real
+Prisma/Postgres round-trip, Docker/Caddy config — are preserved and now
+live in the real chat vertical slice (`src/server/sockets/chat.ts`,
+`src/domain/chat/`, `tests/integration/chat-socket.test.ts`). Copy that
+shape for new realtime features rather than re-deriving it.
 
 ## Commands
 

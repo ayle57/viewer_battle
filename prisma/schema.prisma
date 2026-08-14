@@ -1,8 +1,3 @@
-// Phase 0 spike schema — validates Prisma + PostgreSQL connectivity and the
-// migrate/generate/query flow only. This model is NOT part of the real
-// domain model (see docs/architecture.md for the locked schema shape) and
-// will be deleted once Phase 1 introduces the real tables.
-
 generator client {
   provider = "prisma-client"
   output   = "../src/generated/prisma"
@@ -12,8 +7,6 @@ datasource db {
   provider = "postgresql"
 }
 
-model SpikeCheck {
-  id        String   @id @default(cuid())
-  note      String
-  createdAt DateTime @default(now())
-}
+// Real models start here. First one lands with the chat vertical slice
+// (Session, ChatMessage) — see AGENTS.md for the Phase 0 spike this
+// replaced.
