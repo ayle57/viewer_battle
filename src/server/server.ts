@@ -1,3 +1,14 @@
+// Must be the first import, and must be a dedicated side-effect module —
+// see src/server/loadEnv.ts for why. Loads .env into process.env before
+// any other import (e.g. src/server/db/client.ts, reached transitively
+// through createSocketServer below) can read from it. Neither `tsx` nor
+// Next's own env loading (which only kicks in once `next()` boots, too
+// late for our own imports) do this for a custom entrypoint on their own.
+// Harmless in Docker: .env is dockerignored, so this just no-ops there and
+// the env vars docker-compose injects directly are used as-is (dotenv
+// never overwrites an already-set variable).
+import "@/server/loadEnv";
+
 import { createServer } from "node:http";
 import next from "next";
 import { createSocketServer } from "@/server/sockets";

@@ -103,6 +103,16 @@ this list updated when new ones surface.
 - **`node:22-slim` has no OpenSSL.** Prisma's engine needs it to detect
   which binary variant to use; install it explicitly in the base Docker
   stage or Prisma silently guesses and prints a warning on every run.
+- **Neither `tsx` nor Next populate `process.env` from `.env` early enough
+  for our custom server entrypoint.** `next build`/`next dev` load `.env`
+  themselves, but only once `next()` boots — anything our own code imports
+  before that (e.g. `src/server/db/client.ts`, transitively required by
+  `createSocketServer`) runs first and sees an empty `process.env`.
+  `src/server/server.ts` imports `dotenv/config` as its first line to fix
+  this for native `pnpm dev`/`pnpm start`. `dotenv` is a **production**
+  dependency for this reason. Safe in Docker: `.env` is dockerignored, so
+  the import no-ops there and docker-compose's directly-injected env vars
+  are used untouched (dotenv never overwrites an already-set variable).
 
 ## Phase 0 spike — removed
 
