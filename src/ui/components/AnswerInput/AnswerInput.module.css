@@ -1,0 +1,33 @@
+.form {
+  display: flex;
+  gap: var(--vb-space-2);
+}
+
+.inputWrap {
+  flex: 1;
+}
+
+.confirmation {
+  display: flex;
+  align-items: center;
+  gap: var(--vb-space-2);
+  padding: var(--vb-space-3);
+  border-radius: var(--vb-radius-md);
+  background: var(--vb-success-bg);
+  color: var(--vb-success);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.checkmark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 50%;
+  background: var(--vb-success);
+  color: var(--vb-surface);
+  font-size: 0.75rem;
+  flex-shrink: 0;
+}
