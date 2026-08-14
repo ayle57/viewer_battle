@@ -1,39 +1,75 @@
 /**
  * Design tokens for the ViewerBattle UI Kit.
  *
+ * Source of truth: public/images/img.png (the ViewerBattle logo), sampled
+ * pixel-by-pixel. Brand red/gold below are the dominant solid fills found
+ * in the logo's lettering and trophy, not eyeballed. See the "palette
+ * proposal" review (shared with the team before this landed) for the full
+ * extraction + reasoning on the colors the logo doesn't cover
+ * (success/info/team-a/display).
+ *
  * Plain CSS custom properties + CSS Modules (no Tailwind/CSS-in-JS
  * dependency in this project). Imported once from the root layout;
- * every component reads these variables, none hardcode colors/spacing.
+ * every component reads these variables, none hardcode colors/spacing —
+ * that's what makes a single edit here repaint the whole app.
+ *
+ * -bg tint tokens use color-mix() against the base color instead of a
+ * hand-maintained rgba() duplicate, specifically so changing e.g.
+ * --vb-primary can't accidentally leave --vb-primary's tint out of sync.
+ *
+ * Light is the shipped theme. Dark is defined (prefers-color-scheme, plus
+ * a [data-theme="dark"] override for a future toggle) but there is no
+ * visible theme switch yet — this just keeps that cheap to add later.
  */
 :root {
-  /* Neutrals */
-  --vb-bg: #0f1115;
-  --vb-surface: #171a21;
-  --vb-surface-raised: #1f232c;
-  --vb-border: #2a2f3a;
-  --vb-text: #f2f3f5;
-  --vb-text-muted: #9aa1ae;
+  /* Neutrals — warm, biased toward the logo's canvas white and ink black
+     rather than a clinical pure grey scale. */
+  --vb-bg: #faf8f6;
+  --vb-surface: #ffffff;
+  --vb-surface-raised: #f3efec;
+  --vb-border: #e4dfdc;
+  --vb-text: #201a19;
+  --vb-text-muted: #7a716e;
 
-  /* Brand */
-  --vb-primary: #7c5cff;
-  --vb-primary-hover: #9179ff;
+  /* Brand — from the logo. --vb-primary is the dominant solid red in the
+     "VIEWER BATTLE" lettering; --vb-accent is the dominant solid gold in
+     the trophy. */
+  --vb-primary: #741212;
+  --vb-primary-hover: #8f1a1a;
   --vb-primary-text: #ffffff;
+  --vb-accent: #f0a020;
+  --vb-accent-hover: #d88c14;
+  --vb-accent-text: #201a19;
 
-  /* Semantic */
-  --vb-success: #33c17a;
-  --vb-warning: #e7b93f;
-  --vb-danger: #ef5d5d;
-  --vb-danger-hover: #f57979;
+  /* Semantic — warning reuses the trophy gold (darkened for text
+     contrast on a light surface); danger is deliberately NOT the brand
+     red, so a destructive action never looks like a primary one. Success
+     and info don't exist in the logo — kept muted so they don't compete
+     with red/gold. */
+  --vb-success: #2f9e44;
+  --vb-success-bg: color-mix(in srgb, var(--vb-success) 14%, transparent);
+  --vb-warning: #c8860f;
+  --vb-warning-bg: color-mix(in srgb, var(--vb-accent) 18%, transparent);
+  --vb-danger: #d1342f;
+  --vb-danger-hover: #b8241f;
+  --vb-danger-bg: color-mix(in srgb, var(--vb-danger) 12%, transparent);
+  --vb-info: #4a6fa5;
+  --vb-info-bg: color-mix(in srgb, var(--vb-info) 12%, transparent);
 
-  /* Teams */
-  --vb-team-a: #4da3ff;
-  --vb-team-a-bg: rgba(77, 163, 255, 0.14);
-  --vb-team-b: #ff6b6b;
-  --vb-team-b-bg: rgba(255, 107, 107, 0.14);
-  --vb-host: #e7b93f;
-  --vb-host-bg: rgba(231, 185, 63, 0.14);
-  --vb-display: #9aa1ae;
-  --vb-display-bg: rgba(154, 161, 174, 0.14);
+  /* Roles — host is the trophy gold (the cat holds it), team B is the
+     brand red ("Battle"), team A is a cool counterpart, display is
+     unbranded (it's a read-only OBS overlay surface). */
+  --vb-host: var(--vb-accent);
+  --vb-host-bg: color-mix(in srgb, var(--vb-host) 16%, transparent);
+  --vb-team-a: #2f6fb0;
+  --vb-team-a-bg: color-mix(in srgb, var(--vb-team-a) 14%, transparent);
+  --vb-team-b: var(--vb-primary);
+  --vb-team-b-bg: color-mix(in srgb, var(--vb-team-b) 12%, transparent);
+  --vb-display: #757575;
+  --vb-display-bg: color-mix(in srgb, var(--vb-display) 14%, transparent);
+
+  /* Overlays */
+  --vb-overlay: rgba(32, 26, 25, 0.5);
 
   /* Spacing scale */
   --vb-space-1: 0.25rem;
@@ -47,10 +83,72 @@
   --vb-radius-sm: 6px;
   --vb-radius-md: 10px;
   --vb-radius-lg: 16px;
-  --vb-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
-  --vb-shadow-md: 0 4px 16px rgba(0, 0, 0, 0.45);
+  --vb-shadow-sm: 0 1px 2px rgba(32, 26, 25, 0.08);
+  --vb-shadow-md: 0 8px 24px rgba(32, 26, 25, 0.12);
   --vb-font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --vb-font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+/* Dark variant — same brand hues, not a naive invert. No toggle wires
+   this in yet; it only activates today via OS-level prefers-color-scheme. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --vb-bg: #17110f;
+    --vb-surface: #211917;
+    --vb-surface-raised: #2b211e;
+    --vb-border: #3c2f2b;
+    --vb-text: #f5efec;
+    --vb-text-muted: #b3a49e;
+
+    --vb-primary: #c4443f;
+    --vb-primary-hover: #d66459;
+    --vb-primary-text: #ffffff;
+    --vb-accent: #f5b943;
+    --vb-accent-hover: #ffcb63;
+    --vb-accent-text: #201a19;
+
+    --vb-success: #4cbf5c;
+    --vb-warning: #e0a936;
+    --vb-danger: #e2554e;
+    --vb-danger-hover: #ec726c;
+    --vb-info: #6f93c9;
+
+    --vb-team-a: #5c9bdb;
+    --vb-display: #a7a7a7;
+
+    --vb-overlay: rgba(0, 0, 0, 0.7);
+    --vb-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --vb-shadow-md: 0 8px 24px rgba(0, 0, 0, 0.45);
+  }
+}
+
+:root[data-theme="dark"] {
+  --vb-bg: #17110f;
+  --vb-surface: #211917;
+  --vb-surface-raised: #2b211e;
+  --vb-border: #3c2f2b;
+  --vb-text: #f5efec;
+  --vb-text-muted: #b3a49e;
+
+  --vb-primary: #c4443f;
+  --vb-primary-hover: #d66459;
+  --vb-primary-text: #ffffff;
+  --vb-accent: #f5b943;
+  --vb-accent-hover: #ffcb63;
+  --vb-accent-text: #201a19;
+
+  --vb-success: #4cbf5c;
+  --vb-warning: #e0a936;
+  --vb-danger: #e2554e;
+  --vb-danger-hover: #ec726c;
+  --vb-info: #6f93c9;
+
+  --vb-team-a: #5c9bdb;
+  --vb-display: #a7a7a7;
+
+  --vb-overlay: rgba(0, 0, 0, 0.7);
+  --vb-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --vb-shadow-md: 0 8px 24px rgba(0, 0, 0, 0.45);
 }
 
 body {
