@@ -1,0 +1,130 @@
+.shell {
+  min-height: 100dvh;
+  display: grid;
+  grid-template-columns: 16rem minmax(0, 1fr);
+  background: var(--vb-bg);
+}
+
+.sidebar {
+  border-right: 1px solid var(--vb-border);
+  background: var(--vb-surface);
+  padding: var(--vb-space-5) var(--vb-space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-4);
+}
+
+.brand {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-1);
+  padding-inline: var(--vb-space-2);
+}
+
+.brandTitle {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.brandSubtitle {
+  margin: 0;
+  color: var(--vb-text-muted);
+  font-size: 0.8125rem;
+}
+
+.links {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-1);
+}
+
+.link {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--vb-text-muted);
+  text-decoration: none;
+  padding: var(--vb-space-2) var(--vb-space-3);
+  border-radius: var(--vb-radius-sm);
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+.link:hover {
+  color: var(--vb-text);
+  background: var(--vb-surface-raised);
+}
+
+.linkActive {
+  color: var(--vb-primary);
+  background: var(--vb-surface-raised);
+}
+
+.main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.header {
+  border-bottom: 1px solid var(--vb-border);
+  background: var(--vb-surface);
+  padding: var(--vb-space-4) var(--vb-space-5);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--vb-space-4);
+  flex-wrap: wrap;
+}
+
+.headerTitle {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-1);
+}
+
+.kicker {
+  margin: 0;
+  font-size: 0.6875rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--vb-text-muted);
+  font-weight: 700;
+}
+
+.title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 800;
+}
+
+.headerBadges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--vb-space-2);
+}
+
+.content {
+  min-width: 0;
+  padding: var(--vb-space-5);
+}
+
+@media (max-width: 960px) {
+  .shell {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    border-right: none;
+    border-bottom: 1px solid var(--vb-border);
+    padding: var(--vb-space-3) var(--vb-space-4);
+  }
+
+  .links {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .content {
+    padding: var(--vb-space-4);
+  }
+}

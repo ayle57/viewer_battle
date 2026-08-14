@@ -1,0 +1,47 @@
+.page {
+  max-width: 60rem;
+  margin: 0 auto;
+  padding: var(--vb-space-6) var(--vb-space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-6);
+}
+
+.intro p {
+  color: var(--vb-text-muted);
+  max-width: 42rem;
+  line-height: 1.55;
+}
+
+.statusRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--vb-space-3);
+}
+
+.toolGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: var(--vb-space-3);
+}
+
+.toolCard {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  height: 100%;
+}
+
+.toolCardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--vb-space-2);
+}
+
+.toolDescription {
+  margin: 0;
+  font-size: 0.83rem;
+  color: var(--vb-text-muted);
+  line-height: 1.5;
+}

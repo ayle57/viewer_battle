@@ -1,0 +1,24 @@
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-2);
+}
+
+.statusRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--vb-space-2);
+}
+
+.description {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--vb-text);
+}
+
+.blockedBy {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--vb-text-muted);
+  font-family: var(--vb-font-mono);
+}
