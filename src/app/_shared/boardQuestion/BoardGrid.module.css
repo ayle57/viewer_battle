@@ -42,6 +42,25 @@
   transform: translateY(-1px);
 }
 
+.cell:disabled {
+  cursor: default;
+}
+
+.cellSelectable:focus-visible {
+  outline: 2px solid var(--vb-primary);
+  outline-offset: 2px;
+}
+
+/* OBS-scale hero treatment — see ScoreDisplay's .lg for the same pattern. */
+.lg .categoryHeader {
+  font-size: clamp(0.85rem, 1.6vw, 1.15rem);
+}
+
+.lg .cell {
+  padding: clamp(var(--vb-space-4), 3vw, var(--vb-space-6)) var(--vb-space-2);
+  font-size: clamp(1.25rem, 3vw, 2rem);
+}
+
 .cellPlayed {
   background: var(--vb-surface-raised);
   color: var(--vb-text-muted);

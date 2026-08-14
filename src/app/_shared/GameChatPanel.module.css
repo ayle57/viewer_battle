@@ -1,0 +1,6 @@
+.box {
+  height: 22rem;
+  border: 1px solid var(--vb-border);
+  border-radius: var(--vb-radius-md);
+  overflow: hidden;
+}

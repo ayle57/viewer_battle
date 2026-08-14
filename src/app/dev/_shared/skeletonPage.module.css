@@ -18,3 +18,10 @@
   grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
   gap: var(--vb-space-3);
 }
+
+@media (max-width: 30rem) {
+  .page {
+    padding: var(--vb-space-4) var(--vb-space-3);
+    gap: var(--vb-space-3);
+  }
+}

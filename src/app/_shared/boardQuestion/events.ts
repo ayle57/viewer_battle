@@ -20,3 +20,10 @@ export function describeLastResult(events: unknown[]): string | null {
   }
   return null;
 }
+
+/** The most recent ANSWER_JUDGED event, if the last thing that happened was a judgment — used for a big CORRECT/INCORRECT beat on the player/display screens, straight from what the server actually judged. */
+export function lastJudgment(events: unknown[]): { team: string; correct: boolean } | null {
+  const last = events[events.length - 1] as { type?: string; team?: string; correct?: boolean } | undefined;
+  if (last?.type !== "ANSWER_JUDGED") return null;
+  return { team: last.team ?? "", correct: Boolean(last.correct) };
+}

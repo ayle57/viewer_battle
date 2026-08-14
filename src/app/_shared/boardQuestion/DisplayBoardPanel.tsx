@@ -3,13 +3,15 @@
 import type { BoardQuestionState } from "@/domain/game/boardQuestion";
 import { Card, CardBody, QuestionPrompt, ScoreDisplay } from "@/ui";
 import { BoardGrid } from "./BoardGrid";
-import { describeLastResult } from "./events";
+import { describeLastResult, lastJudgment } from "./events";
 import styles from "./DisplayBoardPanel.module.css";
 
 export interface DisplayBoardPanelProps {
   state: BoardQuestionState;
   lastEvents: unknown[];
 }
+
+const TEAM_LABEL: Record<"TEAM_A" | "TEAM_B", string> = { TEAM_A: "TEAM A", TEAM_B: "TEAM B" };
 
 /**
  * Read-only, built for OBS capture, not for operating anything — no
@@ -23,14 +25,15 @@ export interface DisplayBoardPanelProps {
 export function DisplayBoardPanel({ state, lastEvents }: DisplayBoardPanelProps) {
   const activeQuestion = state.questions.find((q) => q.id === state.activeQuestionId) ?? null;
   const category = activeQuestion ? state.categories.find((c) => c.id === activeQuestion.categoryId) : undefined;
-  const lastResult = describeLastResult(lastEvents);
+  const judgment = state.buzzedTeam === null ? lastJudgment(lastEvents) : null;
+  const lastResult = !judgment ? describeLastResult(lastEvents) : null;
   const teamClass = state.buzzedTeam === "TEAM_A" ? styles.buzzedTeamA : styles.buzzedTeamB;
 
   return (
     <div className={styles.wrap}>
       <Card variant="raised" className={styles.scoreCard}>
         <CardBody>
-          <ScoreDisplay teamAName="Team A" teamAScore={state.scores.TEAM_A} teamBName="Team B" teamBScore={state.scores.TEAM_B} />
+          <ScoreDisplay teamAName="Team A" teamAScore={state.scores.TEAM_A} teamBName="Team B" teamBScore={state.scores.TEAM_B} size="lg" />
         </CardBody>
       </Card>
 
@@ -40,26 +43,31 @@ export function DisplayBoardPanel({ state, lastEvents }: DisplayBoardPanelProps)
 
       <Card>
         <CardBody>
-          <BoardGrid state={state} />
+          <BoardGrid state={state} size="lg" />
         </CardBody>
       </Card>
 
       {activeQuestion && (
         <Card variant="raised">
           <CardBody>
-            <QuestionPrompt category={category?.name} points={activeQuestion.points} prompt={activeQuestion.prompt} />
+            <QuestionPrompt category={category?.name} points={activeQuestion.points} prompt={activeQuestion.prompt} size="lg" />
           </CardBody>
         </Card>
       )}
 
       {state.buzzedTeam && (
         <div className={styles.buzzedBlock}>
-          <p className={[styles.buzzedBanner, teamClass].join(" ")}>{state.buzzedTeam} is answering</p>
+          <p className={[styles.buzzedBanner, teamClass].join(" ")}>{TEAM_LABEL[state.buzzedTeam]} IS ANSWERING</p>
           {state.submittedAnswer !== null && <p className={styles.submittedAnswer}>&ldquo;{state.submittedAnswer}&rdquo;</p>}
         </div>
       )}
 
-      {!state.buzzedTeam && lastResult && <p className={styles.resultBanner}>{lastResult}</p>}
+      {!state.buzzedTeam && judgment && (
+        <p className={[styles.judgmentBanner, judgment.correct ? styles.correct : styles.incorrect].join(" ")}>
+          {judgment.correct ? "CORRECT" : "INCORRECT"}
+        </p>
+      )}
+      {!state.buzzedTeam && !judgment && lastResult && <p className={styles.resultBanner}>{lastResult}</p>}
 
       {!activeQuestion && state.status === "in_progress" && (
         <p className={styles.statusLine}>Waiting for the next question…</p>

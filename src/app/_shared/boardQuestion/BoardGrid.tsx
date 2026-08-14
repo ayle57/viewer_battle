@@ -7,6 +7,8 @@ export interface BoardGridProps {
   state: BoardQuestionState;
   /** Only passed by the host page — its presence, plus the board being in the "selecting" phase, is what makes a cell clickable. Nobody else can click regardless of whether this prop is passed, since only the host page ever passes it. */
   onSelect?: (questionId: string) => void;
+  /** "md" (default) fits Host/Player. "lg" is Display's OBS-scale hero treatment — same grid, much bigger cells. */
+  size?: "md" | "lg";
 }
 
 /**
@@ -17,13 +19,16 @@ export interface BoardGridProps {
  * abstraction). QuestionPrompt/BuzzButton (src/ui) are the pieces of this
  * screen that genuinely are reusable across games.
  */
-export function BoardGrid({ state, onSelect }: BoardGridProps) {
+export function BoardGrid({ state, onSelect, size = "md" }: BoardGridProps) {
   const questionsByCategory = new Map<string, typeof state.questions>();
   for (const category of state.categories) questionsByCategory.set(category.id, []);
   for (const question of state.questions) questionsByCategory.get(question.categoryId)?.push(question);
 
   return (
-    <div className={styles.board} style={{ gridTemplateColumns: `repeat(${state.categories.length}, 1fr)` }}>
+    <div
+      className={[styles.board, size === "lg" && styles.lg].filter(Boolean).join(" ")}
+      style={{ gridTemplateColumns: `repeat(${state.categories.length}, 1fr)` }}
+    >
       {state.categories.map((category) => (
         <div key={category.id} className={styles.column}>
           <p className={styles.categoryHeader}>{category.name}</p>

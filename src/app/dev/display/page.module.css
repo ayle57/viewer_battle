@@ -1,0 +1,83 @@
+/* Built for a 16:9 OBS capture, not a centered document — width scales
+   with the capture canvas instead of topping out at a fixed rem cap.
+   Mentally verified at 1920×1080, 1280×720, and a small (≈800px) window. */
+.page {
+  width: 100%;
+  max-width: 120rem;
+  margin: 0 auto;
+  padding: clamp(var(--vb-space-4), 3vw, var(--vb-space-8)) clamp(var(--vb-space-4), 4vw, var(--vb-space-8));
+  display: flex;
+  flex-direction: column;
+  gap: clamp(var(--vb-space-4), 3vw, var(--vb-space-6));
+  min-height: 100dvh;
+  justify-content: center;
+}
+
+.hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(var(--vb-space-5), 4vw, var(--vb-space-8));
+  padding: clamp(var(--vb-space-5), 4vw, var(--vb-space-8)) 0;
+}
+
+.title {
+  margin: 0;
+  font-size: clamp(2rem, 6vw, 4.5rem);
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--vb-primary);
+  text-align: center;
+}
+
+.rosterRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: clamp(var(--vb-space-4), 3vw, var(--vb-space-6));
+  width: 100%;
+  max-width: 48rem;
+}
+
+.scoreRow {
+  display: flex;
+  align-items: center;
+  gap: clamp(var(--vb-space-5), 4vw, var(--vb-space-8));
+  font-size: clamp(2.5rem, 8vw, 6rem);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.scoreA {
+  color: var(--vb-team-a);
+}
+
+.scoreB {
+  color: var(--vb-team-b);
+}
+
+.scoreDivider {
+  color: var(--vb-text-muted);
+  font-size: clamp(1.25rem, 2.5vw, 2rem);
+}
+
+.waiting {
+  margin: 0;
+  font-size: clamp(1rem, 2vw, 1.5rem);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--vb-text-muted);
+}
+
+/* Chat is secondary here — capped so it never competes with the capture
+   area above it for visual weight. */
+.chatCard {
+  max-width: 40rem;
+  width: 100%;
+  margin: 0 auto;
+}
+
+@media (max-width: 30rem) {
+  .rosterRow {
+    grid-template-columns: 1fr;
+  }
+}

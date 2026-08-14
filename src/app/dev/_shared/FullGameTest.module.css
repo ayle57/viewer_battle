@@ -1,0 +1,51 @@
+.intro {
+  color: var(--vb-text-muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  margin: 0 0 var(--vb-space-3);
+}
+
+.runRow {
+  margin-bottom: var(--vb-space-4);
+}
+
+.timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-2);
+}
+
+.step {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--vb-space-2);
+  padding: var(--vb-space-1) 0;
+}
+
+.stepBody {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
+.stepLabel {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.stepDetail {
+  font-size: 0.8rem;
+  color: var(--vb-text-muted);
+  word-break: break-word;
+}
+
+.stepDetailFail {
+  font-size: 0.8rem;
+  color: var(--vb-danger);
+  font-weight: 600;
+  word-break: break-word;
+}

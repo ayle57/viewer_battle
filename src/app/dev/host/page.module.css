@@ -1,0 +1,72 @@
+.page {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: var(--vb-space-6) var(--vb-space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-4);
+}
+
+.hint {
+  color: var(--vb-text-muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--vb-space-3);
+}
+
+.headerLeft,
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: var(--vb-space-2);
+  flex-wrap: wrap;
+}
+
+.rosterGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: var(--vb-space-3);
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 1fr 20rem;
+  gap: var(--vb-space-4);
+  align-items: start;
+}
+
+.main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-4);
+  min-width: 0;
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-4);
+}
+
+/* Tablet: sidebar drops below the board — still a real, deliberate
+   single-column layout (main first, roster/chat second), not a squeeze. */
+@media (max-width: 60rem) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Mobile: less outer padding so the board/board grid gets real width to work with. */
+@media (max-width: 30rem) {
+  .page {
+    padding: var(--vb-space-4) var(--vb-space-3);
+    gap: var(--vb-space-3);
+  }
+}

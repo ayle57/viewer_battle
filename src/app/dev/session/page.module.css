@@ -73,13 +73,22 @@
 }
 
 .select {
+  width: 100%;
+  min-height: var(--vb-tap-target);
   font-family: var(--vb-font-sans);
-  font-size: 0.9375rem;
+  font-size: 1rem; /* 16px — avoids iOS Safari's zoom-on-focus for anything smaller */
   color: var(--vb-text);
   background: var(--vb-surface);
   border: 1px solid var(--vb-border);
   border-radius: var(--vb-radius-sm);
   padding: var(--vb-space-2) var(--vb-space-3);
+  transition: border-color var(--vb-transition-fast), box-shadow var(--vb-transition-fast);
+}
+
+.select:focus-visible {
+  outline: none;
+  border-color: var(--vb-primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--vb-primary) 20%, transparent);
 }
 
 .currentRow {

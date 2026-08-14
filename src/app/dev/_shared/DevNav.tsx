@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Badge } from "@/ui";
 import { useDevIdentityStore } from "./devIdentityStore";
-import { ROLE_LABEL } from "./roleLabels";
+import { ROLE_LABEL } from "@/app/_shared/roleLabels";
 import styles from "./DevNav.module.css";
 
 const TOOLS = [
@@ -19,11 +19,20 @@ const TOOLS = [
   { href: "/dev/game", label: "Game" },
 ];
 
+// Display is the one route meant to be captured whole by OBS — the dev
+// shell (sidebar, header, badges) has no business appearing inside that
+// capture, so it renders on its own, full-screen, nothing around it.
+const NAV_FREE_ROUTES = ["/dev/display"];
+
 export function DevNav({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const identity = useDevIdentityStore((state) => state.identity);
   const activeTool = TOOLS.find((tool) => tool.href === pathname)?.label ?? "Tool";
   const environment = process.env.NODE_ENV ?? "development";
+
+  if (NAV_FREE_ROUTES.includes(pathname)) {
+    return <>{children}</>;
+  }
 
   return (
     <div className={styles.shell}>

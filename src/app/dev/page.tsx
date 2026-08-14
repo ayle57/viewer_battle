@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Badge, Card, CardBody, CardHeader, Tabs } from "@/ui";
 import { DemoGamePanel } from "./_shared/DemoGamePanel";
+import { FullGameTest } from "./_shared/FullGameTest";
 import { useServiceStatus, type ProbeStatus } from "./_shared/useServiceStatus";
 import styles from "./page.module.css";
 
@@ -81,6 +82,7 @@ export default function DevDashboardPage() {
       <Tabs
         items={[
           { value: "quick", label: "Quick Demo", content: <DemoGamePanel /> },
+          { value: "test", label: "Run Full Game Test", content: <FullGameTest /> },
           {
             value: "manual",
             label: "Manual Session",

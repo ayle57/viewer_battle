@@ -1,0 +1,5 @@
+.wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--vb-space-2);
+}

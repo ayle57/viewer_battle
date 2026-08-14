@@ -28,6 +28,16 @@
   margin-bottom: var(--vb-space-4);
 }
 
+.openAllRow {
+  margin-bottom: var(--vb-space-3);
+}
+
+.seatRow {
+  display: flex;
+  align-items: center;
+  gap: var(--vb-space-2);
+}
+
 .roleGrid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));

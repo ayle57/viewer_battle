@@ -37,6 +37,7 @@ export async function finishSession(sessionId: string) {
 }
 
 export interface SessionStateParticipant {
+  id: string;
   displayName: string;
   seat: number | null;
 }
@@ -44,7 +45,7 @@ export interface SessionStateParticipant {
 export interface SessionState {
   code: string;
   status: SessionStatus;
-  host: { displayName: string } | null;
+  host: { id: string; displayName: string } | null;
   teamA: SessionStateParticipant[];
   teamB: SessionStateParticipant[];
   displayCount: number;
@@ -68,7 +69,7 @@ export async function getSessionState(sessionCode: string): Promise<SessionState
     session.participants
       .filter((p) => p.role === role)
       .sort((a, b) => (a.seat ?? 0) - (b.seat ?? 0))
-      .map((p) => ({ displayName: p.displayName, seat: p.seat }));
+      .map((p) => ({ id: p.id, displayName: p.displayName, seat: p.seat }));
   const teamA = byTeam("TEAM_A");
   const teamB = byTeam("TEAM_B");
   const displayCount = session.participants.filter((p) => p.role === "DISPLAY").length;
@@ -76,7 +77,7 @@ export async function getSessionState(sessionCode: string): Promise<SessionState
   return {
     code: session.code,
     status: session.status,
-    host: host ? { displayName: host.displayName } : null,
+    host: host ? { id: host.id, displayName: host.displayName } : null,
     teamA,
     teamB,
     displayCount,

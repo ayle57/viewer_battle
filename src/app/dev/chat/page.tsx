@@ -7,7 +7,7 @@ import { Badge, ChatPanel, Tabs } from "@/ui";
 import type { ChatMessageRole } from "@/ui";
 import type { DevIdentity } from "../_shared/devIdentityStore";
 import { RequireIdentity } from "../_shared/RequireIdentity";
-import { ROLE_LABEL } from "../_shared/roleLabels";
+import { ROLE_LABEL } from "@/app/_shared/roleLabels";
 import styles from "./page.module.css";
 import { useChatSocket, type ConnectionStatus } from "./useChatSocket";
 
@@ -82,6 +82,7 @@ function ChatRoom({ identity }: { identity: DevIdentity }) {
                   role: toUiRole(message.role),
                   body: message.body,
                   createdAt: new Date(message.createdAt),
+                  isOwn: message.role === identity.role && message.senderName === identity.displayName,
                 }))}
                 disabled={!canPostToChannel(identity.role, channel)}
                 onSend={(body) => void send(channel, body)}

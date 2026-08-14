@@ -40,13 +40,21 @@
 }
 
 .link {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--vb-tap-target);
   font-size: 0.875rem;
   font-weight: 600;
   color: var(--vb-text-muted);
   text-decoration: none;
   padding: var(--vb-space-2) var(--vb-space-3);
   border-radius: var(--vb-radius-sm);
-  transition: background-color 120ms ease, color 120ms ease;
+  transition: background-color var(--vb-transition-fast), color var(--vb-transition-fast);
+}
+
+.link:focus-visible {
+  outline: 2px solid var(--vb-primary);
+  outline-offset: -2px;
 }
 
 .link:hover {
@@ -126,5 +134,35 @@
 
   .content {
     padding: var(--vb-space-4);
+  }
+}
+
+/* Phones: a wrapping row of 8 links can push the actual page down a full
+   screen before it even starts — scroll horizontally instead, one row. */
+@media (max-width: 30rem) {
+  .brandSubtitle {
+    display: none;
+  }
+
+  .sidebar {
+    padding: var(--vb-space-2) var(--vb-space-3);
+  }
+
+  .links {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .link {
+    flex-shrink: 0;
+  }
+
+  .header {
+    padding: var(--vb-space-3) var(--vb-space-4);
+  }
+
+  .content {
+    padding: var(--vb-space-3);
   }
 }

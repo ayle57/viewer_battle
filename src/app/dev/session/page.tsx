@@ -3,10 +3,16 @@
 import { useState } from "react";
 import Link from "next/link";
 import type { ParticipantRole } from "@/domain/session";
-import { Badge, Button, Card, CardBody, CardHeader, Input } from "@/ui";
+import { Badge, Button, Card, CardBody, CardHeader, Input, ScoreDisplay, TeamRoster, PresenceDot } from "@/ui";
 import { trpc } from "@/app/_trpc/client";
-import { useDevIdentityStore } from "../_shared/devIdentityStore";
-import { ROLE_LABEL } from "../_shared/roleLabels";
+import { useDevIdentityStore, type DevIdentity } from "../_shared/devIdentityStore";
+import { useGameSocket } from "@/app/_shared/useGameSocket";
+import { useGameStore } from "@/app/_shared/gameStore";
+import { usePresenceStore } from "@/app/_shared/presenceStore";
+import { toRosterSeats } from "@/app/_shared/roster";
+import { SessionCodeBadge } from "@/app/_shared/SessionCodeBadge";
+import { ROLE_LABEL } from "@/app/_shared/roleLabels";
+import { DebugPanel } from "../_shared/DebugPanel";
 import styles from "./page.module.css";
 
 export default function SessionPage() {
@@ -31,12 +37,6 @@ export default function SessionPage() {
       });
     },
   });
-  const finish = trpc.session.finish.useMutation();
-
-  const state = trpc.session.getState.useQuery(
-    { sessionCode },
-    { enabled: sessionCode.trim().length > 0, refetchInterval: 2000, retry: false },
-  );
 
   function handleJoin(event: React.FormEvent) {
     event.preventDefault();
@@ -47,44 +47,19 @@ export default function SessionPage() {
   }
 
   const joinErrorCode = join.error?.data?.sessionErrorCode;
-  const stateErrorCode = state.error?.data?.sessionErrorCode;
 
   return (
     <main className={styles.page}>
       <h1>Session</h1>
       <p className={styles.hint}>
         Real session lifecycle — <code>session.create</code>/<code>session.join</code>/<code>session.getState</code>{" "}
-        via tRPC → Prisma → Postgres, with real capacity limits enforced server-side (1 Host, 2 players per team, DB
-        constraints under the hood — see AGENTS.md &quot;Session invariants&quot;). The identity you get here is a
-        real bearer token, reused by /dev/chat, /dev/host, /dev/player, /dev/display as they get wired up.
+        via tRPC → Prisma → Postgres, real presence over Socket.IO, real capacity limits enforced server-side (see
+        AGENTS.md &quot;Session invariants&quot;). Quick Demo (on <Link href="/dev">/dev</Link>) is the fast path for
+        a full 6-client game; this tool is for joining/creating by hand — a real identity, real seats, real
+        presence, edge cases Quick Demo skips.
       </p>
 
-      {identity && (
-        <Card>
-          <CardHeader title="Current identity (this tab)" />
-          <CardBody>
-            <div className={styles.currentRow}>
-              <Badge variant="neutral">{identity.displayName}</Badge>
-              <Badge variant="neutral">{ROLE_LABEL[identity.role]}</Badge>
-              <Badge variant="neutral">{identity.sessionCode}</Badge>
-              <Button size="sm" variant="ghost" onClick={clearIdentity}>
-                Clear
-              </Button>
-              {identity.role === "HOST" && (
-                <Button
-                  size="sm"
-                  variant="danger"
-                  loading={finish.isPending}
-                  onClick={() => finish.mutate({ token: identity.token })}
-                >
-                  Finish session
-                </Button>
-              )}
-            </div>
-            {finish.isSuccess && <p className={styles.hint}>Session finished — it can no longer be joined.</p>}
-          </CardBody>
-        </Card>
-      )}
+      {identity && <Lobby identity={identity} onClearIdentity={clearIdentity} />}
 
       <Card>
         <CardHeader title="Create a session" />
@@ -140,97 +115,135 @@ export default function SessionPage() {
           </form>
         </CardBody>
       </Card>
-
-      {sessionCode.trim() && (
-        <Card>
-          <CardHeader title={`Session state — ${sessionCode.trim()}`} subtitle="Polling every 2s" />
-          <CardBody>
-            {stateErrorCode && <p className={styles.errorBanner}>{stateErrorCode} — {state.error?.message}</p>}
-            {state.data && (
-              <div className={styles.stateGrid}>
-                <div>
-                  <p className={styles.selectLabel}>Status: {state.data.status}</p>
-                  <div className={styles.slot}>
-                    <span>Host</span>
-                    {state.data.host ? (
-                      <Badge variant="host">{state.data.host.displayName}</Badge>
-                    ) : (
-                      <span className={styles.slotEmpty}>empty</span>
-                    )}
-                  </div>
-                </div>
-                <div>
-                  <p className={styles.selectLabel}>
-                    Team A ({state.data.teamA.length}/2, {state.data.capacity.teamASlotsRemaining} left)
-                  </p>
-                  {[0, 1].map((i) => (
-                    <div key={i} className={styles.slot}>
-                      <span>Seat {i + 1}</span>
-                      {state.data.teamA[i] ? (
-                        <Badge variant="teamA">{state.data.teamA[i]?.displayName}</Badge>
-                      ) : (
-                        <span className={styles.slotEmpty}>empty</span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-                <div>
-                  <p className={styles.selectLabel}>
-                    Team B ({state.data.teamB.length}/2, {state.data.capacity.teamBSlotsRemaining} left)
-                  </p>
-                  {[0, 1].map((i) => (
-                    <div key={i} className={styles.slot}>
-                      <span>Seat {i + 1}</span>
-                      {state.data.teamB[i] ? (
-                        <Badge variant="teamB">{state.data.teamB[i]?.displayName}</Badge>
-                      ) : (
-                        <span className={styles.slotEmpty}>empty</span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-                <div>
-                  <p className={styles.selectLabel}>Display connections</p>
-                  <div className={styles.slot}>
-                    <span>Connected</span>
-                    <Badge variant="display">{state.data.displayCount}</Badge>
-                  </div>
-                </div>
-              </div>
-            )}
-          </CardBody>
-        </Card>
-      )}
-
-      {identity && (
-        <Card>
-          <CardHeader title="Jump to a tool" subtitle="Using this tab's current identity" />
-          <CardBody>
-            <div className={styles.jumpGrid}>
-              <Link href="/dev/chat">
-                <Button variant="secondary" size="sm">
-                  Chat
-                </Button>
-              </Link>
-              <Link href="/dev/host">
-                <Button variant="secondary" size="sm">
-                  Host
-                </Button>
-              </Link>
-              <Link href="/dev/player">
-                <Button variant="secondary" size="sm">
-                  Player
-                </Button>
-              </Link>
-              <Link href="/dev/display">
-                <Button variant="secondary" size="sm">
-                  Display
-                </Button>
-              </Link>
-            </div>
-          </CardBody>
-        </Card>
-      )}
     </main>
+  );
+}
+
+function Lobby({ identity, onClearIdentity }: { identity: DevIdentity; onClearIdentity: () => void }) {
+  useGameSocket(identity.token); // opens the one real-time connection for this tab — presence + a possible already-started game
+  const gameId = useGameStore((state) => state.gameId);
+  const gameState = useGameStore((state) => state.gameState) as { phase?: string; scores?: { TEAM_A: number; TEAM_B: number } } | null;
+  const presence = usePresenceStore((state) => state.participants);
+
+  const state = trpc.session.getState.useQuery({ sessionCode: identity.sessionCode }, { refetchInterval: 2000, retry: false });
+  const startGame = trpc.game.start.useMutation();
+  const finishSession = trpc.session.finish.useMutation();
+
+  if (!state.data) {
+    return (
+      <Card variant="raised">
+        <CardBody>
+          <p className={styles.hint}>Loading session…</p>
+        </CardBody>
+      </Card>
+    );
+  }
+
+  const teamASeats = toRosterSeats(state.data.teamA, presence);
+  const teamBSeats = toRosterSeats(state.data.teamB, presence);
+  const hostConnected = state.data.host ? presence.some((p) => p.participantId === state.data.host!.id) : false;
+  const displayConnectedCount = presence.filter((p) => p.role === "DISPLAY").length;
+
+  const statusLabel =
+    state.data.status === "FINISHED" ? "Finished" : gameId ? "Game in progress" : "Waiting for players";
+
+  return (
+    <Card variant="raised">
+      <CardHeader
+        title={<SessionCodeBadge code={identity.sessionCode} />}
+        subtitle={`You: ${identity.displayName} · ${ROLE_LABEL[identity.role]}`}
+      />
+      <CardBody>
+        <div className={styles.currentRow}>
+          <Badge variant={statusLabel === "Finished" ? "neutral" : statusLabel === "Game in progress" ? "success" : "warning"}>
+            {statusLabel}
+          </Badge>
+          <Button size="sm" variant="ghost" onClick={onClearIdentity}>
+            Clear identity
+          </Button>
+          {identity.role === "HOST" && state.data.status !== "FINISHED" && (
+            <Button
+              size="sm"
+              variant="danger"
+              loading={finishSession.isPending}
+              onClick={() => finishSession.mutate({ token: identity.token })}
+            >
+              Finish session
+            </Button>
+          )}
+        </div>
+
+        {gameId && gameState ? (
+          <div className={styles.stateGrid} style={{ marginTop: "1rem" }}>
+            <ScoreDisplay
+              teamAName="Team A"
+              teamAScore={gameState.scores?.TEAM_A ?? 0}
+              teamBName="Team B"
+              teamBScore={gameState.scores?.TEAM_B ?? 0}
+              label={`Phase: ${gameState.phase ?? "?"}`}
+            />
+          </div>
+        ) : (
+          <div className={styles.stateGrid} style={{ marginTop: "1rem" }}>
+            <div className={styles.slot}>
+              <span>Host</span>
+              {state.data.host ? (
+                <div className={styles.currentRow}>
+                  <Badge variant="host">{state.data.host.displayName}</Badge>
+                  <PresenceDot connected={hostConnected} />
+                </div>
+              ) : (
+                <span className={styles.slotEmpty}>empty</span>
+              )}
+            </div>
+
+            <TeamRoster teamName="Team A" variant="teamA" seats={teamASeats} highlightId={undefined} />
+            <TeamRoster teamName="Team B" variant="teamB" seats={teamBSeats} highlightId={undefined} />
+
+            <div className={styles.slot}>
+              <span>Display</span>
+              <PresenceDot connected={displayConnectedCount > 0} label={`${displayConnectedCount} connected`} />
+            </div>
+          </div>
+        )}
+
+        {identity.role === "HOST" && !gameId && state.data.status !== "FINISHED" && (
+          <div className={styles.currentRow} style={{ marginTop: "1rem" }}>
+            <Button
+              loading={startGame.isPending}
+              onClick={() => startGame.mutate({ token: identity.token, gameKey: "board-question" })}
+            >
+              Start Game
+            </Button>
+            {startGame.error && <p className={styles.errorBanner}>{startGame.error.message}</p>}
+          </div>
+        )}
+
+        <DebugPanel title="Jump to a tool">
+          <div className={styles.jumpGrid}>
+            <Link href="/dev/chat">
+              <Button variant="secondary" size="sm">
+                Chat
+              </Button>
+            </Link>
+            <Link href="/dev/host">
+              <Button variant="secondary" size="sm">
+                Host
+              </Button>
+            </Link>
+            <Link href="/dev/player">
+              <Button variant="secondary" size="sm">
+                Player
+              </Button>
+            </Link>
+            <Link href="/dev/display">
+              <Button variant="secondary" size="sm">
+                Display
+              </Button>
+            </Link>
+          </div>
+        </DebugPanel>
+      </CardBody>
+    </Card>
   );
 }

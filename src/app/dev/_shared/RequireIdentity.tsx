@@ -5,7 +5,7 @@ import Link from "next/link";
 import type { ParticipantRole } from "@/domain/session";
 import { Button, Card, CardBody, CardHeader } from "@/ui";
 import { useDevIdentityStore, type DevIdentity } from "./devIdentityStore";
-import { ROLE_LABEL } from "./roleLabels";
+import { ROLE_LABEL } from "@/app/_shared/roleLabels";
 
 export interface RequireIdentityProps {
   /** Roles this tool makes sense for — e.g. Host only, or either team. */

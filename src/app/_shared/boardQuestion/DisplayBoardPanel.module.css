@@ -1,8 +1,9 @@
 .wrap {
   display: flex;
   flex-direction: column;
-  gap: var(--vb-space-5);
-  max-width: 56rem;
+  gap: clamp(var(--vb-space-4), 3vw, var(--vb-space-6));
+  width: 100%;
+  max-width: 90rem;
   margin: 0 auto;
 }
 
@@ -14,7 +15,7 @@
   text-align: center;
   padding: var(--vb-space-4);
   border-radius: var(--vb-radius-lg);
-  font-size: 1.5rem;
+  font-size: clamp(1.5rem, 3.2vw, 2.75rem);
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.03em;
@@ -34,7 +35,7 @@
 
 .statusLine {
   text-align: center;
-  font-size: 1.1rem;
+  font-size: clamp(1.1rem, 2vw, 1.5rem);
   font-weight: 600;
   color: var(--vb-text-muted);
   padding: var(--vb-space-4);
@@ -43,7 +44,7 @@
 .finishedBanner {
   text-align: center;
   padding: var(--vb-space-5);
-  font-size: 1.75rem;
+  font-size: clamp(2rem, 5vw, 4rem);
   font-weight: 800;
   color: var(--vb-accent);
 }
@@ -56,7 +57,7 @@
 
 .submittedAnswer {
   text-align: center;
-  font-size: 1.5rem;
+  font-size: clamp(1.5rem, 3vw, 2.25rem);
   font-weight: 600;
   font-style: italic;
   margin: 0;
@@ -65,8 +66,27 @@
 .resultBanner {
   text-align: center;
   padding: var(--vb-space-4);
-  font-size: 1.25rem;
+  font-size: clamp(1.25rem, 2.5vw, 2rem);
   font-weight: 700;
   background: var(--vb-surface-raised);
   border-radius: var(--vb-radius-lg);
+}
+
+.judgmentBanner {
+  text-align: center;
+  padding: var(--vb-space-4);
+  border-radius: var(--vb-radius-lg);
+  font-size: clamp(2.25rem, 5vw, 4rem);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.correct {
+  background: var(--vb-success-bg);
+  color: var(--vb-success);
+}
+
+.incorrect {
+  background: var(--vb-danger-bg);
+  color: var(--vb-danger);
 }

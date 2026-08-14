@@ -53,3 +53,30 @@
   color: var(--vb-text-muted);
   margin: 0;
 }
+
+.answerLabel {
+  text-align: center;
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--vb-text-muted);
+}
+
+.judgmentBanner {
+  text-align: center;
+  padding: var(--vb-space-4);
+  border-radius: var(--vb-radius-lg);
+  font-size: 1.75rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.correct {
+  background: var(--vb-success-bg);
+  color: var(--vb-success);
+}
+
+.incorrect {
+  background: var(--vb-danger-bg);
+  color: var(--vb-danger);
+}

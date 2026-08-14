@@ -4,6 +4,7 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 
 export interface DemoParticipant {
+  id: string;
   token: string;
   displayName: string;
 }

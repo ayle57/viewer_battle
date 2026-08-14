@@ -62,10 +62,29 @@
   display: flex;
   gap: var(--vb-space-3);
   margin-top: var(--vb-space-2);
+  width: 100%;
+}
+
+.judgeRow > * {
+  flex: 1;
 }
 
 .closeRow {
   display: flex;
   justify-content: center;
   margin-top: var(--vb-space-3);
+}
+
+@media (max-width: 26rem) {
+  .judgeRow {
+    flex-direction: column;
+  }
+
+  .bigBuzz {
+    font-size: 1.6rem;
+  }
+
+  .submittedAnswer {
+    font-size: 1.15rem;
+  }
 }

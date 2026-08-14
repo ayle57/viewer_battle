@@ -3,15 +3,22 @@
 import { useEffect, useState } from "react";
 import { TRPCClientError } from "@trpc/client";
 import { trpc } from "@/app/_trpc/client";
-import { Badge, Button, Card, CardBody, CardHeader } from "@/ui";
+import { Badge, Button, Card, CardBody, CardHeader, PresenceDot } from "@/ui";
 import type { ParticipantRole } from "@/domain/session";
 import { useDemoGameStore, type DemoParticipant } from "./demoGameStore";
 import { useDevIdentityStore } from "./devIdentityStore";
-import { usePresenceStore } from "./presenceStore";
-import { useGameSocket } from "./useGameSocket";
+import { usePresenceStore } from "@/app/_shared/presenceStore";
+import { useGameSocket } from "@/app/_shared/useGameSocket";
 import styles from "./DemoGamePanel.module.css";
 
 const EXPECTED_PARTICIPANT_COUNT = 6; // Host + 2x Team A + 2x Team B + Display — the fixed Quick Demo roster.
+
+interface Seat {
+  participant: DemoParticipant;
+  role: ParticipantRole;
+  path: string;
+  label: string;
+}
 
 /**
  * "One click, a full ViewerBattle test game" — composes the exact same
@@ -44,6 +51,7 @@ export function DemoGamePanel() {
   // not a guess based on which "Open X" buttons were clicked.
   useGameSocket(demo?.host.token ?? null);
   const connectedParticipants = usePresenceStore((state) => state.participants);
+  const connectedIds = new Set(connectedParticipants.map((p) => p.participantId));
 
   // A demo saved from a previous visit might have been finished some
   // other way (e.g. through /dev/session) or just be old — confirm it's
@@ -84,16 +92,16 @@ export function DemoGamePanel() {
 
       setDemo({
         sessionCode: session.code,
-        host: { token: host.token, displayName: host.displayName },
+        host: { id: host.id, token: host.token, displayName: host.displayName },
         teamA: [
-          { token: alice.token, displayName: alice.displayName },
-          { token: bob.token, displayName: bob.displayName },
+          { id: alice.id, token: alice.token, displayName: alice.displayName },
+          { id: bob.id, token: bob.token, displayName: bob.displayName },
         ],
         teamB: [
-          { token: charlie.token, displayName: charlie.displayName },
-          { token: dave.token, displayName: dave.displayName },
+          { id: charlie.id, token: charlie.token, displayName: charlie.displayName },
+          { id: dave.id, token: dave.token, displayName: dave.displayName },
         ],
-        display: { token: display.token, displayName: display.displayName },
+        display: { id: display.id, token: display.token, displayName: display.displayName },
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create the demo game.");
@@ -144,6 +152,17 @@ export function DemoGamePanel() {
     window.open(path, "_blank");
   }
 
+  function openAll(seats: Seat[]) {
+    // One window.open() per seat, all inside this single click handler —
+    // deliberately not deferred (no setTimeout/await between calls):
+    // popup blockers key off "was this call still inside a trusted user
+    // gesture," and a synchronous loop stays inside that gesture for
+    // every call. Each call blocks until its tab exists before the next
+    // identity gets written, same ordering guarantee a human clicking
+    // the 6 buttons one at a time would get, just without the wait.
+    for (const seat of seats) openAs(seat.participant, seat.role, seat.path);
+  }
+
   if (!demo) {
     return (
       <Card variant="raised">
@@ -165,6 +184,15 @@ export function DemoGamePanel() {
     );
   }
 
+  const seats: Seat[] = [
+    { participant: demo.host, role: "HOST", path: "/dev/host", label: "Host" },
+    { participant: demo.teamA[0], role: "TEAM_A", path: "/dev/player", label: demo.teamA[0].displayName },
+    { participant: demo.teamA[1], role: "TEAM_A", path: "/dev/player", label: demo.teamA[1].displayName },
+    { participant: demo.teamB[0], role: "TEAM_B", path: "/dev/player", label: demo.teamB[0].displayName },
+    { participant: demo.teamB[1], role: "TEAM_B", path: "/dev/player", label: demo.teamB[1].displayName },
+    { participant: demo.display, role: "DISPLAY", path: "/dev/display", label: "Display" },
+  ];
+
   return (
     <Card variant="raised">
       <CardHeader title="ViewerBattle Demo" />
@@ -177,26 +205,33 @@ export function DemoGamePanel() {
           </Badge>
         </div>
 
+        <div className={styles.openAllRow}>
+          <Button size="sm" onClick={() => openAll(seats)}>
+            Open All 6
+          </Button>
+        </div>
+
         <div className={styles.roleGrid}>
           <div className={styles.roleCard}>
             <p className={styles.roleTitle}>Host</p>
-            <Button size="sm" onClick={() => openAs(demo.host, "HOST", "/dev/host")}>
-              Open Host
-            </Button>
+            <div className={styles.seatRow}>
+              <PresenceDot connected={connectedIds.has(demo.host.id)} />
+              <Button size="sm" onClick={() => openAs(demo.host, "HOST", "/dev/host")}>
+                Open Host
+              </Button>
+            </div>
           </div>
 
           <div className={styles.roleCard}>
             <p className={styles.roleTitle}>Team A</p>
             <div className={styles.playerButtons}>
               {demo.teamA.map((player) => (
-                <Button
-                  key={player.token}
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => openAs(player, "TEAM_A", "/dev/player")}
-                >
-                  Open as {player.displayName}
-                </Button>
+                <div key={player.token} className={styles.seatRow}>
+                  <PresenceDot connected={connectedIds.has(player.id)} />
+                  <Button size="sm" variant="secondary" onClick={() => openAs(player, "TEAM_A", "/dev/player")}>
+                    Open as {player.displayName}
+                  </Button>
+                </div>
               ))}
             </div>
           </div>
@@ -205,23 +240,24 @@ export function DemoGamePanel() {
             <p className={styles.roleTitle}>Team B</p>
             <div className={styles.playerButtons}>
               {demo.teamB.map((player) => (
-                <Button
-                  key={player.token}
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => openAs(player, "TEAM_B", "/dev/player")}
-                >
-                  Open as {player.displayName}
-                </Button>
+                <div key={player.token} className={styles.seatRow}>
+                  <PresenceDot connected={connectedIds.has(player.id)} />
+                  <Button size="sm" variant="secondary" onClick={() => openAs(player, "TEAM_B", "/dev/player")}>
+                    Open as {player.displayName}
+                  </Button>
+                </div>
               ))}
             </div>
           </div>
 
           <div className={styles.roleCard}>
             <p className={styles.roleTitle}>Display</p>
-            <Button size="sm" onClick={() => openAs(demo.display, "DISPLAY", "/dev/display")}>
-              Open Display
-            </Button>
+            <div className={styles.seatRow}>
+              <PresenceDot connected={connectedIds.has(demo.display.id)} />
+              <Button size="sm" onClick={() => openAs(demo.display, "DISPLAY", "/dev/display")}>
+                Open Display
+              </Button>
+            </div>
           </div>
         </div>
 
