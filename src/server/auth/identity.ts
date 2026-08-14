@@ -11,6 +11,7 @@ import type { ParticipantRole } from "@/domain/session";
  * `resolveIdentity` (see index.ts).
  */
 export interface SocketIdentity {
+  participantId: string;
   sessionId: string;
   sessionCode: string;
   role: ParticipantRole;

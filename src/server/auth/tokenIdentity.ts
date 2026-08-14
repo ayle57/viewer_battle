@@ -18,6 +18,7 @@ export const resolveTokenIdentity: IdentityResolver = async (handshakeAuth): Pro
   const participant = await resolveParticipantByToken(parsed.data.token);
 
   return {
+    participantId: participant.participantId,
     sessionId: participant.sessionId,
     sessionCode: participant.sessionCode,
     role: participant.role,

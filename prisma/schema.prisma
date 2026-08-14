@@ -50,6 +50,7 @@ model Session {
   updatedAt    DateTime        @updatedAt
   participants Participant[]
   messages     ChatMessage[]
+  games        SessionGame[]
 }
 
 model Participant {
@@ -82,4 +83,48 @@ model ChatMessage {
   createdAt  DateTime        @default(now())
 
   @@index([sessionId, channel, createdAt])
+}
+
+// --- Game Kernel persistence (see AGENTS.md "Game Kernel contract" and
+// "Vertical slice: SessionGame + realtime bridge") ---
+// This table stores an opaque snapshot of whatever src/domain/game's pure
+// engine produced — it contains ZERO game logic itself. The server's job
+// (src/server/game) is `load internalState -> engine.apply() -> persist
+// internalState`; Prisma never inspects or branches on what's inside the
+// JSON, it's just bytes to this layer.
+//
+// `version` is optimistic concurrency for the read/apply/write cycle: an
+// update is `WHERE id = ... AND version = <the version just read>`. If
+// that matches zero rows, someone else's action landed first — the
+// caller reloads and retries (bounded — see src/server/game/service.ts).
+// No Redis, no in-memory lock: the race is broken by Postgres refusing a
+// stale write, the same spirit as Participant's unique-constraint races.
+//
+// A session is allowed multiple SessionGame rows over its lifetime (the
+// product runs several mini-games per show — see README) — sessionId is
+// indexed, not unique. "The current game" is simply the most recently
+// started one; nothing here supports two games running at once for the
+// same session.
+enum SessionGameStatus {
+  IN_PROGRESS
+  FINISHED
+}
+
+model SessionGame {
+  id            String            @id @default(cuid())
+  sessionId     String
+  session       Session           @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  /// Which engine owns this game's rules — matches a GameEngine.id from
+  /// the registry in src/domain/game/registry.ts (e.g. "board-question").
+  gameKey       String
+  status        SessionGameStatus @default(IN_PROGRESS)
+  /// The engine's own state, exactly as src/domain/game produced it —
+  /// plain JSON by the Game Kernel contract, so this column IS the entire
+  /// (de)serialization story: no per-game mapping code.
+  internalState Json
+  version       Int               @default(0)
+  startedAt     DateTime          @default(now())
+  finishedAt    DateTime?
+
+  @@index([sessionId, startedAt])
 }

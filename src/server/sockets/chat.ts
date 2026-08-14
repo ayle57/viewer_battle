@@ -1,8 +1,6 @@
 import type { Server as SocketIOServer, Socket } from "socket.io";
 import { canPostToChannel, channelsForRole, chatRoomName, sendChatMessageSchema } from "@/domain/chat";
 import type { ChatChannel, ChatRole } from "@/domain/chat";
-import { SessionError, type SessionErrorCode } from "@/domain/session";
-import { resolveIdentity } from "@/server/auth";
 import type { SocketIdentity } from "@/server/auth";
 import { prisma } from "@/server/db/client";
 import { logger } from "@/server/logger";
@@ -40,32 +38,6 @@ function toWire(row: ChatMessageRow): ChatMessageWire {
   };
 }
 
-/**
- * Socket.IO auth middleware: resolves the connecting socket's identity
- * (see src/server/auth) and rejects the connection if it can't. Register
- * with `io.use(chatAuthMiddleware)` before any other middleware/handlers.
- *
- * Rejections carry the same SessionError business code tRPC exposes (see
- * src/server/trpc/errors.ts) — as both the error message (so
- * `connect_error.message` alone is already useful) and `.data.code` (the
- * structured form). One resolver, one error type, two thin transport
- * translations — not two copies of the auth logic.
- */
-export function chatAuthMiddleware(socket: Socket, next: (err?: Error) => void) {
-  resolveIdentity(socket.handshake.auth)
-    .then((identity) => {
-      socket.data.identity = identity;
-      next();
-    })
-    .catch((error: unknown) => {
-      logger.warn({ socketId: socket.id, error }, "socket auth rejected");
-      const code: SessionErrorCode = error instanceof SessionError ? error.code : "INVALID_TOKEN";
-      const err = new Error(code) as Error & { data?: { code: SessionErrorCode } };
-      err.data = { code };
-      next(err);
-    });
-}
-
 async function fetchHistory(sessionId: string, channel: ChatChannel): Promise<ChatMessageWire[]> {
   const rows = await prisma.chatMessage.findMany({
     where: { sessionId, channel },
@@ -78,7 +50,8 @@ async function fetchHistory(sessionId: string, channel: ChatChannel): Promise<Ch
 /**
  * Joins the socket to the rooms its role grants, sends recent history for
  * each, and registers the `chat:send` handler. Call once per connection,
- * after chatAuthMiddleware has attached `socket.data.identity`.
+ * after socketAuthMiddleware (src/server/sockets/auth.ts) has attached
+ * `socket.data.identity`.
  */
 export function registerChatHandlers(io: SocketIOServer, socket: Socket) {
   const identity = socket.data.identity as SocketIdentity;
