@@ -1,0 +1,36 @@
+.list {
+  display: flex;
+  gap: var(--vb-space-1);
+  border-bottom: 1px solid var(--vb-border);
+}
+
+.trigger {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--vb-text-muted);
+  font-family: var(--vb-font-sans);
+  font-size: 0.875rem;
+  font-weight: 600;
+  padding: var(--vb-space-2) var(--vb-space-3);
+  cursor: pointer;
+  transform: translateY(1px);
+}
+
+.trigger:hover {
+  color: var(--vb-text);
+}
+
+.triggerActive {
+  color: var(--vb-text);
+  border-bottom-color: var(--vb-primary);
+}
+
+.trigger:focus-visible {
+  outline: 2px solid var(--vb-primary);
+  outline-offset: 2px;
+}
+
+.panel {
+  padding-top: var(--vb-space-3);
+}

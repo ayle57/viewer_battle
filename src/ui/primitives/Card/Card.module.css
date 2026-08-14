@@ -1,0 +1,33 @@
+.card {
+  background: var(--vb-surface);
+  border: 1px solid var(--vb-border);
+  border-radius: var(--vb-radius-md);
+  box-shadow: var(--vb-shadow-sm);
+}
+
+.header {
+  padding: var(--vb-space-4) var(--vb-space-4) 0;
+}
+
+.title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.subtitle {
+  margin: var(--vb-space-1) 0 0;
+  font-size: 0.8125rem;
+  color: var(--vb-text-muted);
+}
+
+.body {
+  padding: var(--vb-space-4);
+}
+
+.footer {
+  padding: 0 var(--vb-space-4) var(--vb-space-4);
+  display: flex;
+  gap: var(--vb-space-2);
+  align-items: center;
+}

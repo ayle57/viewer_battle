@@ -1,0 +1,42 @@
+.page {
+  max-width: 60rem;
+  margin: 0 auto;
+  padding: var(--vb-space-6) var(--vb-space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-6);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-3);
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 800;
+  border-bottom: 1px solid var(--vb-border);
+  padding-bottom: var(--vb-space-2);
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--vb-space-3);
+}
+
+.grid2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: var(--vb-space-3);
+}
+
+.chatPanelBox {
+  height: 20rem;
+  border: 1px solid var(--vb-border);
+  border-radius: var(--vb-radius-md);
+  overflow: hidden;
+}

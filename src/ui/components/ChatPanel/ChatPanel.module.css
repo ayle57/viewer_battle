@@ -1,0 +1,33 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.messages {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-2);
+  padding: var(--vb-space-3);
+}
+
+.empty {
+  color: var(--vb-text-muted);
+  font-size: 0.875rem;
+  padding: var(--vb-space-3);
+}
+
+.composer {
+  display: flex;
+  gap: var(--vb-space-2);
+  padding: var(--vb-space-3);
+  border-top: 1px solid var(--vb-border);
+}
+
+.composerInput {
+  flex: 1;
+}

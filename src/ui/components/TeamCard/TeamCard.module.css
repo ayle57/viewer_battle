@@ -1,0 +1,41 @@
+.card {
+  padding: var(--vb-space-4);
+  border-radius: var(--vb-radius-md);
+  border: 1px solid var(--vb-border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-3);
+}
+
+.teamA {
+  background: var(--vb-team-a-bg);
+  border-color: var(--vb-team-a);
+}
+.teamB {
+  background: var(--vb-team-b-bg);
+  border-color: var(--vb-team-b);
+}
+
+.headerRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.name {
+  margin: 0;
+  font-size: 1.0625rem;
+  font-weight: 800;
+}
+
+.score {
+  font-size: 1.5rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.players {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-2);
+}

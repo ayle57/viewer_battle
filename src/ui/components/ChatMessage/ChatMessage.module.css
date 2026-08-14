@@ -1,0 +1,33 @@
+.message {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  padding: var(--vb-space-1) 0;
+}
+
+.metaRow {
+  display: flex;
+  align-items: baseline;
+  gap: var(--vb-space-2);
+}
+
+.sender {
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.time {
+  font-size: 0.6875rem;
+  color: var(--vb-text-muted);
+}
+
+.body {
+  font-size: 0.875rem;
+  color: var(--vb-text);
+  word-break: break-word;
+}
+
+.system {
+  font-style: italic;
+  color: var(--vb-text-muted);
+}

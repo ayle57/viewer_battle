@@ -1,0 +1,51 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--vb-space-1);
+  padding: 0.125rem var(--vb-space-2);
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.dot {
+  width: 0.4em;
+  height: 0.4em;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.neutral {
+  background: var(--vb-surface-raised);
+  color: var(--vb-text-muted);
+}
+.success {
+  background: rgba(51, 193, 122, 0.16);
+  color: var(--vb-success);
+}
+.warning {
+  background: rgba(231, 185, 63, 0.16);
+  color: var(--vb-warning);
+}
+.danger {
+  background: rgba(239, 93, 93, 0.16);
+  color: var(--vb-danger);
+}
+.teamA {
+  background: var(--vb-team-a-bg);
+  color: var(--vb-team-a);
+}
+.teamB {
+  background: var(--vb-team-b-bg);
+  color: var(--vb-team-b);
+}
+.host {
+  background: var(--vb-host-bg);
+  color: var(--vb-host);
+}
+.display {
+  background: var(--vb-display-bg);
+  color: var(--vb-display);
+}
