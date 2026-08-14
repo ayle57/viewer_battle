@@ -19,6 +19,7 @@ describe("Chat vertical slice (Socket.IO auth + rooms + permissions + Prisma)", 
   let baseUrl: string;
   let httpServer: ReturnType<typeof createServer>;
   const createdSessionIds = new Set<string>();
+  const openSockets: ClientSocket[] = [];
 
   beforeAll(async () => {
     httpServer = createServer();
@@ -29,29 +30,62 @@ describe("Chat vertical slice (Socket.IO auth + rooms + permissions + Prisma)", 
   });
 
   afterAll(async () => {
+    openSockets.forEach((s) => s.close());
     await new Promise<void>((resolve) => httpServer.close(() => resolve()));
     await prisma.session.deleteMany({ where: { id: { in: Array.from(createdSessionIds) } } });
     await prisma.$disconnect();
   });
 
-  async function joinAs(role: ParticipantRole, displayName: string) {
-    const session = await createSession();
-    createdSessionIds.add(session.id);
-    const result = await joinSession({ sessionCode: session.code, role, displayName });
-    return { token: result.token, sessionCode: session.code };
-  }
-
   function connect(token: string): ClientSocket {
-    return ioClient(baseUrl, {
+    const socket = ioClient(baseUrl, {
       path: "/socket.io",
       auth: { token },
       transports: ["websocket"],
       forceNew: true,
     });
+    openSockets.push(socket);
+    return socket;
   }
 
   function waitForConnect(socket: ClientSocket) {
     return new Promise<void>((resolve) => socket.on("connect", () => resolve()));
+  }
+
+  /**
+   * joinSession now requires a genuinely connected host for any non-host
+   * role (src/server/db/participant.ts's HOST_NOT_CONNECTED gate) — a
+   * session code was never supposed to be enough on its own. The
+   * listener has to be attached in the same tick the socket is created,
+   * or "presence:update" can already have fired with nothing subscribed
+   * yet (see the identical comment in session.test.ts).
+   */
+  function connectAndWaitForPresence(token: string): { socket: ClientSocket; ready: Promise<void> } {
+    const socket = connect(token);
+    const ready = new Promise<void>((resolve) => socket.once("presence:update", () => resolve()));
+    return { socket, ready };
+  }
+
+  /** A fresh session with a real, genuinely connected host — what any non-host role now needs to exist before it can join. The host socket is left open (not returned) so it doesn't get closed out from under later joins; afterAll cleans it up like every other socket this file opens. */
+  async function sessionWithConnectedHost() {
+    const session = await createSession();
+    createdSessionIds.add(session.id);
+    const hostJoin = await joinSession({ sessionCode: session.code, role: "HOST", displayName: "Host" });
+    const { ready } = connectAndWaitForPresence(hostJoin.token);
+    await ready;
+    return { sessionCode: session.code, hostToken: hostJoin.token };
+  }
+
+  /** Joins a fresh session as `role`. For HOST, that's just the session's own host (nothing to connect first — HOST is exempt from the presence gate). For anyone else, a real host is created and connected first, same as any real client would need. */
+  async function joinAs(role: ParticipantRole, displayName: string) {
+    if (role === "HOST") {
+      const session = await createSession();
+      createdSessionIds.add(session.id);
+      const result = await joinSession({ sessionCode: session.code, role: "HOST", displayName });
+      return { token: result.token, sessionCode: session.code };
+    }
+    const { sessionCode } = await sessionWithConnectedHost();
+    const result = await joinSession({ sessionCode, role, displayName });
+    return { token: result.token, sessionCode };
   }
 
   function waitForConnectError(socket: ClientSocket) {
@@ -95,14 +129,18 @@ describe("Chat vertical slice (Socket.IO auth + rooms + permissions + Prisma)", 
     const session = await createSession();
     createdSessionIds.add(session.id);
     const hostJoin = await joinSession({ sessionCode: session.code, role: "HOST", displayName: "Host" });
+    const { socket: host, ready: hostReady } = connectAndWaitForPresence(hostJoin.token);
+    // collectHistory's listener must be attached before awaiting
+    // anything — chat:history for all 3 channels arrives right alongside
+    // presence:update, and a `.once`/handler subscribed too late misses
+    // events that already fired.
+    const hostHistory = collectHistory(host, 3);
+    await hostReady;
     const teamAJoin = await joinSession({ sessionCode: session.code, role: "TEAM_A", displayName: "A1" });
 
-    const host = connect(hostJoin.token);
     const teamA = connect(teamAJoin.token);
-
-    const hostHistory = collectHistory(host, 3);
     const teamAHistory = collectHistory(teamA, 2);
-    await Promise.all([waitForConnect(host), waitForConnect(teamA)]);
+    await waitForConnect(teamA);
 
     expect(Object.keys(await hostHistory).sort()).toEqual(["PUBLIC", "TEAM_A", "TEAM_B"]);
     expect(Object.keys(await teamAHistory).sort()).toEqual(["PUBLIC", "TEAM_A"]);
@@ -115,14 +153,17 @@ describe("Chat vertical slice (Socket.IO auth + rooms + permissions + Prisma)", 
     const session = await createSession();
     createdSessionIds.add(session.id);
     const hostJoin = await joinSession({ sessionCode: session.code, role: "HOST", displayName: "Host" });
+    const { socket: host, ready: hostReady } = connectAndWaitForPresence(hostJoin.token);
+    await hostReady;
     const teamAJoin = await joinSession({ sessionCode: session.code, role: "TEAM_A", displayName: "A1" });
     const teamBJoin = await joinSession({ sessionCode: session.code, role: "TEAM_B", displayName: "B1" });
 
-    const host = connect(hostJoin.token);
     const teamA = connect(teamAJoin.token);
     const teamB = connect(teamBJoin.token);
 
-    await Promise.all([waitForConnect(host), waitForConnect(teamA), waitForConnect(teamB)]);
+    // host is already connected (connectAndWaitForPresence, above) —
+    // waiting for its "connect" event again here would hang forever.
+    await Promise.all([waitForConnect(teamA), waitForConnect(teamB)]);
     await new Promise((resolve) => setTimeout(resolve, 100)); // let initial history settle
 
     const hostReceived: ChatMessageWire[] = [];

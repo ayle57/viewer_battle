@@ -21,13 +21,49 @@ export interface PresenceEntry {
  * Kernel and out of Prisma entirely. Broadcast to both the host and public
  * game rooms (see src/domain/game/rooms.ts) since who's connected isn't a
  * secret the way an answer key is.
+ *
+ * Pinned to `globalThis`, not a plain module-level variable — this bit
+ * for real, the same way `src/server/sockets/instance.ts`'s `ioInstance`
+ * did (see AGENTS.md): once `isHostConnected` started getting called
+ * from the tRPC `session.join` procedure (which runs inside
+ * `src/app/api/trpc/[trpc]/route.ts`'s module graph, hot-reloaded by
+ * Next's Fast Refresh) instead of only from Socket.IO handlers (which run
+ * inside `src/server/server.ts`'s own module graph, restarted whole by
+ * `tsx watch`), a plain `const sessionPresence` gave each side its own,
+ * disconnected Map — `registerPresenceHandlers` populated one instance,
+ * `isHostConnected` read the other, forever empty, permanently rejecting
+ * every join with HOST_NOT_CONNECTED even with a real host connected.
+ * Caught by testing against the actual running dev server, not by the
+ * automated suite, which spins up its own single-module-instance
+ * `http.Server`+Socket.IO pair per test file and never exercises this
+ * specific cross-module-instance path.
  */
-const sessionPresence = new Map<string, Map<string, { entry: PresenceEntry; sockets: number }>>();
+type PresenceMap = Map<string, Map<string, { entry: PresenceEntry; sockets: number }>>;
+const globalForPresence = globalThis as unknown as { sessionPresence?: PresenceMap };
+const sessionPresence: PresenceMap = globalForPresence.sessionPresence ?? (globalForPresence.sessionPresence = new Map());
 
 function snapshot(sessionId: string): PresenceEntry[] {
   const byParticipant = sessionPresence.get(sessionId);
   if (!byParticipant) return [];
   return Array.from(byParticipant.values(), (v) => v.entry);
+}
+
+/**
+ * The real access-control fact "is the host actually here right now" —
+ * used by joinSession (src/server/db/participant.ts) to gate NEW
+ * Player/Display joins: a session code alone must never be enough to get
+ * a seat, only a session with a genuinely connected host. Deliberately a
+ * live presence check, not a DB flag — a host whose tab crashed without
+ * a clean disconnect is caught by the same socket "disconnect" event
+ * every other presence consumer relies on, nothing extra to maintain.
+ */
+export function isHostConnected(sessionId: string): boolean {
+  const byParticipant = sessionPresence.get(sessionId);
+  if (!byParticipant) return false;
+  for (const { entry } of byParticipant.values()) {
+    if (entry.role === "HOST") return true;
+  }
+  return false;
 }
 
 function broadcast(io: SocketIOServer, sessionId: string) {

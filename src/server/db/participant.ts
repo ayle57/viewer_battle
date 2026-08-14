@@ -2,8 +2,10 @@ import { isTeamRole, MAX_PLAYERS_PER_TEAM, SessionError, type JoinSessionInput }
 import { Prisma } from "@/generated/prisma/client";
 import { generateToken, hashToken } from "@/server/auth/token";
 import { prisma } from "@/server/db/client";
+import { isHostConnected } from "@/server/sockets/presence";
 
 export interface JoinSessionResult {
+  id: string;
   token: string;
   sessionCode: string;
   role: JoinSessionInput["role"];
@@ -42,31 +44,41 @@ export async function joinSession(input: JoinSessionInput): Promise<JoinSessionR
   if (!session) throw new SessionError("SESSION_NOT_FOUND");
   if (session.status === "FINISHED") throw new SessionError("SESSION_CLOSED");
 
+  // The core access-control rule: a session code alone is never enough
+  // to claim a NEW seat as anything other than the host — the host must
+  // be genuinely connected right now (real Socket.IO presence, not a DB
+  // flag). Reconnecting with an existing token (tryReuseToken, above)
+  // skips this entirely on purpose — a player already in the game keeps
+  // working through a host disconnect, only NEW joins are gated.
+  if (input.role !== "HOST" && !isHostConnected(session.id)) {
+    throw new SessionError("HOST_NOT_CONNECTED");
+  }
+
   const token = generateToken();
   const tokenHash = hashToken(token);
 
   try {
-    await prisma.$transaction(async (tx) => {
+    const participantId = await prisma.$transaction(async (tx) => {
       if (input.role === "HOST") {
         const existingHost = await tx.participant.findFirst({ where: { sessionId: session.id, role: "HOST" } });
         if (existingHost) throw new SessionError("HOST_ALREADY_CONNECTED");
-        await tx.participant.create({
+        const created = await tx.participant.create({
           data: { sessionId: session.id, role: "HOST", displayName: input.displayName, tokenHash },
         });
-        return;
+        return created.id;
       }
 
       if (input.role === "DISPLAY") {
-        await tx.participant.create({
+        const created = await tx.participant.create({
           data: { sessionId: session.id, role: "DISPLAY", displayName: input.displayName, tokenHash },
         });
-        return;
+        return created.id;
       }
 
       if (isTeamRole(input.role)) {
         const teamCount = await tx.participant.count({ where: { sessionId: session.id, role: input.role } });
         if (teamCount >= MAX_PLAYERS_PER_TEAM) throw new SessionError("TEAM_FULL");
-        await tx.participant.create({
+        const created = await tx.participant.create({
           data: {
             sessionId: session.id,
             role: input.role,
@@ -75,14 +87,17 @@ export async function joinSession(input: JoinSessionInput): Promise<JoinSessionR
             tokenHash,
           },
         });
+        return created.id;
       }
+
+      throw new SessionError("FORBIDDEN"); // unreachable given JoinSessionInput's role union, but keeps this function total
     });
 
     if (session.status === "CREATED") {
       await prisma.session.update({ where: { id: session.id }, data: { status: "ACTIVE" } });
     }
 
-    return { token, sessionCode: session.code, role: input.role, displayName: input.displayName, reused: false };
+    return { id: participantId, token, sessionCode: session.code, role: input.role, displayName: input.displayName, reused: false };
   } catch (error) {
     if (error instanceof SessionError) throw error;
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
@@ -101,6 +116,7 @@ async function tryReuseToken(token: string, sessionCode: string): Promise<JoinSe
   if (!participant || participant.session.code !== sessionCode) return null;
 
   return {
+    id: participant.id,
     token,
     sessionCode: participant.session.code,
     role: participant.role,

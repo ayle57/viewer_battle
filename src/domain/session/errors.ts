@@ -13,6 +13,7 @@ export type SessionErrorCode =
   | "SESSION_NOT_FOUND"
   | "SESSION_CLOSED"
   | "HOST_ALREADY_CONNECTED"
+  | "HOST_NOT_CONNECTED"
   | "TEAM_FULL"
   | "INVALID_TOKEN"
   | "FORBIDDEN";
@@ -21,6 +22,7 @@ const MESSAGES: Record<SessionErrorCode, string> = {
   SESSION_NOT_FOUND: "No session with that code exists.",
   SESSION_CLOSED: "This session has finished and can no longer be joined.",
   HOST_ALREADY_CONNECTED: "This session already has a host.",
+  HOST_NOT_CONNECTED: "The host isn't connected yet — this game isn't ready to join.",
   TEAM_FULL: "This team already has 2 players.",
   INVALID_TOKEN: "This token is invalid or has expired.",
   FORBIDDEN: "You don't have permission to do that.",

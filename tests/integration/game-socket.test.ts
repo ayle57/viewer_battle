@@ -37,6 +37,7 @@ describe("Game vertical slice (Socket.IO rooms + redaction + reconnection)", () 
   let httpServer: ReturnType<typeof createServer>;
   let io: ReturnType<typeof createSocketServer>;
   const createdSessionIds = new Set<string>();
+  const openSockets: ClientSocket[] = [];
 
   beforeAll(async () => {
     httpServer = createServer();
@@ -47,10 +48,37 @@ describe("Game vertical slice (Socket.IO rooms + redaction + reconnection)", () 
   });
 
   afterAll(async () => {
+    openSockets.forEach((s) => s.close());
     await new Promise<void>((resolve) => httpServer.close(() => resolve()));
     await prisma.session.deleteMany({ where: { id: { in: Array.from(createdSessionIds) } } });
     await prisma.$disconnect();
   });
+
+  function connect(token: string): ClientSocket {
+    const socket = ioClient(baseUrl, { path: "/socket.io", auth: { token }, transports: ["websocket"], forceNew: true });
+    openSockets.push(socket);
+    return socket;
+  }
+
+  function waitForConnect(socket: ClientSocket) {
+    return new Promise<void>((resolve) => socket.on("connect", () => resolve()));
+  }
+
+  /**
+   * joinSession now requires a genuinely connected host for any non-host
+   * role (see src/server/db/participant.ts's HOST_NOT_CONNECTED gate) —
+   * a session code alone was never supposed to be enough. Waiting for
+   * "connect" isn't a strong enough guarantee that the server has
+   * actually finished registering presence yet (see the identical
+   * comment in session.test.ts); the socket's own presence:update echo
+   * is the real signal, and the listener has to be attached before any
+   * `await` or it can already have fired with nothing listening.
+   */
+  function connectAndWaitForPresence(token: string): { socket: ClientSocket; ready: Promise<void> } {
+    const socket = connect(token);
+    const ready = new Promise<void>((resolve) => socket.once("presence:update", () => resolve()));
+    return { socket, ready };
+  }
 
   /** Sets up a session with all 4 roles joined and a game already started+broadcast, mirroring what tRPC's game.start does. */
   async function setUpSessionWithGame() {
@@ -58,6 +86,16 @@ describe("Game vertical slice (Socket.IO rooms + redaction + reconnection)", () 
     createdSessionIds.add(session.id);
 
     const host = await joinSession({ sessionCode: session.code, role: "HOST", displayName: "Alex" });
+    // A throwaway socket purely to establish real host presence before
+    // any other role tries to join — kept open (closed in afterAll along
+    // with every other socket this file opens), since closing it here
+    // would immediately drop presence back to zero and reject the very
+    // joins below. Each test still opens its own separate host socket
+    // afterward for its actual assertions; presence is refcounted per
+    // participant, so having two is harmless.
+    const { ready } = connectAndWaitForPresence(host.token);
+    await ready;
+
     const teamA = await joinSession({ sessionCode: session.code, role: "TEAM_A", displayName: "A1" });
     const teamB = await joinSession({ sessionCode: session.code, role: "TEAM_B", displayName: "B1" });
     const display = await joinSession({ sessionCode: session.code, role: "DISPLAY", displayName: "OBS" });
@@ -67,14 +105,6 @@ describe("Game vertical slice (Socket.IO rooms + redaction + reconnection)", () 
     broadcastGameSnapshot(io, session.id, started.gameId, started.gameKey, started.state, started.events);
 
     return { sessionId: session.id, sessionCode: session.code, host, teamA, teamB, display };
-  }
-
-  function connect(token: string): ClientSocket {
-    return ioClient(baseUrl, { path: "/socket.io", auth: { token }, transports: ["websocket"], forceNew: true });
-  }
-
-  function waitForConnect(socket: ClientSocket) {
-    return new Promise<void>((resolve) => socket.on("connect", () => resolve()));
   }
 
   function waitForState(socket: ClientSocket): Promise<BoardSnapshot> {
@@ -459,14 +489,26 @@ describe("Game vertical slice (Socket.IO rooms + redaction + reconnection)", () 
     });
 
     it("one participant with two open tabs only counts once, and only disappears once BOTH close", async () => {
-      const { host, display } = await setUpSessionWithGame();
-      const tab1 = connect(host.token);
+      // Deliberately NOT setUpSessionWithGame() — that helper keeps its
+      // own bootstrap host socket open for the test's whole duration (so
+      // the later team/display joins it performs stay valid), which
+      // would inflate HOST's presence refcount here and this test is
+      // specifically about counting exact socket-close transitions.
+      const session = await createSession();
+      createdSessionIds.add(session.id);
+      const host = await joinSession({ sessionCode: session.code, role: "HOST", displayName: "Alex" });
+      // tab1 IS the connection that establishes host presence — no
+      // separate bootstrap socket to leak into this test's exact counts.
+      const { socket: tab1, ready: tab1Ready } = connectAndWaitForPresence(host.token);
+      await tab1Ready;
+      const display = await joinSession({ sessionCode: session.code, role: "DISPLAY", displayName: "OBS" });
+
       const tab2 = connect(host.token); // same token, a second tab for the same participant
       // A third, unrelated connection to observe from — tab1 itself can't
       // observe what happens AFTER tab1 closes.
       const observerSocket = connect(display.token);
       const tracker = trackPresence(observerSocket);
-      await Promise.all([tab1, tab2, observerSocket].map(waitForConnect));
+      await Promise.all([tab2, observerSocket].map(waitForConnect));
 
       const afterBoth = await tracker.settle();
       expect(afterBoth.participants).toHaveLength(2); // HOST (once, not twice) + DISPLAY
