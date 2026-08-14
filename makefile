@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help install dev build start test test-watch lint typecheck check \
+.PHONY: help install dev kill-port build start test test-watch lint typecheck check \
         db-generate db-migrate db-deploy \
         docker-build docker-up docker-down docker-reset docker-logs docker-migrate
 
@@ -12,7 +12,18 @@ help: ## Show this help
 install: ## Install dependencies
 	pnpm install
 
-dev: ## Start the dev server (Next.js + Socket.IO, hot reload)
+kill-port: ## Kill whatever's listening on :3000 (stale/orphaned dev server)
+	@pid=$$(lsof -ti:3000 2>/dev/null); \
+	if [ -n "$$pid" ]; then \
+		echo "Killing process on :3000 via lsof ($$pid)"; \
+		kill -9 $$pid 2>/dev/null; \
+	else \
+		echo "lsof found nothing on :3000"; \
+	fi
+	@fuser -k -n tcp 3000 2>/dev/null && echo "fuser killed something on :3000" || echo "fuser found nothing on :3000"
+	@sleep 1
+
+dev: kill-port ## Start the dev server (Next.js + Socket.IO, hot reload)
 	pnpm dev
 
 build: ## Production build
