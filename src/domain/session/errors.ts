@@ -16,6 +16,8 @@ export type SessionErrorCode =
   | "HOST_NOT_CONNECTED"
   | "TEAM_FULL"
   | "INVALID_TOKEN"
+  | "INVALID_HOST_KEY"
+  | "INVALID_HOST_PASSWORD"
   | "FORBIDDEN";
 
 const MESSAGES: Record<SessionErrorCode, string> = {
@@ -25,6 +27,8 @@ const MESSAGES: Record<SessionErrorCode, string> = {
   HOST_NOT_CONNECTED: "The host isn't connected yet — this game isn't ready to join.",
   TEAM_FULL: "This team already has 2 players.",
   INVALID_TOKEN: "This token is invalid or has expired.",
+  INVALID_HOST_KEY: "That recovery key doesn't match this session.",
+  INVALID_HOST_PASSWORD: "That password isn't correct.",
   FORBIDDEN: "You don't have permission to do that.",
 };
 

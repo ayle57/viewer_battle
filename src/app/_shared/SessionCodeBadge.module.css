@@ -3,3 +3,21 @@
   align-items: center;
   gap: var(--vb-space-2);
 }
+
+/* A clear, brief "yes, that worked" instead of just a text swap — pairs
+   with the label flipping to "✓ Copied" in SessionCodeBadge.tsx. */
+.pop {
+  animation: vb-copy-pop 260ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes vb-copy-pop {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.08);
+  }
+  100% {
+    transform: scale(1);
+  }
+}

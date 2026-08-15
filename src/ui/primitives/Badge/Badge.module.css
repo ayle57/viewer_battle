@@ -34,6 +34,12 @@
   background: var(--vb-success-bg);
   color: var(--vb-success);
 }
+/* Only the success dot pulses — it's the one color this actually reads
+   as "true right now" (Connected, Ready, Available); every other
+   variant's dot stays a plain, static marker. */
+.success .dot {
+  animation: vb-live-pulse 2s ease-in-out infinite;
+}
 .warning {
   background: var(--vb-warning-bg);
   color: var(--vb-warning);

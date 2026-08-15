@@ -1,0 +1,286 @@
+.story {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(var(--vb-space-7), 10vh, 7rem);
+  max-width: 64rem;
+  width: 100%;
+  padding: clamp(var(--vb-space-6), 6vh, var(--vb-space-8)) 0;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--vb-space-5);
+  text-align: center;
+}
+
+.kicker {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--vb-primary);
+}
+
+.title {
+  margin: 0;
+  font-size: clamp(1.5rem, 4vw, 2.5rem);
+  font-weight: 800;
+  text-wrap: balance;
+}
+
+.tagline {
+  margin: calc(-1 * var(--vb-space-3)) 0 0;
+  max-width: 32rem;
+  color: var(--vb-text-muted);
+  font-size: 0.95rem;
+}
+
+/* --- Section 1: Run the show --- */
+
+.runShow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--vb-space-4);
+}
+
+.runShowArrow {
+  color: var(--vb-border);
+  font-size: 1.25rem;
+}
+
+.runShowStep {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--vb-space-2);
+}
+
+.runShowChip {
+  padding: var(--vb-space-2) var(--vb-space-3);
+  background: var(--vb-surface-raised);
+  border: 1px solid var(--vb-border);
+  border-radius: var(--vb-radius-sm);
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.judgeCheck {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  background: var(--vb-success-bg);
+  color: var(--vb-success);
+  font-weight: 800;
+}
+
+/* --- Section 2: Teams --- */
+
+.teamsRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--vb-space-6);
+  width: 100%;
+}
+
+.teamPanel {
+  flex: 1;
+  max-width: 14rem;
+  padding: var(--vb-space-5) var(--vb-space-4);
+  border-radius: var(--vb-radius-lg);
+  font-weight: 800;
+  font-size: 1.1rem;
+  letter-spacing: 0.04em;
+}
+
+.teamPanelA {
+  background: var(--vb-team-a-bg);
+  color: var(--vb-team-a);
+  border: 2px solid var(--vb-team-a);
+}
+
+.teamPanelB {
+  background: var(--vb-team-b-bg);
+  color: var(--vb-team-b);
+  border: 2px solid var(--vb-team-b);
+}
+
+.teamsVs {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--vb-text-muted);
+}
+
+/* --- Section 3: Countdown --- */
+
+.countdownQuestion {
+  padding: var(--vb-space-3) var(--vb-space-5);
+  background: var(--vb-surface-raised);
+  border: 1px solid var(--vb-border);
+  border-radius: var(--vb-radius-md);
+  font-weight: 700;
+}
+
+.countdownRow {
+  display: flex;
+  align-items: center;
+  gap: var(--vb-space-4);
+  font-size: clamp(2rem, 5vw, 3rem);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--vb-text-muted);
+}
+
+.countdownBuzz {
+  font-size: clamp(1.5rem, 4vw, 2.5rem);
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: var(--vb-team-a);
+}
+
+/* --- Section 4: Display frame --- */
+
+.displayFrame {
+  width: 100%;
+  max-width: 32rem;
+  aspect-ratio: 16 / 9;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--vb-space-3);
+  padding: var(--vb-space-4);
+  background: var(--vb-obs-bg);
+  border-radius: var(--vb-radius-lg);
+  box-shadow: var(--vb-shadow-md);
+  position: relative;
+  overflow: hidden;
+}
+
+.displayLive {
+  position: absolute;
+  top: var(--vb-space-3);
+  left: var(--vb-space-3);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.15rem var(--vb-space-2);
+  background: var(--vb-danger);
+  color: var(--vb-primary-text);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  border-radius: var(--vb-radius-full);
+}
+
+.displayLiveDot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--vb-primary-text);
+}
+
+.displayScoreRow {
+  display: flex;
+  align-items: center;
+  gap: var(--vb-space-5);
+  font-size: clamp(1.5rem, 4vw, 2.5rem);
+  font-weight: 800;
+  color: var(--vb-obs-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.displayScoreA {
+  color: var(--vb-team-a);
+}
+
+.displayScoreB {
+  color: var(--vb-team-b);
+}
+
+.displayLabel {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--vb-obs-text) 60%, transparent);
+}
+
+/* --- Section 5: Games --- */
+
+.gameCards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: var(--vb-space-4);
+  width: 100%;
+}
+
+.gameCard {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--vb-space-2);
+  padding: var(--vb-space-5);
+  background: var(--vb-surface);
+  border: 1px solid var(--vb-border);
+  border-radius: var(--vb-radius-lg);
+  box-shadow: var(--vb-shadow-sm);
+  text-align: left;
+  transition: transform var(--vb-transition-fast), box-shadow var(--vb-transition-fast);
+}
+
+.gameCard:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--vb-shadow-md);
+}
+
+.gameCardComingSoon {
+  background: var(--vb-surface-raised);
+  border-style: dashed;
+}
+
+.gameCardComingSoon:hover {
+  transform: none;
+  box-shadow: var(--vb-shadow-sm);
+}
+
+.gameCardName {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.gameCardMetaTag {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--vb-primary);
+}
+
+.gameCardDescription {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--vb-text-muted);
+}
+
+@media (max-width: 30rem) {
+  .teamsRow {
+    gap: var(--vb-space-3);
+  }
+
+  .teamPanel {
+    font-size: 0.9rem;
+    padding: var(--vb-space-4) var(--vb-space-2);
+  }
+}

@@ -1,0 +1,30 @@
+.wrap {
+  position: relative;
+}
+
+/* Rough alignment with ScoreDisplay's own `grid-template-columns: 1fr
+   auto 1fr` — there's no DOM hook into that internal layout from here
+   (see AnimatedScoreDisplay.tsx's comment on why this stays a separate
+   wrapper instead of teaching ScoreDisplay itself about deltas), so this
+   is a deliberate approximation, not a pixel-measured value. */
+.delta {
+  position: absolute;
+  top: -0.4rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: var(--vb-radius-full);
+  color: var(--vb-primary-text);
+  font-size: 0.8rem;
+  font-weight: 800;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.deltaA {
+  left: 18%;
+  background: var(--vb-team-a);
+}
+
+.deltaB {
+  right: 18%;
+  background: var(--vb-team-b);
+}

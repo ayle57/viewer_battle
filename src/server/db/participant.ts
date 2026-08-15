@@ -1,4 +1,4 @@
-import { isTeamRole, MAX_PLAYERS_PER_TEAM, SessionError, type JoinSessionInput } from "@/domain/session";
+import { isTeamRole, MAX_PLAYERS_PER_TEAM, SessionError, type JoinSessionInput, type ReclaimHostInput } from "@/domain/session";
 import { Prisma } from "@/generated/prisma/client";
 import { generateToken, hashToken } from "@/server/auth/token";
 import { prisma } from "@/server/db/client";
@@ -123,6 +123,47 @@ async function tryReuseToken(token: string, sessionCode: string): Promise<JoinSe
     displayName: participant.displayName,
     reused: true,
   };
+}
+
+/**
+ * The recovery path for "the host lost their token" (browser closed,
+ * sessionStorage cleared — see identityStore.ts) — proves control of the
+ * session via the one-time recovery key (Session.hostKeyHash, set at
+ * session.create) instead of an existing token, then rotates the HOST
+ * Participant's tokenHash so a fresh token can be issued. Doesn't touch
+ * the "exactly 1 HOST" invariant: this reclaims the SAME participant row,
+ * it never creates a second one, so the partial unique index never even
+ * enters into it.
+ */
+export async function reclaimHost(input: ReclaimHostInput): Promise<JoinSessionResult> {
+  const session = await prisma.session.findUnique({ where: { code: input.sessionCode } });
+  if (!session) throw new SessionError("SESSION_NOT_FOUND");
+  if (session.status === "FINISHED") throw new SessionError("SESSION_CLOSED");
+  if (!session.hostKeyHash || hashToken(input.hostKey) !== session.hostKeyHash) {
+    throw new SessionError("INVALID_HOST_KEY");
+  }
+
+  const token = generateToken();
+  const tokenHash = hashToken(token);
+  const hostParticipant = await prisma.participant.findFirst({ where: { sessionId: session.id, role: "HOST" } });
+
+  // No one has actually claimed the HOST seat yet — shouldn't happen in
+  // practice (the create flow joins immediately after creating the
+  // session) but the recovery key is still valid proof of control, so
+  // this stays total rather than throwing on an edge case that just
+  // means "claim it for the first time instead of rotating it".
+  if (!hostParticipant) {
+    const created = await prisma.participant.create({
+      data: { sessionId: session.id, role: "HOST", displayName: input.displayName, tokenHash },
+    });
+    return { id: created.id, token, sessionCode: session.code, role: "HOST", displayName: created.displayName, reused: false };
+  }
+
+  const updated = await prisma.participant.update({
+    where: { id: hostParticipant.id },
+    data: { tokenHash, displayName: input.displayName },
+  });
+  return { id: updated.id, token, sessionCode: session.code, role: "HOST", displayName: updated.displayName, reused: true };
 }
 
 export interface ResolvedParticipant {

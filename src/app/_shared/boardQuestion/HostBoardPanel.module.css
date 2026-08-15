@@ -75,6 +75,11 @@
   margin-top: var(--vb-space-3);
 }
 
+.endGameRow {
+  display: flex;
+  justify-content: flex-end;
+}
+
 @media (max-width: 26rem) {
   .judgeRow {
     flex-direction: column;

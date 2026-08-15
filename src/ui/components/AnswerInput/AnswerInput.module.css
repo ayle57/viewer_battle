@@ -32,6 +32,7 @@
   color: var(--vb-success);
   font-size: 0.9rem;
   font-weight: 600;
+  animation: vb-fade-in-up var(--vb-transition-base) both;
 }
 
 .checkmark {

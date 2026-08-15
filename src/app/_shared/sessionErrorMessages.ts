@@ -12,6 +12,8 @@ const SESSION_ERROR_MESSAGES: Record<string, string> = {
   HOST_NOT_CONNECTED: "Waiting for the host — this game isn't ready to join yet.",
   TEAM_FULL: "That team is already full.",
   INVALID_TOKEN: "Your session expired — please rejoin.",
+  INVALID_HOST_KEY: "That recovery key doesn't match this session code.",
+  INVALID_HOST_PASSWORD: "That password isn't correct.",
   FORBIDDEN: "You don't have permission to do that.",
 };
 

@@ -11,6 +11,10 @@
   padding: var(--vb-space-4) 0;
 }
 
+.questionEnter {
+  animation: vb-fade-in-up 380ms ease both;
+}
+
 .buzzedBanner {
   text-align: center;
   padding: var(--vb-space-4);
@@ -46,7 +50,28 @@
   padding: var(--vb-space-5);
   font-size: clamp(2rem, 5vw, 4rem);
   font-weight: 800;
+  letter-spacing: 0.02em;
   color: var(--vb-accent);
+  animation: vb-winner-reveal-lg 550ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes vb-winner-reveal-lg {
+  from {
+    opacity: 0;
+    transform: scale(0.9) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.finishedA {
+  color: var(--vb-team-a);
+}
+
+.finishedB {
+  color: var(--vb-team-b);
 }
 
 .buzzedBlock {

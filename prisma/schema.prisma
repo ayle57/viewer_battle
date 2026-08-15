@@ -46,6 +46,15 @@ model Session {
   id           String          @id @default(cuid())
   code         String          @unique
   status       SessionStatus   @default(CREATED)
+  /// SHA-256 hash of the host's one-time recovery key (src/domain/session/
+  /// hostKey.ts), generated at session.create and shown to the host
+  /// exactly once. Lets reclaimHost (src/server/db/participant.ts) rotate
+  /// the HOST Participant's tokenHash if the original bearer token is
+  /// lost — a second, session-scoped secret for that one purpose, not a
+  /// replacement for the token. Nullable only because a raw SQL migration
+  /// can't backfill real hashes for sessions created before this column
+  /// existed; every session created going forward always has one.
+  hostKeyHash  String?
   createdAt    DateTime        @default(now())
   updatedAt    DateTime        @updatedAt
   participants Participant[]

@@ -1,0 +1,35 @@
+.wrap {
+  position: relative;
+}
+
+.flash {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--vb-radius-lg);
+  transform-origin: left center;
+  pointer-events: none;
+}
+
+.flashA {
+  background: color-mix(in srgb, var(--vb-team-a) 55%, transparent);
+}
+
+.flashB {
+  background: color-mix(in srgb, var(--vb-team-b) 55%, transparent);
+}
+
+.ring {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--vb-radius-lg);
+  border: 3px solid transparent;
+  pointer-events: none;
+}
+
+.ringA {
+  border-color: var(--vb-team-a);
+}
+
+.ringB {
+  border-color: var(--vb-team-b);
+}

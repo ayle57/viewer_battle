@@ -58,6 +58,8 @@ export function apply(
       return applyJudgeAnswer(state, validated.by, validated.correct);
     case "CLOSE_QUESTION":
       return applyCloseQuestion(state, validated.by);
+    case "END_GAME":
+      return applyEndGame(state, validated.by);
   }
 }
 
@@ -195,6 +197,32 @@ function closeQuestion(
   };
 }
 
+/**
+ * The host stopping a game early — from any phase, whether or not a
+ * question is mid-play. Same winner rule as running out the board
+ * (`finishIfBoardComplete`): highest current score, "TIE" if equal.
+ * Whatever question was active is simply abandoned — no `history`/
+ * `playedQuestionIds` entry, as if it never happened — rather than
+ * forced through `closeQuestion`'s bookkeeping for a question nobody
+ * actually finished playing.
+ */
+function applyEndGame(state: BoardQuestionState, by: ParticipantRole): EngineResult<BoardQuestionState, BoardQuestionEvent> {
+  if (by !== "HOST") return err("FORBIDDEN_ROLE", "Only the host can end the game.");
+
+  const winner = leadingTeam(state.scores) ?? "TIE";
+  const nextState: BoardQuestionState = {
+    ...state,
+    status: "finished",
+    phase: "selecting",
+    activeQuestionId: null,
+    buzzedTeam: null,
+    submittedAnswer: null,
+    attemptedTeams: [],
+    winner,
+  };
+  return ok(nextState, [gameFinishedEvent(winner, state.scores)]);
+}
+
 /** Every question played -> game over. Called after every closeQuestion. */
 function finishIfBoardComplete(
   state: BoardQuestionState,
@@ -209,15 +237,18 @@ function finishIfBoardComplete(
 
 export function availableActions(state: BoardQuestionState, role: ParticipantRole): string[] {
   if (state.status === "finished") return [];
+  // The host can end the game from any phase — appended, not a
+  // replacement for whatever else the phase already permits.
+  const hostCanAlwaysEnd = role === "HOST" ? ["END_GAME"] : [];
   switch (state.phase) {
     case "selecting":
-      return role === "HOST" ? ["SELECT_QUESTION"] : [];
+      return role === "HOST" ? ["SELECT_QUESTION", ...hostCanAlwaysEnd] : [];
     case "revealed":
       if (isTeamRole(role) && !state.attemptedTeams.includes(role)) return ["BUZZ"];
-      return role === "HOST" ? ["CLOSE_QUESTION"] : [];
+      return role === "HOST" ? ["CLOSE_QUESTION", ...hostCanAlwaysEnd] : [];
     case "answering":
       if (role === "HOST") {
-        return state.submittedAnswer === null ? ["CLOSE_QUESTION"] : ["JUDGE_ANSWER", "CLOSE_QUESTION"];
+        return [...(state.submittedAnswer === null ? ["CLOSE_QUESTION"] : ["JUDGE_ANSWER", "CLOSE_QUESTION"]), ...hostCanAlwaysEnd];
       }
       if (isTeamRole(role) && role === state.buzzedTeam && state.submittedAnswer === null) return ["SUBMIT_ANSWER"];
       return [];
@@ -228,8 +259,11 @@ export const boardQuestionEngine: GameEngine<BoardQuestionState, BoardQuestionAc
   {
     id: "board-question",
     label: "Mini Jeopardy",
+    description: "Host-picked categories and questions — buzz in, answer, and steal points.",
+    meta: "2 teams · live quiz",
     createInitialState,
     apply,
     availableActions,
     toPublicView,
+    getWinner: (state) => (state.status === "finished" ? state.winner : null),
   };

@@ -5,12 +5,16 @@ import { trpc } from "@/app/_trpc/client";
 import { TRPCClientError } from "@trpc/client";
 import { Button, Card, CardBody, CardHeader, Input, TeamRoster } from "@/ui";
 import { DisplayBoardPanel } from "@/app/_shared/boardQuestion/DisplayBoardPanel";
+import { MatchScore } from "@/app/_shared/MatchScore";
+import { WinnerReveal } from "@/app/_shared/boardQuestion/WinnerReveal";
 import { GameChatPanel } from "@/app/_shared/GameChatPanel";
 import { HostDisconnectedBanner } from "@/app/_shared/HostDisconnectedBanner";
+import { SessionEndedNotice } from "@/app/_shared/SessionEndedNotice";
 import { useGameStore } from "@/app/_shared/gameStore";
 import { useGameSocket } from "@/app/_shared/useGameSocket";
 import { usePresenceStore } from "@/app/_shared/presenceStore";
 import { toRosterSeats } from "@/app/_shared/roster";
+import { deriveSessionPhase, readGameStatus } from "@/app/_shared/sessionPhase";
 import { useIdentityStore, type Identity } from "@/app/_shared/identityStore";
 import { readableSessionError } from "@/app/_shared/sessionErrorMessages";
 import styles from "./page.module.css";
@@ -97,8 +101,10 @@ function DisplayConnect() {
 function DisplayGame({ identity }: { identity: Identity }) {
   const { sendChatMessage } = useGameSocket(identity.token);
   const gameId = useGameStore((state) => state.gameId);
-  const gameState = useGameStore((state) => state.gameState);
+  const rawGameState = useGameStore((state) => state.gameState);
+  const gameState = rawGameState as unknown as BoardQuestionState | null;
   const lastEvents = useGameStore((state) => state.lastEvents);
+  const liveSessionEnded = useGameStore((state) => state.sessionEnded);
   const presence = usePresenceStore((state) => state.participants);
   const hostConnected = presence.some((p) => p.role === "HOST");
 
@@ -108,6 +114,23 @@ function DisplayGame({ identity }: { identity: Identity }) {
   );
   const roster = sessionState.data;
 
+  // See host/page.tsx's identical comment — either signal means the
+  // session is genuinely gone, not merely marked finished.
+  const sessionEnded = liveSessionEnded || sessionState.error?.data?.sessionErrorCode === "SESSION_NOT_FOUND";
+  const phase = deriveSessionPhase({ sessionStatus: sessionState.data?.status, gameId, gameStatus: readGameStatus(rawGameState), sessionEnded });
+
+  // No button anywhere on this page by design (AGENTS.md "Session vs.
+  // Game phases" — Display is read-only, always) — GAME_FINISHED renders
+  // the same hero shell SESSION_LOBBY does, just with the real final
+  // score and a winner line instead of 0-0/"WAITING FOR HOST". It moves
+  // on to the next game automatically the moment the Host actually
+  // starts one (a fresh gameId arrives over the same socket broadcast
+  // every other connected role gets), never a local timer pretending to
+  // know when that happened.
+  if (phase === "SESSION_FINISHED") {
+    return <SessionEndedNotice sessionCode={identity.sessionCode} />;
+  }
+
   return (
     <>
       {!hostConnected && (
@@ -116,11 +139,30 @@ function DisplayGame({ identity }: { identity: Identity }) {
         </div>
       )}
 
-      {gameId && gameState ? (
-        <DisplayBoardPanel state={gameState as unknown as BoardQuestionState} lastEvents={lastEvents} />
+      {/* `key={phase}` remounts on a real phase change only — the fade is
+          a CSS side-effect of real state, never itself the logic (see
+          AGENTS.md "Session vs. Game phases"). */}
+      {phase === "GAME_IN_PROGRESS" && gameState ? (
+        <div key={phase} className={styles.phaseIn}>
+          <DisplayBoardPanel state={gameState} lastEvents={lastEvents} />
+        </div>
       ) : (
-        <div className={styles.hero}>
-          <h1 className={styles.title}>VIEWERBATTLE</h1>
+        <div key={phase} className={[styles.hero, styles.phaseIn].join(" ")}>
+          <h1 className={`${styles.title} vb-wordmark-transition`}>VIEWERBATTLE</h1>
+
+          {roster && roster.matchScore.TEAM_A + roster.matchScore.TEAM_B > 0 && (
+            <MatchScore teamA={roster.matchScore.TEAM_A} teamB={roster.matchScore.TEAM_B} size="lg" />
+          )}
+
+          {phase === "GAME_FINISHED" && gameState ? (
+            <WinnerReveal winner={gameState.winner ?? "TIE"} teamAScore={gameState.scores.TEAM_A} teamBScore={gameState.scores.TEAM_B} size="lg" />
+          ) : (
+            <div className={styles.scoreRow}>
+              <span className={styles.scoreA}>0</span>
+              <span className={styles.scoreDivider}>—</span>
+              <span className={styles.scoreB}>0</span>
+            </div>
+          )}
 
           {roster && (
             <div className={styles.rosterRow}>
@@ -129,13 +171,7 @@ function DisplayGame({ identity }: { identity: Identity }) {
             </div>
           )}
 
-          <div className={styles.scoreRow}>
-            <span className={styles.scoreA}>0</span>
-            <span className={styles.scoreDivider}>—</span>
-            <span className={styles.scoreB}>0</span>
-          </div>
-
-          <p className={styles.waiting}>WAITING FOR HOST</p>
+          <p className={styles.waiting}>{phase === "GAME_FINISHED" ? "WAITING FOR NEXT GAME" : "WAITING FOR HOST"}</p>
         </div>
       )}
 

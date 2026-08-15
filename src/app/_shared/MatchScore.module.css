@@ -1,0 +1,44 @@
+.wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--vb-space-2);
+  padding: var(--vb-space-1) var(--vb-space-3);
+  background: var(--vb-surface-raised);
+  border: 1px solid var(--vb-border);
+  border-radius: var(--vb-radius-full);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--vb-text-muted);
+}
+
+.teamA {
+  color: var(--vb-team-a);
+}
+
+.teamB {
+  color: var(--vb-team-b);
+}
+
+.divider {
+  color: var(--vb-text-muted);
+  font-weight: 600;
+}
+
+/* --- lg: the Display's broadcast-scale treatment --- */
+
+.lg {
+  padding: var(--vb-space-2) var(--vb-space-5);
+  gap: var(--vb-space-3);
+  font-size: clamp(1.1rem, 2.5vw, 1.75rem);
+}
+
+.lg .label {
+  font-size: clamp(0.7rem, 1.4vw, 0.9rem);
+}

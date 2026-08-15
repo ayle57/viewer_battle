@@ -19,6 +19,7 @@
 
 .connected .dot {
   background: var(--vb-success);
+  animation: vb-live-pulse 2s ease-in-out infinite;
 }
 
 .offline {

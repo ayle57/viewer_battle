@@ -1,17 +1,23 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { trpc } from "@/app/_trpc/client";
 import { TRPCClientError } from "@trpc/client";
-import { Badge, Button, Card, CardBody, CardHeader, Input, TeamRoster } from "@/ui";
+import { Badge, Button, Card, CardBody, CardHeader, ConfirmDialog, Input, TeamRoster } from "@/ui";
 import { PlayerBoardPanel } from "@/app/_shared/boardQuestion/PlayerBoardPanel";
+import { PreviousGameCard } from "@/app/_shared/boardQuestion/PreviousGameCard";
 import { ConnectionBadge } from "@/app/_shared/ConnectionBadge";
 import { GameChatPanel } from "@/app/_shared/GameChatPanel";
 import { HostDisconnectedBanner } from "@/app/_shared/HostDisconnectedBanner";
+import { LobbyStatus } from "@/app/_shared/LobbyStatus";
+import { MatchScore } from "@/app/_shared/MatchScore";
+import { SessionEndedNotice } from "@/app/_shared/SessionEndedNotice";
 import { useGameStore } from "@/app/_shared/gameStore";
 import { useGameSocket } from "@/app/_shared/useGameSocket";
 import { usePresenceStore } from "@/app/_shared/presenceStore";
 import { toRosterSeats } from "@/app/_shared/roster";
+import { deriveSessionPhase, readGameStatus } from "@/app/_shared/sessionPhase";
 import { useIdentityStore, type Identity } from "@/app/_shared/identityStore";
 import { readableSessionError } from "@/app/_shared/sessionErrorMessages";
 import styles from "./page.module.css";
@@ -127,11 +133,14 @@ function PlayerGame({ identity }: { identity: Identity }) {
   const role = identity.role as "TEAM_A" | "TEAM_B";
   const otherTeam = role === "TEAM_A" ? "TEAM_B" : "TEAM_A";
   const rosterVariant: Record<"TEAM_A" | "TEAM_B", "teamA" | "teamB"> = { TEAM_A: "teamA", TEAM_B: "teamB" };
+  const clearIdentity = useIdentityStore((state) => state.clearIdentity);
   const { sendAction, sendChatMessage } = useGameSocket(identity.token);
   const gameId = useGameStore((state) => state.gameId);
-  const gameState = useGameStore((state) => state.gameState);
+  const rawGameState = useGameStore((state) => state.gameState);
+  const gameState = rawGameState as unknown as BoardQuestionState | null;
   const status = useGameStore((state) => state.status);
   const lastEvents = useGameStore((state) => state.lastEvents);
+  const liveSessionEnded = useGameStore((state) => state.sessionEnded);
   const presence = usePresenceStore((state) => state.participants);
   const hostConnected = presence.some((p) => p.role === "HOST");
 
@@ -141,22 +150,81 @@ function PlayerGame({ identity }: { identity: Identity }) {
   );
   const roster = sessionState.data;
 
+  // See host/page.tsx's identical comment — either signal means the
+  // session is genuinely gone, not merely marked finished.
+  const sessionEnded = liveSessionEnded || sessionState.error?.data?.sessionErrorCode === "SESSION_NOT_FOUND";
+  const phase = deriveSessionPhase({ sessionStatus: sessionState.data?.status, gameId, gameStatus: readGameStatus(rawGameState), sessionEnded });
+  const [forgetOpen, setForgetOpen] = useState(false);
+
+  if (phase === "SESSION_FINISHED") {
+    return (
+      <>
+        <div className={styles.header}>
+          <Link href="/" className={`${styles.brandMark} vb-wordmark-transition`}>VIEWERBATTLE</Link>
+          <Badge variant={role === "TEAM_A" ? "teamA" : "teamB"}>{identity.displayName}</Badge>
+          <Badge variant="neutral">Session {identity.sessionCode}</Badge>
+        </div>
+        <SessionEndedNotice sessionCode={identity.sessionCode} />
+        <div className={styles.startRow}>
+          <Button variant="ghost" onClick={clearIdentity}>
+            Join a different game
+          </Button>
+        </div>
+      </>
+    );
+  }
+
   return (
     <>
       <div className={styles.header}>
+        <Link href="/" className={`${styles.brandMark} vb-wordmark-transition`}>VIEWERBATTLE</Link>
         <Badge variant={role === "TEAM_A" ? "teamA" : "teamB"}>{identity.displayName}</Badge>
         <Badge variant="neutral">{role === "TEAM_A" ? "Team A" : "Team B"}</Badge>
         <Badge variant="neutral">Session {identity.sessionCode}</Badge>
         <ConnectionBadge status={status} />
+        {roster && roster.matchScore.TEAM_A + roster.matchScore.TEAM_B > 0 && (
+          <MatchScore teamA={roster.matchScore.TEAM_A} teamB={roster.matchScore.TEAM_B} />
+        )}
+        {/* Local-only, same as Host's "Forget this session" — leaves this
+            browser's seat as-is server-side (still occupied, still
+            reconnectable with the original token), just stops showing it
+            here. For "wrong game, let me join a different one" without
+            needing to clear cookies/storage by hand. Confirmed, not
+            instant — a stray tap mid-buzz shouldn't be able to boot you
+            out of the game you're actively playing. */}
+        <Button variant="danger" size="sm" onClick={() => setForgetOpen(true)}>
+          Not your game?
+        </Button>
       </div>
+
+      <ConfirmDialog
+        open={forgetOpen}
+        title="Forget this session?"
+        description="This removes the session from this device only. It won't free up your seat — your team, the host, and the display all keep seeing you as connected until you close this tab for good."
+        confirmLabel="Forget session"
+        danger
+        onCancel={() => setForgetOpen(false)}
+        onConfirm={clearIdentity}
+      />
 
       {!hostConnected && <HostDisconnectedBanner />}
 
-      {(!gameId || !gameState) && (
+      {/* `key={phase}` remounts this wrapper whenever the real derived
+          phase changes, replaying the fade-in — a CSS side-effect of a
+          real state transition, never itself a decision about what to
+          show (see AGENTS.md "Session vs. Game phases"). */}
+      <div key={phase} className={styles.phaseIn}>
+      {(phase === "SESSION_LOBBY" || phase === "GAME_FINISHED") && (
         <>
+          <div className={styles.statusRow}>
+            <LobbyStatus value={hostConnected ? "ready" : "waiting-for-host"} />
+          </div>
+
+          {phase === "GAME_FINISHED" && gameState && <PreviousGameCard gameLabel="Mini Jeopardy" state={gameState} />}
+
           <Card>
             <CardBody>
-              <p>Waiting for the host to start the game.</p>
+              <p>{phase === "GAME_FINISHED" ? "Waiting for the host to start the next game." : "Waiting for the host to start the game."}</p>
             </CardBody>
           </Card>
 
@@ -185,14 +253,9 @@ function PlayerGame({ identity }: { identity: Identity }) {
         </>
       )}
 
-      {gameId && gameState && (
+      {phase === "GAME_IN_PROGRESS" && gameState && (
         <>
-          <PlayerBoardPanel
-            state={gameState as unknown as BoardQuestionState}
-            role={role}
-            lastEvents={lastEvents}
-            sendAction={sendAction}
-          />
+          <PlayerBoardPanel state={gameState} role={role} lastEvents={lastEvents} sendAction={sendAction} />
           <Card>
             <CardHeader title="Chat" />
             <CardBody>
@@ -201,6 +264,7 @@ function PlayerGame({ identity }: { identity: Identity }) {
           </Card>
         </>
       )}
+      </div>
     </>
   );
 }

@@ -28,11 +28,11 @@ export function SessionCodeBadge({ code }: { code: string }) {
 
   return (
     <div className={styles.wrap}>
-      <Badge variant="neutral" size="md">
+      <Badge variant={copied ? "success" : "neutral"} size="md" className={copied ? styles.pop : undefined}>
         Session {code}
       </Badge>
       <Button size="sm" variant="ghost" onClick={() => void copy()}>
-        {copied ? "Copied!" : "Copy"}
+        {copied ? "✓ Copied" : "Copy"}
       </Button>
     </div>
   );

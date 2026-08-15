@@ -1,0 +1,30 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--vb-space-3);
+  padding: var(--vb-space-6) 0;
+  min-height: 8rem;
+}
+
+.stage {
+  margin: 0;
+  font-size: clamp(2rem, 6vw, 3.5rem);
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: var(--vb-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.stageLive {
+  color: var(--vb-success);
+}
+
+.waitingHint {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--vb-text-muted);
+  animation: vb-fade-in-up var(--vb-transition-base) both;
+}

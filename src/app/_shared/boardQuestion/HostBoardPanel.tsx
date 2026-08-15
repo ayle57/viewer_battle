@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import type { BoardQuestionState } from "@/domain/game/boardQuestion";
-import { Badge, Button, Card, CardBody, CardHeader, QuestionPrompt, ScoreDisplay } from "@/ui";
+import { Badge, Button, Card, CardBody, CardHeader, ConfirmDialog, QuestionPrompt } from "@/ui";
+import { AnimatedScoreDisplay } from "./AnimatedScoreDisplay";
 import { BoardGrid } from "./BoardGrid";
 import { describeLastResult } from "./events";
 import { readableGameError } from "./gameErrorMessages";
@@ -14,7 +15,7 @@ export interface HostBoardPanelProps {
   sendAction: (action: Record<string, unknown>) => Promise<{ ok: boolean; error?: { code: string; message: string } }>;
 }
 
-type PendingAction = "SELECT_QUESTION" | "JUDGE_CORRECT" | "JUDGE_INCORRECT" | "CLOSE_QUESTION" | null;
+type PendingAction = "SELECT_QUESTION" | "JUDGE_CORRECT" | "JUDGE_INCORRECT" | "CLOSE_QUESTION" | "END_GAME" | null;
 
 /**
  * The host's control surface, built as the explicit state machine the
@@ -22,10 +23,19 @@ type PendingAction = "SELECT_QUESTION" | "JUDGE_CORRECT" | "JUDGE_INCORRECT" | "
  * question, wait for a buzz, wait for the answer, then two unmissable
  * buttons. Every click is a real game:action; `pending` disables the
  * button that was clicked (not the others) until the server acks it.
+ *
+ * "End game" (any phase, whenever the game isn't already finished) is
+ * the one action here that doesn't come from the board's own state
+ * machine — it's the host's own escape hatch, so it gets the same
+ * `ConfirmDialog` treatment as "Forget this session" (host/page.tsx):
+ * an explicit, danger-styled confirmation before the real `END_GAME`
+ * action ever fires, since it's irreversible and ends the round for
+ * everyone watching.
  */
 export function HostBoardPanel({ state, lastEvents, sendAction }: HostBoardPanelProps) {
   const [pending, setPending] = useState<PendingAction>(null);
   const [error, setError] = useState<{ code: string; message: string } | null>(null);
+  const [endGameOpen, setEndGameOpen] = useState(false);
 
   async function act(kind: PendingAction, action: Record<string, unknown>) {
     setPending(kind);
@@ -44,7 +54,7 @@ export function HostBoardPanel({ state, lastEvents, sendAction }: HostBoardPanel
     <div className={styles.wrap}>
       <Card variant="raised">
         <CardBody>
-          <ScoreDisplay
+          <AnimatedScoreDisplay
             teamAName="Team A"
             teamAScore={state.scores.TEAM_A}
             teamBName="Team B"
@@ -57,6 +67,14 @@ export function HostBoardPanel({ state, lastEvents, sendAction }: HostBoardPanel
           />
         </CardBody>
       </Card>
+
+      {state.status !== "finished" && (
+        <div className={styles.endGameRow}>
+          <Button variant="danger" size="sm" disabled={pending !== null} onClick={() => setEndGameOpen(true)}>
+            End game
+          </Button>
+        </div>
+      )}
 
       {error && <p className={styles.errorBanner}>{readableGameError(error.code, error.message)}</p>}
       {!error && lastResult && <p className={styles.resultBanner}>{lastResult}</p>}
@@ -143,6 +161,20 @@ export function HostBoardPanel({ state, lastEvents, sendAction }: HostBoardPanel
           </CardBody>
         </Card>
       )}
+
+      <ConfirmDialog
+        open={endGameOpen}
+        title="End this game now?"
+        description="Whatever question is in progress is abandoned — nobody wins it. The winner is whoever's ahead right now, or a tie if the scores are even."
+        confirmLabel="End game"
+        danger
+        confirming={pending === "END_GAME"}
+        onCancel={() => setEndGameOpen(false)}
+        onConfirm={() => {
+          setEndGameOpen(false);
+          void act("END_GAME", { type: "END_GAME" });
+        }}
+      />
     </div>
   );
 }

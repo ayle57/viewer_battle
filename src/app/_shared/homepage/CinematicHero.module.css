@@ -1,0 +1,459 @@
+.atmosphereWrap {
+  position: relative;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.atmosphere {
+  position: absolute;
+  inset: -15% -10%;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.glowHost,
+.glowTeamA {
+  position: absolute;
+  width: 26rem;
+  height: 26rem;
+  border-radius: 50%;
+  filter: blur(64px);
+}
+
+.glowHost {
+  top: -8%;
+  left: 12%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--vb-host) 18%, transparent), transparent 70%);
+  animation: vb-atmosphere-drift-a 28s ease-in-out infinite;
+}
+
+.glowTeamA {
+  bottom: -12%;
+  right: 8%;
+  width: 22rem;
+  height: 22rem;
+  background: radial-gradient(circle, color-mix(in srgb, var(--vb-team-a) 14%, transparent), transparent 70%);
+  animation: vb-atmosphere-drift-b 34s ease-in-out infinite;
+}
+
+/* Registering these lets the browser tween the custom properties
+   themselves (Houdini `@property`), so the gradient recomputed from them
+   glides between positions instead of jumping frame to frame — a no-op,
+   still-correct fallback (instant jump) on engines that don't support
+   `@property`. */
+@property --vb-spot-x {
+  syntax: "<percentage>";
+  inherits: true;
+  initial-value: 50%;
+}
+
+@property --vb-spot-y {
+  syntax: "<percentage>";
+  inherits: true;
+  initial-value: 22%;
+}
+
+/* The cursor-following "control room" spotlight — only ever present at
+   all when CinematicHero.tsx's effect attaches its pointermove listener
+   (fine pointer, motion allowed); on touch/reduced-motion the custom
+   properties are simply never set and this sits at its static default
+   position, which reads fine as one more ambient glow either way. */
+.spotlight {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    circle 24rem at var(--vb-spot-x, 50%) var(--vb-spot-y, 22%),
+    color-mix(in srgb, var(--vb-primary) 10%, transparent),
+    transparent 70%
+  );
+  transition:
+    --vb-spot-x 0.35s ease-out,
+    --vb-spot-y 0.35s ease-out;
+}
+
+@keyframes vb-atmosphere-drift-a {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  50% {
+    transform: translate(3%, 4%);
+  }
+}
+
+@keyframes vb-atmosphere-drift-b {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  50% {
+    transform: translate(-4%, -3%);
+  }
+}
+
+/* A very faint technical grid — the "broadcast studio floor," not a
+   decorative pattern: low-contrast (5% mix), masked to fade out toward
+   the edges so it reads as texture behind the hero, never competes with
+   the text sitting on top of it. */
+.grid {
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(color-mix(in srgb, var(--vb-text) 6%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--vb-text) 6%, transparent) 1px, transparent 1px);
+  background-size: 3rem 3rem;
+  mask-image: radial-gradient(ellipse 55% 45% at 50% 35%, black 30%, transparent 75%);
+}
+
+.vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 70% 55% at 50% 20%, transparent 45%, var(--vb-bg) 100%);
+}
+
+.hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--vb-space-4);
+  max-width: 34rem;
+  width: 100%;
+  text-align: center;
+  padding-top: clamp(var(--vb-space-6), 8vh, var(--vb-space-8));
+}
+
+.wordmark {
+  margin: 0;
+  font-size: clamp(1.25rem, 3.5vw, 1.75rem);
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: var(--vb-primary);
+  /* The one entrance the CSS `prefers-reduced-motion` blanket rule can't
+     reach on its own (Framer Motion drives this element's mount via the
+     Web Animations API, not a CSS `animation`/`transition` — see
+     CinematicHero.tsx's own `useReducedMotion()` gate, which is the real
+     control here); this filter is just the glow companion to that JS
+     transform, always present, cheap (filter, not box-shadow-on-a-large-
+     element). */
+  filter: drop-shadow(0 0 18px color-mix(in srgb, var(--vb-primary) 35%, transparent));
+}
+
+.headline {
+  margin: 0;
+  font-size: clamp(2.25rem, 6vw, 3.5rem);
+  font-weight: 800;
+  line-height: 1.1;
+  color: var(--vb-text);
+  text-wrap: balance;
+}
+
+.headlineLine {
+  display: block;
+}
+
+.headlineLine + .headlineLine {
+  color: var(--vb-primary);
+}
+
+.subtitle {
+  margin: 0;
+  font-size: clamp(0.95rem, 2vw, 1.05rem);
+  line-height: 1.6;
+  color: var(--vb-text-muted);
+  max-width: 30rem;
+}
+
+.ctaRow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-3);
+  width: 100%;
+  margin-top: var(--vb-space-2);
+}
+
+.cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: var(--vb-space-3) var(--vb-space-5);
+  border: 1px solid transparent;
+  border-radius: var(--vb-radius-sm);
+  font-family: var(--vb-font-sans);
+  font-weight: 700;
+  font-size: 1.0625rem;
+  line-height: 1.2;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color var(--vb-transition-fast), border-color var(--vb-transition-fast), color var(--vb-transition-fast), transform var(--vb-transition-fast);
+}
+
+.cta:active {
+  transform: translateY(1px);
+}
+
+.cta:focus-visible {
+  outline: 2px solid var(--vb-primary);
+  outline-offset: 2px;
+}
+
+.ctaPrimary {
+  background: var(--vb-primary);
+  color: var(--vb-primary-text);
+}
+
+.ctaPrimary:hover {
+  background: var(--vb-primary-hover);
+}
+
+.ctaSecondary {
+  background: var(--vb-surface-raised);
+  color: var(--vb-text);
+  border-color: var(--vb-border);
+}
+
+.ctaSecondary:hover {
+  border-color: var(--vb-primary);
+  color: var(--vb-primary);
+}
+
+.watchLink {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--vb-text-muted);
+  text-decoration: none;
+}
+
+.watchLink:hover {
+  color: var(--vb-text);
+  text-decoration: underline;
+}
+
+.watchLink:focus-visible {
+  outline: 2px solid var(--vb-primary);
+  outline-offset: 2px;
+  border-radius: var(--vb-radius-sm);
+}
+
+@media (min-width: 30rem) {
+  .ctaRow {
+    flex-direction: row;
+  }
+
+  .cta {
+    flex: 1;
+  }
+}
+
+/* --- Live board demo --- */
+
+.demo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--vb-space-4);
+  max-width: 64rem;
+  width: 100%;
+  padding: var(--vb-space-6) var(--vb-space-5);
+  background: var(--vb-surface);
+  border: 1px solid var(--vb-border);
+  border-radius: var(--vb-radius-lg);
+  box-shadow: var(--vb-shadow-md);
+}
+
+.demoBeat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--vb-space-2);
+  min-width: 6rem;
+}
+
+.demoScoreBeat {
+  min-width: 14rem;
+}
+
+.demoLabel {
+  margin: 0;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--vb-text-muted);
+}
+
+.demoArrow {
+  color: var(--vb-border);
+  font-size: 1.25rem;
+  align-self: center;
+}
+
+.demoHost {
+  display: flex;
+  align-items: center;
+  gap: var(--vb-space-2);
+}
+
+.demoHostName {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--vb-text-muted);
+}
+
+.demoQuestion {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: var(--vb-space-2) var(--vb-space-3);
+  background: var(--vb-surface-raised);
+  border: 1px solid var(--vb-border);
+  border-radius: var(--vb-radius-sm);
+  font-size: 0.85rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.demoCursor {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  background: var(--vb-primary);
+  animation: vb-blink 1s step-end infinite;
+}
+
+@keyframes vb-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+.demoBuzzWrap {
+  position: relative;
+  width: 8rem;
+}
+
+/* Deliberately NOT shrunk to match the other beats — BuzzButton's real
+   gameplay size (and its own team-colored pulse) is the whole point of
+   putting the actual component here instead of an icon; standing out is
+   correct, not a sizing bug. */
+.demoBuzz {
+  position: relative;
+  z-index: 1;
+  filter: drop-shadow(0 6px 18px color-mix(in srgb, var(--vb-team-a) 35%, transparent));
+}
+
+/* The recurring "someone just buzzed" shockwave — one ring, expanding
+   and fading, looping slowly. This is the one ambient/idle loop in the
+   whole hero that isn't just a component's own built-in affordance
+   (BuzzButton's pulse); it earns its place because BUZZ is the single
+   most important verb in this product, per the brief. transform+opacity
+   only, one element, cheap.
+
+   Paused until CinematicHero.tsx adds `.armed` (its `onViewportEnter`
+   callback, fired the same moment the beats themselves start building) —
+   a plain `animation-delay` alone would count from element mount, not
+   from whenever the strip actually scrolls into view, desyncing the
+   "first ring lands as the beat arrives" moment from what's on screen. */
+.demoBuzzRing {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--vb-radius-md);
+  border: 2px solid var(--vb-team-a);
+  animation: vb-buzz-ring 4.5s ease-out infinite;
+  animation-delay: 1.5s;
+  animation-play-state: paused;
+}
+
+.demo.armed .demoBuzzRing {
+  animation-play-state: running;
+}
+
+@keyframes vb-buzz-ring {
+  0%,
+  15% {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  22% {
+    opacity: 0.55;
+  }
+  40% {
+    opacity: 0;
+    transform: scale(1.35);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.35);
+  }
+}
+
+.demoAnswer {
+  padding: var(--vb-space-2) var(--vb-space-3);
+  background: var(--vb-team-a-bg);
+  color: var(--vb-team-a);
+  border-radius: var(--vb-radius-md);
+  font-size: 0.9rem;
+  font-weight: 700;
+  font-style: italic;
+}
+
+.demoScore {
+  position: relative;
+  transform: scale(0.92);
+}
+
+/* "A point just landed" — plays once as the score beat arrives, then
+   loops on a slow, deliberate cadence (not a fast tic) so it reads as
+   "this show is live" rather than a glitching counter. Paused until
+   `.armed` for the same reason `.demoBuzzRing` is — see that comment. */
+.demoScorePop {
+  position: absolute;
+  top: -0.25rem;
+  left: 52%;
+  padding: 0.1rem 0.45rem;
+  background: var(--vb-success);
+  color: var(--vb-primary-text);
+  font-size: 0.7rem;
+  font-weight: 800;
+  border-radius: var(--vb-radius-full);
+  opacity: 0;
+  animation: vb-score-pop 4.5s ease infinite;
+  animation-delay: 1.5s;
+  animation-play-state: paused;
+}
+
+.demo.armed .demoScorePop {
+  animation-play-state: running;
+}
+
+@keyframes vb-score-pop {
+  0% {
+    opacity: 0;
+    transform: translateY(4px) scale(0.8);
+  }
+  8% {
+    opacity: 1;
+    transform: translateY(-2px) scale(1.05);
+  }
+  18% {
+    opacity: 1;
+    transform: translateY(-4px) scale(1);
+  }
+  28%,
+  100% {
+    opacity: 0;
+    transform: translateY(-8px) scale(1);
+  }
+}
+
+@media (max-width: 40rem) {
+  .demo {
+    flex-direction: column;
+  }
+
+  .demoArrow {
+    transform: rotate(90deg);
+  }
+}

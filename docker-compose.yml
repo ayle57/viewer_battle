@@ -5,6 +5,7 @@ services:
       NODE_ENV: production
       PORT: 3000
       DATABASE_URL: postgresql://viewerbattle:${POSTGRES_PASSWORD}@postgres:5432/viewerbattle
+      HOST_PASSWORD: ${HOST_PASSWORD}
     depends_on:
       postgres:
         condition: service_healthy

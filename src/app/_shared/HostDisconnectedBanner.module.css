@@ -1,11 +1,14 @@
+/* Warning, not danger — a disconnected host is a temporary, self-healing
+   state (the game/roster/tokens are all still exactly intact; see
+   ConnectionBadge.tsx's identical reasoning), not a broken product. */
 .banner {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: var(--vb-space-1);
   padding: var(--vb-space-3) var(--vb-space-4);
-  background: var(--vb-danger-bg);
-  border: 1px solid var(--vb-danger);
+  background: var(--vb-warning-bg);
+  border: 1px solid var(--vb-warning);
   border-radius: var(--vb-radius-md);
   text-align: center;
 }
@@ -15,11 +18,11 @@
   font-size: 0.95rem;
   font-weight: 800;
   letter-spacing: 0.04em;
-  color: var(--vb-danger);
+  color: var(--vb-warning);
 }
 
 .subtitle {
   margin: 0;
   font-size: 0.85rem;
-  color: var(--vb-danger);
+  color: var(--vb-warning);
 }

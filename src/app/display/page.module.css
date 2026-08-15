@@ -34,6 +34,10 @@
   font-weight: 600;
 }
 
+.phaseIn {
+  animation: vb-fade-in-up 320ms ease both;
+}
+
 .bannerRow {
   display: flex;
   justify-content: center;
@@ -94,12 +98,10 @@
   color: var(--vb-text-muted);
 }
 
-/* Chat is secondary here — capped so it never competes with the capture
-   area above it for visual weight. */
+/* Chat runs the full capture width, streamer-overlay style — a stream's
+   chat is meant to be read at a glance, not squeezed into a centered box. */
 .chatCard {
-  max-width: 40rem;
   width: 100%;
-  margin: 0 auto;
 }
 
 @media (max-width: 30rem) {

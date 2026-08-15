@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import type { ParticipantRole } from "@/domain/session";
+import { DEV_PLAYGROUND_HOST_PASSWORD, type ParticipantRole } from "@/domain/session";
 import { Badge, Button, Card, CardBody, CardHeader, Input, ScoreDisplay, TeamRoster, PresenceDot } from "@/ui";
 import { trpc } from "@/app/_trpc/client";
 import { useDevIdentityStore, type DevIdentity } from "../_shared/devIdentityStore";
@@ -64,7 +64,8 @@ export default function SessionPage() {
       <Card>
         <CardHeader title="Create a session" />
         <CardBody>
-          <Button onClick={() => create.mutate()} loading={create.isPending}>
+          {/* Dev tool — uses the fixed, non-production DEV_PLAYGROUND_HOST_PASSWORD, not the real HOST_PASSWORD (see src/server/auth/hostPassword.ts). */}
+          <Button onClick={() => create.mutate({ hostPassword: DEV_PLAYGROUND_HOST_PASSWORD })} loading={create.isPending}>
             Create new session
           </Button>
         </CardBody>

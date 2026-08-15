@@ -17,9 +17,24 @@ interface GameStoreState {
   status: GameConnectionStatus;
   lastEvents: unknown[];
   lastError: GameError | null;
+  /**
+   * A real-time push, not a derived value — flips true the instant this
+   * tab's socket receives `session:ended` (src/server/sockets/session.ts),
+   * fired by the host's own "End session" ending the session for real
+   * (a hard delete, not the old soft `status: FINISHED`). Every product
+   * page treats this as an override on top of `deriveSessionPhase`
+   * (sessionPhase.ts): once true, it's the terminal SESSION_FINISHED
+   * screen regardless of what a stale/failing `session.getState` poll
+   * says, because after a real delete there IS no `sessionStatus` left to
+   * poll. Never reset back to false — a session that's gone stays gone
+   * for this tab; a genuinely new session means a fresh page/token/store
+   * anyway.
+   */
+  sessionEnded: boolean;
   setSnapshot: (snapshot: { gameId: string; gameKey: string; state: Record<string, unknown>; events: unknown[] }) => void;
   setStatus: (status: GameConnectionStatus) => void;
   setError: (error: GameError | null) => void;
+  setSessionEnded: () => void;
 }
 
 function createGameStore() {
@@ -30,6 +45,7 @@ function createGameStore() {
     status: "connecting",
     lastEvents: [],
     lastError: null,
+    sessionEnded: false,
     setSnapshot: (snapshot) =>
       set({
         gameId: snapshot.gameId,
@@ -39,6 +55,7 @@ function createGameStore() {
       }),
     setStatus: (status) => set({ status }),
     setError: (error) => set({ lastError: error }),
+    setSessionEnded: () => set({ sessionEnded: true }),
   }));
 }
 

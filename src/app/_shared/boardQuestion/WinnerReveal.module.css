@@ -1,0 +1,128 @@
+.wrap {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--vb-space-3);
+  padding: var(--vb-space-4) 0;
+}
+
+.wrapLg {
+  padding: var(--vb-space-6) 0;
+}
+
+.eyebrow {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--vb-text-muted);
+}
+
+.wrapLg .eyebrow {
+  font-size: clamp(1rem, 2vw, 1.5rem);
+}
+
+/* The "the winner is taking over the frame" moment — a soft, team-colored
+   spotlight growing in behind the reveal, not a hard-edged gradient
+   plastered on the whole page. Restrained on purpose: low peak opacity,
+   settles down rather than staying at full intensity (see the brief's
+   explicit "no gratuitous gradients / no neon" constraint). */
+.glow {
+  position: absolute;
+  inset: -20%;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: 50%;
+  filter: blur(28px);
+}
+
+.glowA {
+  background: radial-gradient(circle, color-mix(in srgb, var(--vb-team-a) 22%, transparent), transparent 70%);
+}
+
+.glowB {
+  background: radial-gradient(circle, color-mix(in srgb, var(--vb-team-b) 22%, transparent), transparent 70%);
+}
+
+.scoreLayer {
+  position: relative;
+  z-index: 1;
+}
+
+.winnerRow {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--vb-space-2);
+}
+
+.trophyWrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.trophy {
+  font-size: 1.5rem;
+  display: inline-block;
+}
+
+.burstDot {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 5px;
+  height: 5px;
+  margin: -2.5px 0 0 -2.5px;
+  border-radius: 50%;
+  background: currentColor;
+  pointer-events: none;
+}
+
+.wrapLg .trophy {
+  font-size: clamp(2rem, 4vw, 3.5rem);
+}
+
+.winnerText {
+  margin: 0;
+  font-size: clamp(1.5rem, 4vw, 2.25rem);
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.wrapLg .winnerText {
+  font-size: clamp(2.5rem, 6vw, 4.5rem);
+}
+
+.winnerA {
+  color: var(--vb-team-a);
+}
+
+.winnerB {
+  color: var(--vb-team-b);
+}
+
+/* Ties this win back to the running cross-game tally (MatchScore.tsx /
+   `getWinner` — see AGENTS.md) instead of the reveal being a dead end:
+   a small pill, same shape language as MatchScore's own badge, in the
+   winning team's color. */
+.matchPoint {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  padding: 0.2rem var(--vb-space-3);
+  border-radius: var(--vb-radius-full);
+  background: color-mix(in srgb, currentColor 14%, transparent);
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.wrapLg .matchPoint {
+  font-size: clamp(0.9rem, 1.6vw, 1.1rem);
+  padding: 0.3rem var(--vb-space-4);
+}

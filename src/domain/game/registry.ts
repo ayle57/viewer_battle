@@ -23,3 +23,29 @@ export type GameKey = keyof typeof gameEngines;
 export function getGameEngine(gameKey: string) {
   return gameEngines[gameKey];
 }
+
+export interface GameDefinition {
+  id: string;
+  label: string;
+  description?: string;
+  meta?: string;
+}
+
+/**
+ * The registry, projected down to what a "pick a game" UI needs (the
+ * Lobby's Game selection — see AGENTS.md) and nothing else — a component
+ * that just wants to list available games has no business importing
+ * `gameEngines` itself (that would hand it `apply`/`createInitialState`
+ * along with everything else). Today this returns exactly one entry
+ * (board-question); adding a second real engine to `gameEngines` is the
+ * entire change needed for it to show up here too — nothing in this
+ * function name a specific game.
+ */
+export function listGameDefinitions(): GameDefinition[] {
+  return Object.values(gameEngines).map((engine) => ({
+    id: engine.id,
+    label: engine.label,
+    description: engine.description,
+    meta: engine.meta,
+  }));
+}

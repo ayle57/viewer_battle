@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { TRPCClientError } from "@trpc/client";
 import { trpc } from "@/app/_trpc/client";
 import { Badge, Button, Card, CardBody, CardHeader, PresenceDot } from "@/ui";
-import type { ParticipantRole } from "@/domain/session";
+import { DEV_PLAYGROUND_HOST_PASSWORD, type ParticipantRole } from "@/domain/session";
 import { useDemoGameStore, type DemoParticipant } from "./demoGameStore";
 import { useDevIdentityStore } from "./devIdentityStore";
 import { usePresenceStore } from "@/app/_shared/presenceStore";
@@ -70,7 +70,7 @@ export function DemoGamePanel() {
     setCreating(true);
     setError(null);
     try {
-      const session = await createSession.mutateAsync();
+      const session = await createSession.mutateAsync({ hostPassword: DEV_PLAYGROUND_HOST_PASSWORD });
       const join = (role: ParticipantRole, displayName: string) =>
         joinSession.mutateAsync({ sessionCode: session.code, role, displayName });
 

@@ -253,6 +253,55 @@ describe("CLOSE_QUESTION", () => {
   });
 });
 
+describe("END_GAME", () => {
+  it("host can end the game while still in the selecting phase, nothing played yet -> TIE", () => {
+    const result = apply(freshState(), { type: "END_GAME", by: "HOST" });
+    const next = mustOk(result);
+    expect(next.status).toBe("finished");
+    expect(next.winner).toBe("TIE");
+    expect(result.ok && result.events).toEqual([{ type: "GAME_FINISHED", winner: "TIE", scores: { TEAM_A: 0, TEAM_B: 0 } }]);
+  });
+
+  it("host can end the game mid-question — the active question is abandoned, not recorded", () => {
+    let state = mustOk(apply(freshState(), { type: "SELECT_QUESTION", by: "HOST", questionId: "q-geo-100" }));
+    state = mustOk(apply(state, { type: "BUZZ", by: "TEAM_A" }));
+    state = mustOk(apply(state, { type: "SUBMIT_ANSWER", by: "TEAM_A", text: "Tokyo" }));
+
+    const result = apply(state, { type: "END_GAME", by: "HOST" });
+    const next = mustOk(result);
+    expect(next.status).toBe("finished");
+    expect(next.phase).toBe("selecting");
+    expect(next.activeQuestionId).toBeNull();
+    expect(next.buzzedTeam).toBeNull();
+    expect(next.submittedAnswer).toBeNull();
+    // the in-progress question was never judged — no history/playedQuestionIds entry for it
+    expect(next.playedQuestionIds).toEqual([]);
+    expect(next.history).toEqual([]);
+  });
+
+  it("winner is whoever is ahead on score when the host ends it", () => {
+    let state = mustOk(apply(freshState(), { type: "SELECT_QUESTION", by: "HOST", questionId: "q-geo-100" }));
+    state = mustOk(apply(state, { type: "BUZZ", by: "TEAM_B" }));
+    state = mustOk(apply(state, { type: "SUBMIT_ANSWER", by: "TEAM_B", text: "Tokyo" }));
+    state = mustOk(apply(state, { type: "JUDGE_ANSWER", by: "HOST", correct: true })); // TEAM_B: 100
+
+    const next = mustOk(apply(state, { type: "END_GAME", by: "HOST" }));
+    expect(next.winner).toBe("TEAM_B");
+    expect(next.scores).toEqual({ TEAM_A: 0, TEAM_B: 100 });
+  });
+
+  it("rejects a non-host ending the game", () => {
+    const result = apply(freshState(), { type: "END_GAME", by: "TEAM_A" });
+    expect(!result.ok && result.error.code).toBe("FORBIDDEN_ROLE");
+  });
+
+  it("rejects ending an already-finished game", () => {
+    const finished = mustOk(apply(freshState(), { type: "END_GAME", by: "HOST" }));
+    const result = apply(finished, { type: "END_GAME", by: "HOST" });
+    expect(!result.ok && result.error.code).toBe("GAME_ALREADY_FINISHED");
+  });
+});
+
 describe("invalid input", () => {
   it("rejects a malformed action shape with INVALID_ACTION, not a crash", () => {
     const bogus = { type: "SELECT_QUESTION", by: "HOST" } as unknown as BoardQuestionAction; // missing questionId
@@ -325,33 +374,33 @@ describe("game completion", () => {
 });
 
 describe("availableActions", () => {
-  it("selecting phase: only HOST can SELECT_QUESTION", () => {
+  it("selecting phase: only HOST can SELECT_QUESTION (and, always, END_GAME)", () => {
     const state = freshState();
-    expect(availableActions(state, "HOST")).toEqual(["SELECT_QUESTION"]);
+    expect(availableActions(state, "HOST")).toEqual(["SELECT_QUESTION", "END_GAME"]);
     expect(availableActions(state, "TEAM_A")).toEqual([]);
     expect(availableActions(state, "DISPLAY")).toEqual([]);
   });
 
-  it("revealed phase: teams that haven't attempted can BUZZ, host can CLOSE_QUESTION", () => {
+  it("revealed phase: teams that haven't attempted can BUZZ, host can CLOSE_QUESTION (and END_GAME)", () => {
     const revealed = mustOk(apply(freshState(), { type: "SELECT_QUESTION", by: "HOST", questionId: "q-geo-100" }));
     expect(availableActions(revealed, "TEAM_A")).toEqual(["BUZZ"]);
     expect(availableActions(revealed, "TEAM_B")).toEqual(["BUZZ"]);
-    expect(availableActions(revealed, "HOST")).toEqual(["CLOSE_QUESTION"]);
+    expect(availableActions(revealed, "HOST")).toEqual(["CLOSE_QUESTION", "END_GAME"]);
   });
 
-  it("answering phase, before a submission: the buzzed team can SUBMIT_ANSWER, host can only CLOSE_QUESTION", () => {
+  it("answering phase, before a submission: the buzzed team can SUBMIT_ANSWER, host can CLOSE_QUESTION/END_GAME", () => {
     let state = mustOk(apply(freshState(), { type: "SELECT_QUESTION", by: "HOST", questionId: "q-geo-100" }));
     state = mustOk(apply(state, { type: "BUZZ", by: "TEAM_A" }));
-    expect(availableActions(state, "HOST")).toEqual(["CLOSE_QUESTION"]);
+    expect(availableActions(state, "HOST")).toEqual(["CLOSE_QUESTION", "END_GAME"]);
     expect(availableActions(state, "TEAM_A")).toEqual(["SUBMIT_ANSWER"]);
     expect(availableActions(state, "TEAM_B")).toEqual([]);
   });
 
-  it("answering phase, after a submission: only HOST can act (JUDGE_ANSWER or CLOSE_QUESTION)", () => {
+  it("answering phase, after a submission: only HOST can act (JUDGE_ANSWER, CLOSE_QUESTION, or END_GAME)", () => {
     let state = mustOk(apply(freshState(), { type: "SELECT_QUESTION", by: "HOST", questionId: "q-geo-100" }));
     state = mustOk(apply(state, { type: "BUZZ", by: "TEAM_A" }));
     state = mustOk(apply(state, { type: "SUBMIT_ANSWER", by: "TEAM_A", text: "answer" }));
-    expect(availableActions(state, "HOST")).toEqual(["JUDGE_ANSWER", "CLOSE_QUESTION"]);
+    expect(availableActions(state, "HOST")).toEqual(["JUDGE_ANSWER", "CLOSE_QUESTION", "END_GAME"]);
     expect(availableActions(state, "TEAM_A")).toEqual([]);
     expect(availableActions(state, "TEAM_B")).toEqual([]);
   });

@@ -88,10 +88,51 @@
   flex-wrap: wrap;
 }
 
+/* The "control room" end of the shared HOME -> PLAYER transition — see
+   the .vb-wordmark-transition rule in src/ui/tokens.css. */
+/* Now a real <Link href="/">, not decoration — the only way back to the
+   homepage from this screen (see the brief: no DevNav, no Dashboard,
+   just this). */
+.brandMark {
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: var(--vb-primary);
+  text-decoration: none;
+  transition: opacity var(--vb-transition-fast);
+}
+
+.brandMark:hover {
+  opacity: 0.75;
+}
+
+.brandMark:focus-visible {
+  outline: 2px solid var(--vb-primary);
+  outline-offset: 2px;
+  border-radius: var(--vb-radius-sm);
+}
+
 .rosterRow {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
   gap: var(--vb-space-3);
+}
+
+.startRow {
+  display: flex;
+  justify-content: center;
+}
+
+.statusRow {
+  display: flex;
+  justify-content: center;
+}
+
+.phaseIn {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-4);
+  animation: vb-fade-in-up 280ms ease both;
 }
 
 @media (max-width: 30rem) {

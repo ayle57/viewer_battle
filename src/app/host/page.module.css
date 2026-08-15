@@ -34,6 +34,29 @@
   line-height: 1.5;
 }
 
+.hostKeyBox {
+  margin: var(--vb-space-4) 0;
+  padding: var(--vb-space-4);
+  background: var(--vb-warning-bg);
+  border: 1px solid var(--vb-warning);
+  border-radius: var(--vb-radius-md);
+  font-family: var(--vb-font-mono, ui-monospace, monospace);
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-align: center;
+  word-break: break-all;
+  user-select: all;
+}
+
+.acknowledgeRow {
+  display: flex;
+  align-items: center;
+  gap: var(--vb-space-2);
+  font-size: 0.9rem;
+  color: var(--vb-text-muted);
+}
+
 .header {
   display: flex;
   flex-wrap: wrap;
@@ -50,6 +73,49 @@
   flex-wrap: wrap;
 }
 
+.headerScores {
+  display: flex;
+  align-items: center;
+  gap: var(--vb-space-2);
+}
+
+/* A quiet divider from the score badges — separates "what's happening"
+   from "ways to leave," so the two never read as one undifferentiated
+   row of chips. */
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: var(--vb-space-2);
+  padding-left: var(--vb-space-3);
+  margin-left: var(--vb-space-1);
+  border-left: 1px solid var(--vb-border);
+}
+
+/* The "control room" end of the shared HOME -> HOST transition — see
+   the .vb-wordmark-transition rule in src/ui/tokens.css and
+   CinematicHero.module.css's big `.wordmark`, which this morphs from. */
+/* Now a real <Link href="/">, not decoration — the only way back to the
+   homepage from this screen (see the brief: no DevNav, no Dashboard,
+   just this). */
+.brandMark {
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: var(--vb-primary);
+  text-decoration: none;
+  transition: opacity var(--vb-transition-fast);
+}
+
+.brandMark:hover {
+  opacity: 0.75;
+}
+
+.brandMark:focus-visible {
+  outline: 2px solid var(--vb-primary);
+  outline-offset: 2px;
+  border-radius: var(--vb-radius-sm);
+}
+
 .rosterGrid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
@@ -62,6 +128,187 @@
   flex-direction: column;
   align-items: flex-start;
   gap: var(--vb-space-2);
+}
+
+/* A subtle brand-tinted backdrop (color-mix, not a hardcoded gradient
+   color) marks this as THE moment of the show, distinct from an ordinary
+   card — restrained on purpose (see the brief: no gratuitous gradients). */
+.resultsCard {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--vb-primary) 6%, var(--vb-surface)), var(--vb-surface) 60%);
+}
+
+.resultsActions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-2);
+  width: 100%;
+  max-width: 20rem;
+  margin: var(--vb-space-3) auto 0;
+  animation: vb-fade-in-up 400ms ease both;
+  animation-delay: 900ms;
+}
+
+@media (min-width: 24rem) {
+  .resultsActions {
+    flex-direction: row;
+  }
+
+  .resultsActions > * {
+    flex: 1;
+  }
+}
+
+/* This wraps every phase's content (the results splash, the Lobby+Chat
+   cards, the in-game board+sidebar) as a SINGLE child of `.page` — since
+   `.page`'s own `gap` only ever applied between ITS direct children, this
+   wrapper needs the same flex+gap treatment itself, or its own children
+   collapse against each other with zero spacing. (A missing rule here is
+   exactly what an inline `style={{ marginBottom: "20px" }}` on one Card
+   was patching around — fixed at the source instead.) */
+.phaseIn {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-4);
+  animation: vb-fade-in-up 280ms ease both;
+}
+
+.gameSelection {
+  margin-top: var(--vb-space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-3);
+}
+
+.gameSelectionLabel {
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--vb-text-muted);
+}
+
+.gameCardGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+  gap: var(--vb-space-3);
+}
+
+/* The Game Selection card — deliberately one of the most worked-on
+   surfaces in the Lobby (see AGENTS.md "Session vs. Game phases"): this
+   is the one decision only the Host makes, so it gets real visual
+   weight instead of a plain radio row. `position: relative` hosts the
+   SELECTED chip; the actual `<input type="radio">` is visually hidden
+   but still real and keyboard-operable (arrow keys move the native
+   radiogroup selection), never a div faking a control. */
+.gameCard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-1);
+  padding: var(--vb-space-4);
+  background: var(--vb-surface);
+  border: 2px solid var(--vb-border);
+  border-radius: var(--vb-radius-lg);
+  cursor: pointer;
+  transition: border-color var(--vb-transition-base), box-shadow var(--vb-transition-base), transform var(--vb-transition-base);
+}
+
+.gameCard:has(.gameCardRadio:focus-visible) {
+  outline: 2px solid var(--vb-primary);
+  outline-offset: 2px;
+}
+
+.gameCard:not(.gameCardSelected):not(.gameCardComingSoon):hover {
+  border-color: color-mix(in srgb, var(--vb-primary) 45%, var(--vb-border));
+  transform: translateY(-2px);
+}
+
+/* A slow breathing glow, not a static border — "this is the live
+   selection" reads as an ambient fact the way an on-air light does, not
+   a one-time confirmation that fades from memory. Same base values as
+   --vb-shadow-glow at the resting frame, so a reduced-motion viewer
+   (whose animation collapses to near-zero duration) sees exactly what
+   the static tokens.css glow already looked like. */
+.gameCardSelected {
+  border-color: var(--vb-primary);
+  background: var(--vb-surface-raised);
+  transform: translateY(-2px);
+  animation: vb-selected-breathe 2.6s ease-in-out infinite;
+}
+
+@keyframes vb-selected-breathe {
+  0%,
+  100% {
+    box-shadow: 0 0 0 1px var(--vb-primary), 0 8px 24px -6px color-mix(in srgb, var(--vb-primary) 35%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 1px var(--vb-primary), 0 10px 32px -4px color-mix(in srgb, var(--vb-primary) 55%, transparent);
+  }
+}
+
+.gameCardRadio {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.gameCardChip {
+  position: absolute;
+  top: -0.6rem;
+  right: var(--vb-space-3);
+  padding: 0.15rem var(--vb-space-2);
+  background: var(--vb-primary);
+  color: var(--vb-primary-text);
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  border-radius: var(--vb-radius-full);
+  animation: vb-fade-in-up 200ms ease both;
+}
+
+.gameCardTitle {
+  margin: var(--vb-space-2) 0 0;
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.gameCardMeta {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--vb-text-muted);
+}
+
+.gameCardStatus {
+  display: flex;
+  align-items: center;
+  gap: var(--vb-space-1);
+  margin: var(--vb-space-2) 0 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--vb-success);
+}
+
+.gameCardStatusDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--vb-success);
+  animation: vb-live-pulse 2s ease-in-out infinite;
+}
+
+.gameCardComingSoon {
+  cursor: default;
+  border-style: dashed;
+  background: var(--vb-surface-raised);
+}
+
+.gameCardComingSoon .gameCardStatus {
+  color: var(--vb-text-muted);
+  text-transform: none;
+  letter-spacing: normal;
 }
 
 .layout {

@@ -3,12 +3,14 @@ import { TRPCError } from "@trpc/server";
 import { router, publicProcedure } from "@/server/trpc/trpc";
 import { toTRPCError } from "@/server/trpc/errors";
 import { prisma } from "@/server/db/client";
-import { createSession, finishSession, getSessionState } from "@/server/db/session";
-import { joinSession, resolveParticipantByToken } from "@/server/db/participant";
-import { joinSessionInputSchema, sessionCodeSchema, SessionError } from "@/domain/session";
+import { createSession, endSession, getSessionState } from "@/server/db/session";
+import { joinSession, reclaimHost, resolveParticipantByToken } from "@/server/db/participant";
+import { joinSessionInputSchema, reclaimHostInputSchema, sessionCodeSchema, SessionError } from "@/domain/session";
+import { verifyHostPassword } from "@/server/auth/hostPassword";
 import { sampleBoard } from "@/domain/game/boardQuestion";
 import { startGame } from "@/server/game";
 import { broadcastGameSnapshot } from "@/server/sockets/game";
+import { broadcastSessionEnded } from "@/server/sockets/session";
 import { getSocketServer } from "@/server/sockets/instance";
 
 /**
@@ -34,14 +36,38 @@ const systemRouter = router({
  * live in exactly one place, not duplicated per transport.
  */
 const sessionRouter = router({
-  create: publicProcedure.mutation(async () => {
+  /**
+   * Gated behind HOST_PASSWORD (src/server/auth/hostPassword.ts) — this
+   * app runs one specific streamer's show, so creating a new game at all
+   * requires the one shared secret the operator configured, checked
+   * before anything is written to the DB. Separate concern from the
+   * per-session host recovery key returned below: this proves "I'm
+   * allowed to start a show," the recovery key proves "I'm the same host
+   * who already started THIS one."
+   */
+  create: publicProcedure.input(z.object({ hostPassword: z.string().min(1) })).mutation(async ({ input }) => {
+    if (!verifyHostPassword(input.hostPassword)) {
+      throw toTRPCError(new SessionError("INVALID_HOST_PASSWORD"));
+    }
     const session = await createSession();
-    return { code: session.code, status: session.status };
+    // hostKey is plaintext and one-time — the client shows it to the host
+    // exactly once (see /host's SaveHostKey step) and never receives it
+    // again; only its hash is ever persisted (Session.hostKeyHash).
+    return { code: session.code, status: session.status, hostKey: session.hostKey };
   }),
 
   join: publicProcedure.input(joinSessionInputSchema).mutation(async ({ input }) => {
     try {
       return await joinSession(input);
+    } catch (error) {
+      throw toTRPCError(error);
+    }
+  }),
+
+  /** The recovery path when the host lost their token — see reclaimHost in src/server/db/participant.ts. */
+  reclaimHost: publicProcedure.input(reclaimHostInputSchema).mutation(async ({ input }) => {
+    try {
+      return await reclaimHost(input);
     } catch (error) {
       throw toTRPCError(error);
     }
@@ -70,12 +96,24 @@ const sessionRouter = router({
     }
   }),
 
-  /** Host-only: ends the session. Rejects anyone whose token doesn't resolve to HOST in that session. */
+  /**
+   * Host-only: ends the session for real — deletes it (see `endSession`
+   * in src/server/db/session.ts for why this isn't a soft
+   * `status: FINISHED` update anymore). Rejects anyone whose token
+   * doesn't resolve to HOST in that session. Broadcasts `session:ended`
+   * to every currently-connected client BEFORE deleting, so Player/
+   * Display/other Host tabs get a real-time notice instead of their next
+   * poll just 404ing.
+   */
   finish: publicProcedure.input(z.object({ token: z.string().min(1) })).mutation(async ({ input }) => {
     try {
       const participant = await resolveParticipantByToken(input.token);
       if (participant.role !== "HOST") throw new SessionError("FORBIDDEN");
-      await finishSession(participant.sessionId);
+
+      const io = getSocketServer();
+      if (io) broadcastSessionEnded(io, participant.sessionId);
+
+      await endSession(participant.sessionId);
       return { ok: true as const };
     } catch (error) {
       throw toTRPCError(error);

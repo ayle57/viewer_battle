@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { io, type Socket } from "socket.io-client";
 import { trpc } from "@/app/_trpc/client";
+import { DEV_PLAYGROUND_HOST_PASSWORD } from "@/domain/session";
 import { Badge, Button, Card, CardBody, CardHeader } from "@/ui";
 import styles from "./FullGameTest.module.css";
 
@@ -133,7 +134,7 @@ export function FullGameTest() {
       let tracks!: ReturnType<typeof trackStates>[];
 
       const ok0 = await runStep(0, async () => {
-        const session = await utils.client.session.create.mutate();
+        const session = await utils.client.session.create.mutate({ hostPassword: DEV_PLAYGROUND_HOST_PASSWORD });
         sessionCode = session.code;
         return `code ${session.code}`;
       });

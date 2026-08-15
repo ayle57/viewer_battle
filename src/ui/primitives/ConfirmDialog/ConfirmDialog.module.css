@@ -1,0 +1,36 @@
+.dangerTitle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--vb-space-2);
+}
+
+.dangerIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  background: var(--vb-danger-bg);
+  color: var(--vb-danger);
+  font-size: 0.875rem;
+  font-weight: 800;
+  font-style: normal;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--vb-space-3);
+}
+
+@media (max-width: 24rem) {
+  .actions {
+    flex-direction: column-reverse;
+  }
+
+  .actions > * {
+    width: 100%;
+  }
+}

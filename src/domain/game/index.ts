@@ -9,8 +9,8 @@ export { scoreChangedEvent, gameFinishedEvent } from "./events";
 
 export { computeDeadline, isExpired, remainingMs } from "./timer";
 
-export { gameEngines, getGameEngine } from "./registry";
-export type { GameKey } from "./registry";
+export { gameEngines, getGameEngine, listGameDefinitions } from "./registry";
+export type { GameKey, GameDefinition } from "./registry";
 
 export { gameRoomName } from "./rooms";
 export type { GameAudience } from "./rooms";

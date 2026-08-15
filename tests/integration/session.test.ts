@@ -3,8 +3,8 @@ import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { io as ioClient, type Socket as ClientSocket } from "socket.io-client";
 import { createSocketServer } from "@/server/sockets";
-import { createSession, finishSession, getSessionState } from "@/server/db/session";
-import { joinSession, resolveParticipantByToken } from "@/server/db/participant";
+import { createSession, endSession, getSessionState } from "@/server/db/session";
+import { joinSession, reclaimHost, resolveParticipantByToken } from "@/server/db/participant";
 import { SessionError } from "@/domain/session";
 import { prisma } from "@/server/db/client";
 
@@ -264,14 +264,14 @@ describe("Session + Participant", () => {
     ).rejects.toMatchObject({ code: "SESSION_NOT_FOUND" });
   });
 
-  it("rejects joining a finished session", async () => {
+  it("rejects joining a session that was ended (the row is genuinely gone)", async () => {
     const session = await freshSession();
     await joinSession({ sessionCode: session.code, role: "HOST", displayName: "Host" });
-    await finishSession(session.id);
+    await endSession(session.id);
 
     await expect(
       joinSession({ sessionCode: session.code, role: "TEAM_A", displayName: "A1" }),
-    ).rejects.toMatchObject({ code: "SESSION_CLOSED" });
+    ).rejects.toMatchObject({ code: "SESSION_NOT_FOUND" });
   });
 
   it("getSessionState rejects an unknown session code", async () => {
@@ -282,45 +282,98 @@ describe("Session + Participant", () => {
     await expect(resolveParticipantByToken("not-a-real-token")).rejects.toMatchObject({ code: "INVALID_TOKEN" });
   });
 
-  it("resolveParticipantByToken rejects a token for a finished session", async () => {
+  it("resolveParticipantByToken rejects a token for an ended session (its participant row is cascade-deleted too)", async () => {
     const session = await freshSession();
     const join = await joinSession({ sessionCode: session.code, role: "HOST", displayName: "Host" });
-    await finishSession(session.id);
+    await endSession(session.id);
 
-    await expect(resolveParticipantByToken(join.token)).rejects.toMatchObject({ code: "SESSION_CLOSED" });
+    await expect(resolveParticipantByToken(join.token)).rejects.toMatchObject({ code: "INVALID_TOKEN" });
   });
 
-  it("a second session.finish with the same host token fails predictably, and getSessionState keeps working (Quick Demo Reset repro)", async () => {
+  it("a second session.finish with the same host token fails predictably, and getSessionState reflects the session being genuinely gone (Quick Demo Reset repro)", async () => {
     // Mirrors the tRPC `session.finish` handler exactly: resolve the
-    // token, then finish. Calling that twice in a row — e.g. a stale demo
+    // token, then end. Calling that twice in a row — e.g. a stale demo
     // record surviving in a second tab, or a double click before the
     // button's `loading` state paints — is the scenario reported against
     // the Quick Demo's Reset button: first call must succeed, the second
-    // must fail with a stable, expected SESSION_CLOSED (not loop, not
-    // throw something unclassified), and session.getState must keep
-    // answering normally afterward rather than getting stuck or erroring.
+    // must fail with a stable, expected INVALID_TOKEN (the participant
+    // row is gone along with the session — not loop, not throw something
+    // unclassified), and session.getState must fail with a clear
+    // SESSION_NOT_FOUND afterward rather than getting stuck, erroring
+    // unclassified, or (the old soft-finish behavior) reporting the
+    // session as if it still existed.
     const session = await freshSession();
     const host = await joinSession({ sessionCode: session.code, role: "HOST", displayName: "Host" });
 
     const first = await resolveParticipantByToken(host.token);
-    await finishSession(first.sessionId);
+    await endSession(first.sessionId);
 
-    await expect(resolveParticipantByToken(host.token)).rejects.toMatchObject({ code: "SESSION_CLOSED" });
-    await expect(resolveParticipantByToken(host.token)).rejects.toMatchObject({ code: "SESSION_CLOSED" });
+    await expect(resolveParticipantByToken(host.token)).rejects.toMatchObject({ code: "INVALID_TOKEN" });
+    await expect(resolveParticipantByToken(host.token)).rejects.toMatchObject({ code: "INVALID_TOKEN" });
 
-    const state = await getSessionState(session.code);
-    expect(state.status).toBe("FINISHED");
+    await expect(getSessionState(session.code)).rejects.toMatchObject({ code: "SESSION_NOT_FOUND" });
   });
 
-  it("rejects a new join once the session is finished, even with a genuinely connected host socket still open (SESSION_CLOSED wins)", async () => {
+  it("rejects a new join once the session has been ended, even with a genuinely connected host socket still open", async () => {
     const { session, host, hostSocket } = await freshSessionWithHost();
-    await finishSession((await resolveParticipantByToken(host.token)).sessionId);
+    await endSession((await resolveParticipantByToken(host.token)).sessionId);
 
     await expect(
       joinSession({ sessionCode: session.code, role: "TEAM_A", displayName: "A1" }),
-    ).rejects.toMatchObject({ code: "SESSION_CLOSED" });
+    ).rejects.toMatchObject({ code: "SESSION_NOT_FOUND" });
 
     hostSocket.close();
+  });
+
+  describe("reclaimHost — recovering the HOST seat without the original token", () => {
+    it("rotates the host's token given the correct recovery key", async () => {
+      const session = await freshSession();
+      const host = await joinSession({ sessionCode: session.code, role: "HOST", displayName: "Alex" });
+
+      const reclaimed = await reclaimHost({ sessionCode: session.code, hostKey: session.hostKey, displayName: "Alex" });
+      expect(reclaimed.role).toBe("HOST");
+      expect(reclaimed.token).not.toBe(host.token);
+
+      // The old token is dead — reclaiming rotates the seat's token, it doesn't add a second one.
+      await expect(resolveParticipantByToken(host.token)).rejects.toMatchObject({ code: "INVALID_TOKEN" });
+      await expect(resolveParticipantByToken(reclaimed.token)).resolves.toMatchObject({ role: "HOST" });
+    });
+
+    it("still works while other participants are connected — the game keeps running", async () => {
+      const { session } = await freshSessionWithHost();
+      const player = await joinSession({ sessionCode: session.code, role: "TEAM_A", displayName: "A1" });
+
+      const reclaimed = await reclaimHost({ sessionCode: session.code, hostKey: session.hostKey, displayName: "Alex again" });
+      expect(reclaimed.role).toBe("HOST");
+
+      // The already-seated player is untouched by the host's recovery.
+      await expect(resolveParticipantByToken(player.token)).resolves.toMatchObject({ role: "TEAM_A" });
+    });
+
+    it("rejects the wrong recovery key with INVALID_HOST_KEY", async () => {
+      const session = await freshSession();
+      await joinSession({ sessionCode: session.code, role: "HOST", displayName: "Alex" });
+
+      await expect(
+        reclaimHost({ sessionCode: session.code, hostKey: "WRNG-WRNG-WRNG", displayName: "Alex" }),
+      ).rejects.toMatchObject({ code: "INVALID_HOST_KEY" });
+    });
+
+    it("rejects an unknown session code with SESSION_NOT_FOUND", async () => {
+      await expect(
+        reclaimHost({ sessionCode: "NOSUCH", hostKey: "AAAA-AAAA-AAAA", displayName: "Alex" }),
+      ).rejects.toMatchObject({ code: "SESSION_NOT_FOUND" });
+    });
+
+    it("rejects an ended session with SESSION_NOT_FOUND, even with the correct key", async () => {
+      const session = await freshSession();
+      const host = await joinSession({ sessionCode: session.code, role: "HOST", displayName: "Alex" });
+      await endSession((await resolveParticipantByToken(host.token)).sessionId);
+
+      await expect(
+        reclaimHost({ sessionCode: session.code, hostKey: session.hostKey, displayName: "Alex" }),
+      ).rejects.toMatchObject({ code: "SESSION_NOT_FOUND" });
+    });
   });
 
   describe("concurrency", () => {

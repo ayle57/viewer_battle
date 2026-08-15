@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import type { BoardQuestionState } from "@/domain/game/boardQuestion";
-import { AnswerInput, BuzzButton, Card, CardBody, QuestionPrompt, ScoreDisplay } from "@/ui";
+import { AnswerInput, BuzzButton, Card, CardBody, QuestionPrompt } from "@/ui";
+import { AnimatedScoreDisplay } from "./AnimatedScoreDisplay";
+import { BuzzImpact } from "./BuzzImpact";
 import { BoardGrid } from "./BoardGrid";
 import { describeLastResult, lastJudgment } from "./events";
 import { readableGameError } from "./gameErrorMessages";
@@ -68,7 +70,7 @@ export function PlayerBoardPanel({ state, role, lastEvents, sendAction }: Player
     <div className={styles.wrap}>
       <Card variant="raised">
         <CardBody>
-          <ScoreDisplay teamAName="Team A" teamAScore={state.scores.TEAM_A} teamBName="Team B" teamBScore={state.scores.TEAM_B} />
+          <AnimatedScoreDisplay teamAName="Team A" teamAScore={state.scores.TEAM_A} teamBName="Team B" teamBScore={state.scores.TEAM_B} />
         </CardBody>
       </Card>
 
@@ -91,29 +93,35 @@ export function PlayerBoardPanel({ state, role, lastEvents, sendAction }: Player
           <CardBody>
             <QuestionPrompt category={category?.name} points={activeQuestion.points} prompt={activeQuestion.prompt} />
             <div className={styles.buzzArea}>
-              {itsMyTurn && !iSubmitted && (
-                <>
-                  <p className={[styles.statusLine, styles.myTurn].join(" ")}>YOU BUZZED</p>
-                  <p className={styles.answerLabel}>Your answer</p>
-                </>
-              )}
               {itsMyTurn && (
-                <AnswerInput
-                  onSubmit={(text) => void submitAnswer(text)}
-                  pending={answering}
-                  submitted={iSubmitted}
-                  submitLabel="SEND ANSWER"
-                />
+                <BuzzImpact team={role}>
+                  <>
+                    {!iSubmitted && (
+                      <>
+                        <p className={[styles.statusLine, styles.myTurn].join(" ")}>YOU BUZZED</p>
+                        <p className={styles.answerLabel}>Your answer</p>
+                      </>
+                    )}
+                    <AnswerInput
+                      onSubmit={(text) => void submitAnswer(text)}
+                      pending={answering}
+                      submitted={iSubmitted}
+                      submitLabel="SEND ANSWER"
+                    />
+                    {iSubmitted && <p className={styles.statusLine}>ANSWER SENT</p>}
+                  </>
+                </BuzzImpact>
               )}
-              {itsMyTurn && iSubmitted && <p className={styles.statusLine}>ANSWER SENT</p>}
 
               {state.buzzedTeam && !itsMyTurn && (
-                <div className={styles.otherTeamAnswering}>
-                  <p className={styles.statusLine}>{TEAM_LABEL[state.buzzedTeam]} IS ANSWERING</p>
-                  {state.submittedAnswer !== null && (
-                    <p className={styles.theirAnswer}>&ldquo;{state.submittedAnswer}&rdquo;</p>
-                  )}
-                </div>
+                <BuzzImpact team={state.buzzedTeam}>
+                  <div className={styles.otherTeamAnswering}>
+                    <p className={styles.statusLine}>{TEAM_LABEL[state.buzzedTeam]} IS ANSWERING</p>
+                    {state.submittedAnswer !== null && (
+                      <p className={styles.theirAnswer}>&ldquo;{state.submittedAnswer}&rdquo;</p>
+                    )}
+                  </div>
+                </BuzzImpact>
               )}
 
               {!state.buzzedTeam && canBuzz && (

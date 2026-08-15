@@ -1,4 +1,4 @@
-import type { ParticipantRole } from "@/domain/session";
+import type { ParticipantRole, TeamRole } from "@/domain/session";
 
 /**
  * The Game Kernel contract — see AGENTS.md "Game Kernel contract" for the
@@ -90,6 +90,10 @@ export interface GameEngine<TState, TAction, TEvent, TConfig = unknown> {
   /** Stable id, e.g. "board-question" — SessionGame.gameKey (src/server/game) and the /dev/game + registry.ts lookup key. */
   readonly id: string;
   readonly label: string;
+  /** One-line, player-facing blurb — optional because it's purely a UI convenience (e.g. the Lobby's "Game selection" list, registry.ts's listGameDefinitions), not read by anything under src/domain or src/server. */
+  readonly description?: string;
+  /** A short tag for a compact card, e.g. "2 teams · live quiz" — deliberately separate from `description` (a full sentence): a game-selection CARD wants a glance-able tag, a game-selection LIST ITEM wants the fuller description. Optional, same reasoning as `description`. */
+  readonly meta?: string;
   createInitialState(config: TConfig): TState;
   apply(state: TState, action: TAction): EngineResult<TState, TEvent>;
   /** Action `type` values this role may legally submit from the current state — used for "what can I do right now" UI hints (see /dev/game), not for authorization itself (apply() re-checks independently; never trust a UI hint as the security boundary). */
@@ -103,4 +107,18 @@ export interface GameEngine<TState, TAction, TEvent, TConfig = unknown> {
    * game rules, so they live in the engine, not the server bridge.
    */
   toPublicView?(state: TState, viewerRole: ParticipantRole): TState;
+  /**
+   * Who won THIS instance of the game, once it's finished — `null` while
+   * still in progress or if the engine has no such concept. Optional and
+   * deliberately tiny: this is the one hook that lets a session-level
+   * "match score" (a session can run many games back to back — see
+   * AGENTS.md "Session vs. Game phases") tally wins across engines
+   * without any server code ever reading `internalState` directly
+   * (Prisma/the bridge treat that JSON as fully opaque, same rule as
+   * `toPublicView`). `src/server/db/session.ts`'s `getSessionState` is
+   * the one caller, via `getGameEngine(gameKey)?.getWinner?.(state)` —
+   * ties and in-progress games simply don't add up to a point for
+   * either side.
+   */
+  getWinner?(state: TState): TeamRole | "TIE" | null;
 }

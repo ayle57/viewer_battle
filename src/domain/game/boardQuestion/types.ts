@@ -32,6 +32,11 @@ import type { GameFinishedEvent, ScoreChangedEvent, Scoreboard } from "..";
  *     explicitly if the product wants it.
  *   - The board ends the game when every question has been played.
  *     Winner = highest score; equal scores end in "TIE".
+ *   - END_GAME lets the HOST end the game early, from any phase — the
+ *     same winner rule applies (highest current score; "TIE" if equal).
+ *     The in-progress question, if any, is simply abandoned: no
+ *     `history`/`playedQuestionIds` entry gets written for it, same as
+ *     it never happened.
  */
 
 export const boardQuestionSchema = z.object({
@@ -114,12 +119,19 @@ export const closeQuestionActionSchema = z.object({
   by: participantRoleSchema,
 });
 
+/** Host-only, any phase: ends the game right now instead of waiting for the board to run out — see engine.ts's `applyEndGame`. */
+export const endGameActionSchema = z.object({
+  type: z.literal("END_GAME"),
+  by: participantRoleSchema,
+});
+
 export const boardQuestionActionSchema = z.discriminatedUnion("type", [
   selectQuestionActionSchema,
   buzzActionSchema,
   submitAnswerActionSchema,
   judgeAnswerActionSchema,
   closeQuestionActionSchema,
+  endGameActionSchema,
 ]);
 export type BoardQuestionAction = z.infer<typeof boardQuestionActionSchema>;
 

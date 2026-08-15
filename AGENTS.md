@@ -194,6 +194,43 @@ them is a product decision, not a refactor.
   a deliberate simplification: Host could get a cookie-based transport
   later without touching identity resolution at all, since that's
   already isolated behind `resolveIdentity`.
+- **Host recovery: a one-time recovery key, not account credentials.**
+  `Session.hostKeyHash` (SHA-256, same reasoning as the token) is
+  generated in `createSession` and returned as plaintext exactly once, in
+  `session.create`'s response — never persisted or re-derivable
+  afterward. `/host`'s "Reconnect" tab calls `session.reclaimHost`
+  (`src/server/db/participant.ts`), which checks the key against the hash
+  and rotates the existing HOST `Participant`'s `tokenHash` — it reclaims
+  the same seat, it never creates a second one, so the "exactly 1 HOST"
+  partial unique index never enters into it. This exists because Host
+  identity lives in `sessionStorage`, not `localStorage`
+  (`identityStore.ts`) — closing the tab, not just reloading it, loses
+  the token for good, and without a recovery path that would permanently
+  lock the host out of a session that's still live for every other
+  connected participant (a disconnected host doesn't end the session —
+  see `isHostConnected`/`HOST_NOT_CONNECTED` above — it only blocks NEW
+  joins until someone reclaims the seat). Deliberately session-scoped,
+  not a real account system: still just possession of a secret, same
+  spirit as every other identity in this app.
+- **Creating a session at all is gated behind `HOST_PASSWORD`.** A
+  different question from the recovery key above: this one proves "I'm
+  allowed to start a show," checked once, at `session.create`
+  (`src/server/trpc/router.ts`), before anything is written to Postgres.
+  `verifyHostPassword` (`src/server/auth/hostPassword.ts`) compares
+  against the single shared secret in `.env`/`HOST_PASSWORD` with
+  `timingSafeEqual` — this app runs one specific streamer's show, not a
+  multi-tenant platform, so there's no per-user permission to model, just
+  "knows the password the operator configured." Fails closed: an unset
+  `HOST_PASSWORD` means no one can create a game, not "anyone can."
+  Outside production only (`NODE_ENV !== "production"`, the same signal
+  `server.ts`'s own `dev` flag already relies on), a second, fixed,
+  publicly-known credential — `DEV_PLAYGROUND_HOST_PASSWORD`
+  (`src/domain/session/devPassword.ts`) — is also accepted, so
+  `/dev/session`, Quick Demo, and `FullGameTest` keep working as one-click
+  tools without a developer typing the real password every run; it lives
+  in `src/domain/session` (not `src/server`) purely so both the server
+  check and the `"use client"` dev components can import the same
+  constant without a client bundle reaching into `src/server`.
 
 ## Game Kernel contract (locked)
 
@@ -471,6 +508,115 @@ real slice needs a joined session (`/dev/session`) in each tab and
 exercises the actual Prisma/Socket.IO/tRPC path; open `/dev/session` +
 `/dev/host` + `/dev/player` (x2, one per team) + `/dev/display` in five
 tabs to watch one real game synchronize.
+
+## Session vs. Game phases (multi-game sessions, locked)
+
+A session outlives any one game — this pass made that real end to end,
+without touching the Game Kernel contract or adding a second engine.
+Nothing here changes `apply`/`createInitialState`/kernel rules; it's
+entirely about what the Prisma/bridge/client layers already do with a
+finished game.
+
+**Nothing new happens when a game finishes — the vertical slice already
+had the right shape.** `applyGameAction` (`src/server/game/service.ts`)
+already flips `SessionGame.status` to `FINISHED` the moment
+`engine.apply` returns a state whose generic `status` field is
+`"finished"` (`GameStatus`, `src/domain/game/kernel.ts` — every engine
+exposes this, not something Jeopardy-specific). It never touches
+`Session.status`. `startGame` already refuses a new game only while the
+current one is `IN_PROGRESS`, and always builds a brand-new
+`engine.createInitialState`, so "start a next game" already meant "fresh
+0-0 state, same Participants/tokens, no new Session row" before this pass
+— see the `describe("Session vs. Game lifecycle (multi-game session)")`
+tests in `tests/integration/game-lifecycle.test.ts`, which lock this
+rather than change it. The one real access-control question — "can a new
+game be started at all" — was already answered too: `game.start`
+(`src/server/trpc/router.ts`) resolves the caller's token first
+(`resolveParticipantByToken`), which already throws `SESSION_CLOSED` for
+a finished session; `startGame` itself has no session-status awareness
+and was never supposed to.
+
+**`SessionPhase` (`src/app/_shared/sessionPhase.ts`) is the entire "new"
+piece — a pure, client-side derivation, not a second state machine.**
+`deriveSessionPhase({ sessionStatus, gameId, gameStatus })` returns one of
+`SESSION_LOBBY | GAME_IN_PROGRESS | GAME_FINISHED | SESSION_FINISHED`
+from exactly the three signals that already existed:
+`session.getState`'s `status` (already polled every 2s by every product
+page), `useGameStore.gameId` (null until a game has ever been created for
+this session — never cleared afterward, "the current game" is always the
+most recently started one), and `gameState.status` (read generically via
+`readGameStatus`, the same `GameStatus` field every engine exposes — this
+derivation works for a future second engine with zero changes). Every
+Host/Player/Display screen calls this same function on every render
+instead of keeping any local `isGameOver`/`hasReturnedToLobby`-shaped
+boolean — there's nothing to go stale because nothing is stored, it's
+recomputed from whatever the store/query currently hold. `sessionStatus
+=== "FINISHED"` wins over everything else on purpose.
+
+**Host's "Back to Lobby" is a local VIEW toggle within `GAME_FINISHED`,
+never a claim about which phase the session is in.** `GAME_FINISHED`
+itself is real, derived, and — deliberately, per product spec — persists
+across a reconnect (a reconnecting client mid-results-screen sees the
+finished snapshot, not stuck on a frozen mid-game board, which is what
+"reconnect after finish → lobby" is actually guarding against). What
+"Back to Lobby" controls is only which of two truthful renderings of that
+SAME phase the Host is currently looking at: the full results splash
+(winner, scores, the button) or the Lobby shell with a "Previous game"
+card. This toggle is scoped to a specific `gameId` (`useState<string |
+null>`, compared against the live `gameId`, not a plain boolean) so a
+genuinely fresh game always starts back on "not yet acknowledged" — see
+`src/app/host/page.tsx`. Player and Display never get this splash or a
+button at all; they render the merged Lobby+results view the instant
+`GAME_FINISHED` is true, since neither role has anything to decide about
+pacing (Display: "Aucun bouton" by product spec; Player: nothing to
+control either).
+
+**`PreviousGameCard` (`src/app/_shared/boardQuestion/PreviousGameCard.tsx`)
+and `SessionEndedNotice` (`src/app/_shared/SessionEndedNotice.tsx`) are
+the two new shared UI pieces**, reused verbatim across Host/Player/Display
+rather than three bespoke copies. `PreviousGameCard` reads
+`BoardQuestionState.winner`/`.scores` — Jeopardy-specific content, same as
+the three board panels already are; only the PHASE it appears in
+(`GAME_FINISHED`) is engine-agnostic. `SessionEndedNotice` is the one
+screen every role converges on for `SESSION_FINISHED` — identical content
+for all three, since "the show is over" is one fact, not three.
+
+**`GameEngine.description` (`src/domain/game/kernel.ts`) and
+`listGameDefinitions()` (`src/domain/game/registry.ts`) are the entire
+"future-proof registry" piece, deliberately tiny.** `description` is an
+optional field alongside the existing `id`/`label`, read by nothing under
+`src/domain` or `src/server` — purely a UI convenience for the Lobby's
+"Game selection" list. `listGameDefinitions()` projects the registry down
+to `{ id, label, description }[]` so a "pick a game" UI never needs to
+import `gameEngines` itself (which would also hand it `apply`). Today it
+returns exactly one entry; adding a second real engine to `gameEngines`
+is the entire change needed for it to show up here too. The Lobby's
+"Start Game"/"Start Next Game" button still calls `game.start` with the
+literal `gameKey: "board-question"`, not `games[0].id` — the tRPC input
+schema is intentionally still `z.literal("board-question")` (Jeopardy is
+the only registered game; widening that schema is a real, deliberate
+change for whenever a second engine actually exists, not a preemptive one
+here).
+
+**Match score: 1 point per game actually won, tallied across every game
+a session has run — a small, deliberately engine-agnostic addition, not
+a new state machine.** `GameEngine.getWinner?(state)` (kernel.ts,
+optional, same shape as `toPublicView`) is the one new hook: it returns
+`TeamRole | "TIE" | null` for a finished instance of that engine's game,
+nothing else. `src/server/db/session.ts`'s `getSessionState` is the only
+caller — it loads every `FINISHED` `SessionGame` row for the session,
+calls `getGameEngine(gameKey)?.getWinner?.(internalState)` on each (still
+via the registry, `internalState` stays fully opaque, same rule as
+`toPublicView`), and tallies wins into `SessionState.matchScore: {
+TEAM_A, TEAM_B }` — a TIE, or a game whose engine has no such concept,
+credits neither side. No new event, no new socket message, no new
+polling loop: every screen that already polls `session.getState` (Host,
+Player, Display) gets this for free. Deliberately independent of any
+single game's own in-game score (which still resets to 0-0 every game —
+see "Vertical slice" above); `src/app/_shared/MatchScore.tsx` is the one
+shared presentational component for it, shown once
+`matchScore.TEAM_A + matchScore.TEAM_B > 0` so it never appears before
+there's an actual match history.
 
 ## Phase 0 spike — removed
 

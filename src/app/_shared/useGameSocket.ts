@@ -35,6 +35,7 @@ export function useGameSocket(token: string | null) {
   const setSnapshot = useGameStore((state) => state.setSnapshot);
   const setStatus = useGameStore((state) => state.setStatus);
   const setError = useGameStore((state) => state.setError);
+  const setSessionEnded = useGameStore((state) => state.setSessionEnded);
   const setParticipants = usePresenceStore((state) => state.setParticipants);
   const setChatHistory = useChatStore((state) => state.setHistory);
   const appendChatMessage = useChatStore((state) => state.appendMessage);
@@ -62,6 +63,7 @@ export function useGameSocket(token: string | null) {
     socket.on("chat:message", (message: ChatMessageWire) => {
       appendChatMessage(message);
     });
+    socket.on("session:ended", () => setSessionEnded());
 
     return () => {
       socket.disconnect();

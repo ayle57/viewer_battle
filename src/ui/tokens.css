@@ -31,6 +31,18 @@
   --vb-text: #201a19;
   --vb-text-muted: #7a716e;
 
+  /* A broadcast output (an OBS/TV frame mockup) stays dark regardless of
+     whether the REST of the app is in light or dark mode — a TV screen
+     doesn't get lighter because the visitor's OS theme does. These are
+     deliberately fixed on bare :root and never redefined in the
+     dark-mode blocks below (unlike every other token on this page),
+     reusing the exact values dark mode already uses for --vb-bg/--vb-text
+     so there's still only one real dark palette in this file, not two.
+     See ScrollStory.module.css's .displayFrame — using --vb-text there
+     directly was the bug this fixes (it flips light in dark mode). */
+  --vb-obs-bg: #17110f;
+  --vb-obs-text: #f5efec;
+
   /* Brand — from the logo. --vb-primary is the dominant solid red in the
      "VIEWER BATTLE" lettering; --vb-accent is the dominant solid gold in
      the trophy. */
@@ -89,12 +101,23 @@
   --vb-radius-full: 999px;
   --vb-shadow-sm: 0 1px 2px rgba(32, 26, 25, 0.08);
   --vb-shadow-md: 0 8px 24px rgba(32, 26, 25, 0.12);
+  /* A colored, brand-tinted glow — distinct from --vb-shadow-md (a
+     neutral elevation shadow): this is for "this thing is the one
+     that's live/selected right now" (a chosen game card, an active
+     buzz), not for depth. Built from --vb-primary via color-mix so it
+     never drifts out of sync with the brand color, same reasoning as
+     the -bg tint tokens above. */
+  --vb-shadow-glow: 0 0 0 1px var(--vb-primary), 0 8px 28px -6px color-mix(in srgb, var(--vb-primary) 45%, transparent);
   --vb-font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --vb-font-mono: ui-monospace, "SF Mono", Menlo, monospace;
 
-  /* Motion — one shared duration/easing so hover/focus/loading states
-     don't drift component by component. */
+  /* Motion — shared durations/easing so hover/focus/loading states (and
+     now bigger UI moves — a phase transition, a modal, a page crossfade)
+     don't drift value-by-value across components. -fast is a stateless
+     micro-interaction (hover, focus); -base is anything with actual
+     visual distance to cover (a card entering, a phase changing). */
   --vb-transition-fast: 120ms ease;
+  --vb-transition-base: 240ms cubic-bezier(0.22, 1, 0.36, 1);
 
   /* Minimum interactive target — WCAG 2.5.8 AA is 24px; we go a bit
      larger since this app is meant to be played from a phone mid-buzz. */
@@ -163,8 +186,22 @@
   --vb-shadow-md: 0 8px 24px rgba(0, 0, 0, 0.45);
 }
 
+/* A fine, near-subliminal grain over the flat background — the
+   difference between a screen that feels printed/inert and one that
+   feels like it has a surface. An SVG `feTurbulence` tile (no extra DOM
+   node, no separate image request — it's a data URI, and the browser
+   composites it against `background-color` for free via
+   `background-blend-mode`), low-frequency/low-opacity enough that it
+   reads as texture, never as visible static. `overlay` blend keeps it
+   working the same way in both themes without a separate dark-mode
+   image: it's genuinely neutral gray, so it darkens against a light
+   `--vb-bg` and lightens against a dark one, same relative effect
+   either way — no `[data-theme]`/`prefers-color-scheme` block needed
+   for this rule specifically. */
 body {
-  background: var(--vb-bg);
+  background-color: var(--vb-bg);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
+  background-blend-mode: overlay;
   color: var(--vb-text);
   font-family: var(--vb-font-sans);
 }
@@ -184,6 +221,41 @@ body {
   box-sizing: border-box;
 }
 
+/* Shared phase-transition keyframe — one definition, reused wherever a
+   screen needs to visually acknowledge a REAL state change (a derived
+   SessionPhase flipping, not a timer). Global (not a CSS Module class)
+   specifically so it's reusable across page.module.css files without
+   duplicating the same @keyframes in each one; already covered by the
+   `prefers-reduced-motion` rule below, same as every other animation in
+   the app — no per-usage opt-out needed. */
+@keyframes vb-fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* The "this is live right now" signal — a soft, slow ring pulse in
+   --vb-success, reused anywhere a real, currently-true "connected"/
+   "available" fact is shown (a presence dot, a game card's status dot),
+   never as pure decoration. Promoted here once both PresenceDot and the
+   Host's Game Selection card needed the exact same effect — see
+   AGENTS.md "Session vs. Game phases" for why presence itself stays
+   real, live data; this only animates how a true fact is displayed. */
+@keyframes vb-live-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--vb-success) 45%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--vb-success) 0%, transparent);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -193,4 +265,74 @@ body {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* Cross-document page transitions — the counterpart to the
+   `<meta name="view-transition">` tag in layout.tsx. Entirely native and
+   browser-driven (Chrome/Edge; other browsers just navigate normally,
+   nothing to feature-detect, no JS router/library involved): a full
+   navigation like / -> /host reads as "switching to the next segment of
+   the show," not a page load. A directional wipe, not a plain crossfade
+   — the incoming page sweeps in from the right as the outgoing one
+   clears to the left, the way a broadcast cuts to its next segment,
+   deliberately more than a subtle nudge (it needs to actually read at a
+   glance, not just feel slightly smoother). `::view-transition-*`
+   pseudo-elements live outside the normal DOM the `*, *::before,
+   *::after` rule above already covers, so reduced-motion needs its own
+   explicit line here too — collapses to the browser's default instant
+   swap (`animation: none`), no slide, no crossfade. */
+@media not (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root) {
+    animation: 340ms cubic-bezier(0.32, 0, 0.67, 0) both vb-page-slide-out;
+  }
+  ::view-transition-new(root) {
+    animation: 340ms cubic-bezier(0.22, 1, 0.36, 1) both vb-page-slide-in;
+  }
+}
+
+@keyframes vb-page-slide-out {
+  to {
+    transform: translateX(-6%);
+    opacity: 0;
+  }
+}
+
+@keyframes vb-page-slide-in {
+  from {
+    transform: translateX(6%);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}
+
+/* The HOME -> HOST/PLAYER/DISPLAY "entering the control room" moment —
+   a plain global class (not a CSS Module one) so it can be applied
+   as-is from any page's own module without duplicating the declaration:
+   the homepage's big wordmark (CinematicHero.module.css's `.wordmark`)
+   and each product page's small header brand mark share this exact
+   `view-transition-name`, so a native cross-document transition
+   interpolates one directly into the other — the browser does the
+   actual "shrinks into place" motion, nothing here computes a size or
+   position. Only one element carrying this name may be on screen at
+   once (a View Transitions API rule, not a ViewerBattle one), which is
+   naturally true here since it's never on two pages at the same time. */
+.vb-wordmark-transition {
+  view-transition-name: vb-wordmark;
+}
+
+/* Toggled on <html> by PageChangeCurtain.tsx for exactly as long as the
+   curtain itself is on screen — keeps the visitor from scrolling out
+   from under the loader before it's even lifted. overflow-x already
+   sits on html/body above; this only adds the vertical lock, and only
+   while the class is present. */
+.vb-scroll-locked,
+.vb-scroll-locked body {
+  overflow-y: hidden;
 }

@@ -24,3 +24,17 @@ export const joinSessionInputSchema = z.object({
   token: z.string().min(1).optional(),
 });
 export type JoinSessionInput = z.infer<typeof joinSessionInputSchema>;
+
+/**
+ * Reclaiming the HOST seat with the recovery key shown once at
+ * session.create (hostKey.ts) instead of an existing token — the path
+ * for "I lost my token" (browser closed, sessionStorage cleared), as
+ * opposed to joinSessionInputSchema's `token`, which is the silent,
+ * same-tab reconnect path. See reclaimHost in src/server/db/participant.ts.
+ */
+export const reclaimHostInputSchema = z.object({
+  sessionCode: sessionCodeSchema,
+  hostKey: z.string().trim().min(1, "Recovery key is required"),
+  displayName: displayNameSchema,
+});
+export type ReclaimHostInput = z.infer<typeof reclaimHostInputSchema>;
