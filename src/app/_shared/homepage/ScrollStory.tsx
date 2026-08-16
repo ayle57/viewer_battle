@@ -2,7 +2,7 @@
 
 import { motion, useReducedMotion } from "motion/react";
 import { Badge } from "@/ui";
-import { fadeUp, popIn, slideFrom, staggerContainer } from "@/app/_shared/motion/variants";
+import { fadeUp, popIn, slideFrom, staggerContainer, withStagger } from "@/app/_shared/motion/variants";
 import { useScrollReveal } from "@/app/_shared/motion/useScrollReveal";
 import type { GameDefinition } from "@/domain/game";
 import styles from "./ScrollStory.module.css";
@@ -194,6 +194,17 @@ function CountdownSection({ reduced }: { reduced: boolean }) {
   );
 }
 
+/**
+ * The one section that used to be a single flat lump — the frame popped
+ * in as one unit and everything inside it (the LIVE badge, the
+ * ViewerBattle label, the score) was just static content riding along,
+ * unlike every other section here (RunTheShow/TeamsLive/Countdown/Games)
+ * where the individual pieces each get their own beat. `withStagger`
+ * (variants.ts) is what makes both true at once: the frame still pops in
+ * as a whole ("a monitor switching on"), and its own contents THEN build
+ * in on top of that, each with its own beat, same vocabulary as
+ * everywhere else on this page.
+ */
 function DisplayFrameSection({ reduced }: { reduced: boolean }) {
   const { ref, inView } = useScrollReveal<HTMLDivElement>();
 
@@ -210,18 +221,20 @@ function DisplayFrameSection({ reduced }: { reduced: boolean }) {
         className={styles.displayFrame}
         initial="hidden"
         animate={inView ? "show" : "hidden"}
-        variants={popIn(reduced, { scale: 0.94 })}
+        variants={withStagger(popIn(reduced, { scale: 0.94 }), reduced, { stagger: 0.15, delayChildren: 0.2 })}
       >
-        <span className={styles.displayLive}>
+        <motion.span className={styles.displayLive} variants={popIn(reduced)}>
           <span className={styles.displayLiveDot} aria-hidden="true" />
           LIVE
-        </span>
-        <span className={styles.displayLabel}>ViewerBattle</span>
-        <div className={styles.displayScoreRow}>
+        </motion.span>
+        <motion.span className={styles.displayLabel} variants={fadeUp(reduced, { y: 10 })}>
+          ViewerBattle
+        </motion.span>
+        <motion.div className={styles.displayScoreRow} variants={popIn(reduced, { scale: 0.85 })}>
           <span className={styles.displayScoreA}>240</span>
           <span>—</span>
           <span className={styles.displayScoreB}>210</span>
-        </div>
+        </motion.div>
       </motion.div>
     </section>
   );

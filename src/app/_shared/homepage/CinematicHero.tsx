@@ -4,10 +4,9 @@ import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { motion, useReducedMotion } from "motion/react";
 import { Badge, BuzzButton, ScoreDisplay } from "@/ui";
-import { fadeUp, popIn, staggerContainer } from "@/app/_shared/motion/variants";
+import { fadeUp, popIn, slideFrom, withStagger } from "@/app/_shared/motion/variants";
 import { LetterReveal } from "@/app/_shared/motion/LetterReveal";
 import { useScrollReveal } from "@/app/_shared/motion/useScrollReveal";
-import { CURTAIN_TOTAL_SECONDS } from "@/app/_shared/motion/curtainTiming";
 import styles from "./CinematicHero.module.css";
 
 /**
@@ -21,26 +20,26 @@ import styles from "./CinematicHero.module.css";
  * deliberate loop (see CinematicHero.module.css) — "this show is live,"
  * not "this animation finished."
  *
- * The wordmark/headline/CTAs fire on plain `animate` (unconditional) —
- * they're always the top of the page, nothing to wait for. Every one of
- * their delays adds `CURTAIN_TOTAL_SECONDS` on top of its own relative
- * timing: this component mounts the INSTANT the page loads, which is
- * also the instant the launch curtain (PageChangeCurtain.tsx) starts
- * covering the screen — without this offset the whole cold-open plays
- * out hidden behind the curtain, and the visitor only ever sees the
- * already-finished state once it lifts. `LiveBoardDemo` further down
- * doesn't need the offset — it uses `useScrollReveal` (a real
- * `IntersectionObserver`, not Framer Motion's own `whileInView` — see
- * that hook's doc comment for why: `whileInView` was verified, in a real
- * browser, to never actually apply its hidden state here, so nothing
- * ever visibly appeared) so it only ever plays once genuinely scrolled
- * into view, long after the curtain is gone.
+ * The wordmark/headline/CTAs are gated by `useScrollReveal(0.4)` on the
+ * `<section>` itself, exactly like `LiveBoardDemo` further down — NOT
+ * unconditional `animate`. This section IS the top of the page, so in
+ * practice that 40%-visible threshold crosses almost immediately after
+ * mount, but "almost immediately" still isn't "the instant the page
+ * loads": this component mounts at the SAME instant the launch curtain
+ * (PageChangeCurtain.tsx) starts covering the screen, and
+ * `useScrollReveal` already knows to hold a crossed threshold pending
+ * until the curtain has genuinely finished lifting (curtainState.ts) —
+ * so routing the cold-open through the same hook that gates every other
+ * scroll-reveal on this page gets curtain-awareness for free, instead of
+ * a second, hand-maintained `CURTAIN_TOTAL_SECONDS`-offset copy of the
+ * exact same fact. Each beat's own `delay` (0.1, 0.5, 0.7, 0.95, 1.2,
+ * 1.4) is relative to `inView` flipping true, not to mount — the
+ * sequencing between beats is unchanged, only what starts the clock.
  *
  * `useReducedMotion()` is read once, here, and threaded through every
  * variant builder — with it true, every entrance collapses to a ~150ms
  * cross-fade with no travel AND no delay (`fadeUp`/`popIn`/`letterReveal`
- * all zero their `delay` under reduced motion — see variants.ts), so the
- * curtain offset above is a no-op for those visitors, not an extra wait.
+ * all zero their `delay` under reduced motion — see variants.ts).
  * (src/ui/tokens.css does the same for the pure-CSS loops this component
  * also uses: BuzzButton's own pulse, the buzz ring, the score pop — none
  * of those need a JS gate, only what Framer Motion itself drives does.)
@@ -56,6 +55,12 @@ import styles from "./CinematicHero.module.css";
 export function CinematicHero() {
   const reduced = useReducedMotion() ?? false;
   const atmosphereRef = useRef<HTMLDivElement>(null);
+  // 0.4, per this page's convention of picking one threshold per section
+  // rather than reusing `useScrollReveal`'s own 0.3 default everywhere —
+  // this section fills most of the viewport at mount, so 40% is still
+  // "basically immediately" in practice, just gated (via curtainState.ts)
+  // on the launch curtain actually being gone first.
+  const { ref: heroRef, inView: heroInView } = useScrollReveal<HTMLElement>(0.4);
 
   // A cursor-reactive spotlight in the atmosphere layer — pure DOM/CSS,
   // no React state (a `--vb-spot-x/y` custom property mutated directly
@@ -98,7 +103,7 @@ export function CinematicHero() {
           <span className={styles.vignette} />
         </div>
 
-        <section className={styles.hero}>
+        <section className={styles.hero} ref={heroRef}>
           {/* Shares its view-transition-name with each product page's own
               small header brand mark (see tokens.css's
               .vb-wordmark-transition) — clicking through to /host,
@@ -113,8 +118,9 @@ export function CinematicHero() {
               text="VIEWERBATTLE"
               reduced={reduced}
               stagger={0.032}
-              delayChildren={CURTAIN_TOTAL_SECONDS + 0.1}
+              delayChildren={0.1}
               letterDuration={0.45}
+              animate={heroInView ? "show" : "hidden"}
             />
           </p>
 
@@ -122,16 +128,16 @@ export function CinematicHero() {
             <motion.span
               className={styles.headlineLine}
               initial="hidden"
-              animate="show"
-              variants={fadeUp(reduced, { delay: CURTAIN_TOTAL_SECONDS + 0.5 })}
+              animate={heroInView ? "show" : "hidden"}
+              variants={fadeUp(reduced, { delay: 0.5 })}
             >
               Live games.
             </motion.span>
             <motion.span
               className={styles.headlineLine}
               initial="hidden"
-              animate="show"
-              variants={fadeUp(reduced, { delay: CURTAIN_TOTAL_SECONDS + 0.7 })}
+              animate={heroInView ? "show" : "hidden"}
+              variants={fadeUp(reduced, { delay: 0.7 })}
             >
               Real competition.
             </motion.span>
@@ -140,8 +146,8 @@ export function CinematicHero() {
           <motion.p
             className={styles.subtitle}
             initial="hidden"
-            animate="show"
-            variants={fadeUp(reduced, { delay: CURTAIN_TOTAL_SECONDS + 0.95 })}
+            animate={heroInView ? "show" : "hidden"}
+            variants={fadeUp(reduced, { delay: 0.95 })}
           >
             A live 2v2 gameshow platform for your stream — host a round, get your community buzzing in, and watch the
             score update in real time, together.
@@ -150,8 +156,8 @@ export function CinematicHero() {
           <motion.div
             className={styles.ctaRow}
             initial="hidden"
-            animate="show"
-            variants={popIn(reduced, { delay: CURTAIN_TOTAL_SECONDS + 1.2 })}
+            animate={heroInView ? "show" : "hidden"}
+            variants={popIn(reduced, { delay: 1.2 })}
           >
             <Link href="/host" className={[styles.cta, styles.ctaPrimary].join(" ")}>
               Host a Game
@@ -161,7 +167,7 @@ export function CinematicHero() {
             </Link>
           </motion.div>
 
-          <motion.div initial="hidden" animate="show" variants={fadeUp(reduced, { delay: CURTAIN_TOTAL_SECONDS + 1.4 })}>
+          <motion.div initial="hidden" animate={heroInView ? "show" : "hidden"} variants={fadeUp(reduced, { delay: 1.4 })}>
             <Link href="/display" className={styles.watchLink}>
               Watch on a Display →
             </Link>
@@ -190,10 +196,15 @@ export function CinematicHero() {
  * `variants` child with no trigger of its own — Framer Motion propagates
  * the parent's hidden/show state straight through, so the five-beat
  * build only ever plays once the strip is actually scrolled into view,
- * not blind on page mount (see the file-level comment). `staggerContainer`
- * owns the beat-to-beat timing; each beat's own `delay` (the Buzz beat's
- * nested BuzzButton pop) is still relative to ITS OWN arrival, not to
- * the page.
+ * not blind on page mount (see the file-level comment). The strip's own
+ * background/frame slides up into place (`slideFrom("bottom", ...)`,
+ * `withStagger` — variants.ts) rather than just sitting there while its
+ * contents build on top of it — same fix `DisplayFrameSection`
+ * (ScrollStory.tsx) got for the same reason: a container's own
+ * `hidden`/`show` isn't automatically "arrives as a unit" just because
+ * its children do. That slide-up owns the beat-to-beat timing; each
+ * beat's own `delay` (the Buzz beat's nested BuzzButton pop) is still
+ * relative to ITS OWN arrival, not to the page.
  *
  * The buzz ring / score "+100" loops (CinematicHero.module.css) are
  * plain CSS `animation`s, which start counting their `animation-delay`
@@ -216,7 +227,7 @@ function LiveBoardDemo({ reduced }: { reduced: boolean }) {
       aria-label="ViewerBattle, live"
       initial="hidden"
       animate={inView ? "show" : "hidden"}
-      variants={staggerContainer(reduced, { stagger: 0.22, delayChildren: 0.1 })}
+      variants={withStagger(slideFrom("bottom", reduced, { distance: 32 }), reduced, { stagger: 0.22, delayChildren: 0.1 })}
     >
       <motion.div className={styles.demoBeat} variants={popIn(reduced)}>
         <p className={styles.demoLabel}>Host</p>

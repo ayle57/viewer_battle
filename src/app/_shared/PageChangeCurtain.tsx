@@ -6,6 +6,7 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { LetterReveal } from "@/app/_shared/motion/LetterReveal";
 import { EASE_OUT_EXPO } from "@/app/_shared/motion/variants";
 import { CURTAIN_HOLD_MS, CURTAIN_IRIS_SECONDS } from "@/app/_shared/motion/curtainTiming";
+import { setCurtainActive } from "@/app/_shared/motion/curtainState";
 import styles from "./PageChangeCurtain.module.css";
 
 // The choreography budget, all in one place so the beats below read as a
@@ -93,13 +94,26 @@ export function PageChangeCurtain() {
   // state — same "synchronize with an external system" shape as
   // CinematicHero's pointer-spotlight effect, nothing here for
   // `react-hooks/set-state-in-effect` to flag.
+  //
+  // This effect only ever publishes `true` to curtainState.ts, the
+  // instant `active` does — going the other way is `onExitComplete`'s
+  // job below, not this effect's. `active` flips to `false` at the
+  // START of the curtain's exit wipe (the HOLD_MS timeout above), not
+  // when the wipe finishes actually uncovering the screen — publishing
+  // `false` here, keyed on `active`, told every `useScrollReveal`
+  // consumer it was safe to reveal ~`IRIS_DURATION` (420ms) too early,
+  // so the whole entrance animation played out UNDER the still-closing
+  // curtain and was never actually seen. `onExitComplete` fires once
+  // Framer Motion's own exit transition genuinely finishes — the curtain
+  // is verifiably gone from the screen by then, not just told to leave.
   useEffect(() => {
     document.documentElement.classList.toggle("vb-scroll-locked", active);
+    if (active) setCurtainActive(true);
     return () => document.documentElement.classList.remove("vb-scroll-locked");
   }, [active]);
 
   return (
-    <AnimatePresence>
+    <AnimatePresence onExitComplete={() => setCurtainActive(false)}>
       {active && (
         <motion.div
           className={styles.curtain}

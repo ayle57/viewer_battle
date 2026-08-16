@@ -15,14 +15,20 @@ import { letterContainer, letterReveal } from "@/app/_shared/motion/variants";
  * the wrapper plus `aria-hidden` on every letter means a screen reader
  * announces the whole word once, never a letter-by-letter spell-out.
  *
- * Always fires on plain `animate` (unconditional on mount) — there used
- * to be a `whileInView` option for scroll-triggered use, dropped after a
- * real-browser check found Framer Motion's `whileInView` never actually
- * applies its hidden state in this app's setup at all (see
- * useScrollReveal.ts's doc comment for the full story); every current
- * caller is either always-in-view at mount (the hero, the curtain) or
- * itself gated by `useScrollReveal` one level up (WinnerReveal, driven
- * by real game state, not scroll position).
+ * Fires on plain `animate`, defaulting to unconditional (`"show"` on
+ * mount) — there used to be a `whileInView` option for scroll-triggered
+ * use, dropped after a real-browser check found Framer Motion's
+ * `whileInView` never actually applies its hidden state in this app's
+ * setup at all (see useScrollReveal.ts's doc comment for the full
+ * story). Callers that DO need scroll-triggered timing (CinematicHero's
+ * hero wordmark) drive `animate` themselves off their own
+ * `useScrollReveal` — same "the caller owns the IntersectionObserver,
+ * this component only owns the character choreography" split
+ * `useScrollReveal` itself uses for `motion`'s `animate` prop. Every
+ * other caller (PageChangeCurtain's own wordmark, WinnerReveal's team
+ * name) leaves it at the default: always-in-view at mount, or itself
+ * gated by a real mount/unmount off actual game state, not scroll
+ * position — genuinely unconditional either way.
  *
  * `reduced` is the caller's own `useReducedMotion()` read (this
  * component doesn't call the hook itself, so one read stays the single
@@ -38,6 +44,7 @@ export function LetterReveal({
   letterDuration,
   className,
   letterClassName,
+  animate = "show",
 }: {
   text: string;
   reduced: boolean;
@@ -46,12 +53,14 @@ export function LetterReveal({
   letterDuration?: number;
   className?: string;
   letterClassName?: string;
+  /** Drive this from the caller's own `useScrollReveal` for scroll-triggered use; defaults to unconditional (fires on mount). */
+  animate?: "show" | "hidden";
 }) {
   return (
     <motion.span
       className={className}
       initial="hidden"
-      animate="show"
+      animate={animate}
       variants={letterContainer(reduced, { stagger, delayChildren })}
       style={{ display: "inline-block", whiteSpace: "pre" }}
       aria-label={text}

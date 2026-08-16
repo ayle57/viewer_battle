@@ -54,15 +54,28 @@ export function popIn(reduced: boolean, opts?: { scale?: number; delay?: number 
   };
 }
 
-/** Enters from a side — for two things meant to read as opposing (Team A / Team B). */
-export function slideFrom(direction: "left" | "right", reduced: boolean, opts?: { distance?: number; delay?: number }): Variants {
+/**
+ * Enters from a side — `"left"`/`"right"` for two things meant to read
+ * as opposing (Team A / Team B); `"top"`/`"bottom"` for a single panel
+ * or background arriving as its own piece rather than fading in place
+ * (the common "slides up into view" card entrance is `slideFrom(
+ * "bottom", ...)` — starts below its resting position, travels up).
+ * Every direction names where the element starts FROM, matching the
+ * function's own name, not the direction it travels.
+ */
+export function slideFrom(
+  direction: "left" | "right" | "top" | "bottom",
+  reduced: boolean,
+  opts?: { distance?: number; delay?: number },
+): Variants {
   const distance = reduced ? 4 : (opts?.distance ?? 48);
-  const x = direction === "left" ? -distance : distance;
+  const vertical = direction === "top" || direction === "bottom";
+  const offset = direction === "left" || direction === "top" ? -distance : distance;
   return {
-    hidden: { opacity: 0, x },
+    hidden: vertical ? { opacity: 0, y: offset } : { opacity: 0, x: offset },
     show: {
       opacity: 1,
-      x: 0,
+      ...(vertical ? { y: 0 } : { x: 0 }),
       transition: {
         duration: reduced ? 0.15 : 0.85,
         ease: EASE_OUT_EXPO,
@@ -80,6 +93,34 @@ export function staggerContainer(reduced: boolean, opts?: { stagger?: number; de
       transition: reduced
         ? { staggerChildren: 0.02 }
         : { staggerChildren: opts?.stagger ?? 0.12, delayChildren: opts?.delayChildren ?? 0 },
+    },
+  };
+}
+
+/**
+ * Layers `staggerContainer`'s child-orchestration on top of another
+ * variant's own entrance — for a parent that needs to visibly arrive as
+ * a unit (a frame popping in, a panel sliding in) AND hand its own
+ * children a staggered build-in on top of that, rather than being forced
+ * to pick one of "the container animates itself" (`fadeUp`/`popIn`/
+ * `slideFrom`, no `staggerChildren`) or "the container's only job is
+ * timing" (`staggerContainer`'s own empty `hidden`/`show`). Without this,
+ * a section like `DisplayFrameSection` either had to sit there as one
+ * flat lump (the frame pops in, its contents just along for the ride
+ * with no entrance of their own) or drop the frame's own pop entirely —
+ * this keeps both.
+ */
+export function withStagger(base: Variants, reduced: boolean, opts?: { stagger?: number; delayChildren?: number }): Variants {
+  const baseShow = base.show as Record<string, unknown> | undefined;
+  return {
+    hidden: base.hidden ?? {},
+    show: {
+      ...baseShow,
+      transition: {
+        ...(baseShow?.transition as Transition | undefined),
+        staggerChildren: reduced ? 0.02 : (opts?.stagger ?? 0.12),
+        delayChildren: reduced ? 0 : (opts?.delayChildren ?? 0),
+      },
     },
   };
 }
