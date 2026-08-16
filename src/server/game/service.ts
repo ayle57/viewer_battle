@@ -41,8 +41,27 @@ export async function getCurrentGame(sessionId: string) {
   return prisma.sessionGame.findFirst({ where: { sessionId }, orderBy: { startedAt: "desc" } });
 }
 
-/** Starts a new game — the one place SessionGame rows get created. Refuses to start a second game while one is still in progress (simple guard against an accidental double-click; not a product rule about concurrent games). */
-export async function startGame(sessionId: string, gameKey: string, config: unknown): Promise<GameActionResult> {
+/**
+ * Starts a new game — the one place SessionGame rows get created.
+ * Refuses to start a second game while one is still in progress (simple
+ * guard against an accidental double-click; not a product rule about
+ * concurrent games).
+ *
+ * `playlistId` is purely provenance metadata (see prisma/schema.prisma's
+ * SessionGame.playlistId comment) — it records WHICH Content Studio
+ * Playlist (if any) `config` was snapshotted from, for the "this playlist
+ * is currently live" banner. It plays no role in gameplay: `config` is
+ * already the fully independent snapshot (built by
+ * src/domain/content's playlistToBoardQuestionConfig, called by the tRPC
+ * `game.start` handler BEFORE this function ever runs), so passing or
+ * omitting `playlistId` cannot change what the engine does with it.
+ */
+export async function startGame(
+  sessionId: string,
+  gameKey: string,
+  config: unknown,
+  playlistId?: string | null,
+): Promise<GameActionResult> {
   const engine = getGameEngine(gameKey);
   if (!engine) {
     return { ok: false, error: { code: "UNKNOWN_GAME", message: `No engine registered for "${gameKey}".` } };
@@ -55,7 +74,7 @@ export async function startGame(sessionId: string, gameKey: string, config: unkn
 
   const initialState = engine.createInitialState(config);
   const game = await prisma.sessionGame.create({
-    data: { sessionId, gameKey, internalState: initialState as Prisma.InputJsonValue },
+    data: { sessionId, gameKey, internalState: initialState as Prisma.InputJsonValue, playlistId: playlistId ?? null },
   });
   return { ok: true, gameId: game.id, gameKey: game.gameKey, state: initialState, events: [] };
 }

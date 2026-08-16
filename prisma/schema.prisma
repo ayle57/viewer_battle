@@ -43,9 +43,9 @@ enum ChatChannel {
 }
 
 model Session {
-  id           String          @id @default(cuid())
-  code         String          @unique
-  status       SessionStatus   @default(CREATED)
+  id           String        @id @default(cuid())
+  code         String        @unique
+  status       SessionStatus @default(CREATED)
   /// SHA-256 hash of the host's one-time recovery key (src/domain/session/
   /// hostKey.ts), generated at session.create and shown to the host
   /// exactly once. Lets reclaimHost (src/server/db/participant.ts) rotate
@@ -55,8 +55,8 @@ model Session {
   /// can't backfill real hashes for sessions created before this column
   /// existed; every session created going forward always has one.
   hostKeyHash  String?
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
   participants Participant[]
   messages     ChatMessage[]
   games        SessionGame[]
@@ -134,6 +134,109 @@ model SessionGame {
   version       Int               @default(0)
   startedAt     DateTime          @default(now())
   finishedAt    DateTime?
+  /// Which Playlist (if any) this game's initial config was snapshotted
+  /// from — see "Content Studio" below. Purely provenance/metadata for the
+  /// content-authoring UI (e.g. the "this playlist is currently live"
+  /// banner): the Game Kernel never reads this column, and `internalState`
+  /// above is already a fully independent deep copy taken at startGame
+  /// time, so later edits to the Playlist can never reach a game already
+  /// in progress even without this column. Null for games started before
+  /// this existed, or started from the built-in sample board (no Playlist
+  /// row at all). onDelete: SetNull — deleting a Playlist must not cascade
+  /// into deleting the historical record of games that used it.
+  playlistId    String?
+  playlist      Playlist?         @relation(fields: [playlistId], references: [id], onDelete: SetNull)
 
   @@index([sessionId, startedAt])
+  @@index([playlistId])
+}
+
+// --- Content Studio (see AGENTS.md-equivalent reasoning below) ---
+// Editorial content a Host prepares BEFORE a live show — entirely
+// independent of Session/SessionGame. A Playlist can be edited freely at
+// any time; starting a game takes a one-time snapshot of it into
+// SessionGame.internalState (via src/domain/content's pure mapping +
+// src/server/game/service.ts's startGame), so an edit made mid-game can
+// never reach a game already in progress. Prisma relations model the
+// obvious tree (Playlist -> PlaylistCategory -> PlaylistQuestion); the
+// Game Kernel itself never reads these tables — only the content-authoring
+// tRPC router (src/server/trpc/contentRouter.ts) and the one mapping step
+// at game start do.
+
+/// A persistent Host identity for Content Studio, deliberately separate
+/// from Session.Participant: a Participant only exists for the lifetime
+/// of one Session (cascade-deleted with it — see Session above), but
+/// content must survive independently of any particular show. Same
+/// bearer-token scheme as Participant.tokenHash (src/server/auth/token.ts)
+/// — opaque, SHA-256 hashed, never stored in plaintext — issued once
+/// after the caller proves they know HOST_PASSWORD (the same shared
+/// secret that gates session.create) and then kept client-side in
+/// localStorage (not sessionStorage — a content-prep workspace is meant
+/// to survive across browser sessions, unlike a live game identity). Not
+/// a real multi-tenant account system (no username/email/password of its
+/// own) — same honest limitation as everywhere else in this app's auth
+/// (see AGENTS.md "Session invariants"): losing the token means losing
+/// access to that identity's playlists, same class of tradeoff as a lost
+/// Participant token.
+model ContentHost {
+  id        String     @id @default(cuid())
+  tokenHash String     @unique
+  createdAt DateTime   @default(now())
+  playlists Playlist[]
+}
+
+model Playlist {
+  id          String             @id @default(cuid())
+  hostId      String
+  host        ContentHost        @relation(fields: [hostId], references: [id], onDelete: Cascade)
+  /// Matches a GameEngine.id (src/domain/game/registry.ts) — future-proofs
+  /// the content model for a second game's own playlists without a schema
+  /// change, even though only "board-question" (Mini Jeopardy) has an
+  /// editor built against it in this pass.
+  gameKey     String
+  name        String
+  description String?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  categories  PlaylistCategory[]
+  games       SessionGame[]
+
+  @@index([hostId, gameKey])
+}
+
+model PlaylistCategory {
+  id         String             @id @default(cuid())
+  playlistId String
+  playlist   Playlist           @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  name       String
+  /// Reorder position within the playlist — an integer, not a linked list;
+  /// reordering rewrites every affected row's position in one transaction
+  /// (src/server/db/content.ts), same spirit as PlaylistQuestion.position.
+  position   Int
+  questions  PlaylistQuestion[]
+
+  @@index([playlistId, position])
+}
+
+model PlaylistQuestion {
+  id         String           @id @default(cuid())
+  categoryId String
+  category   PlaylistCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  /// Denormalized from category.playlistId — lets ownership/listing
+  /// queries (src/server/db/content.ts) filter straight on
+  /// PlaylistQuestion without an extra join through PlaylistCategory for
+  /// every check.
+  playlistId String
+  /// The board cell's point value — a plain editable int, not a hardcoded
+  /// 100/200/300/400 enum, so a Host can build boards with different
+  /// values if the engine allows it later. BoardQuestionEngine only
+  /// requires a positive int (see boardQuestionSchema) — this column
+  /// matches that, nothing narrower.
+  value      Int
+  prompt     String
+  answer     String
+  position   Int
+
+  @@index([categoryId, position])
+  @@index([playlistId])
 }

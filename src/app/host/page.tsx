@@ -23,8 +23,16 @@ import { deriveSessionPhase, readGameStatus } from "@/app/_shared/sessionPhase";
 import { useIdentityStore, type Identity } from "@/app/_shared/identityStore";
 import { readableSessionError } from "@/app/_shared/sessionErrorMessages";
 import { listGameDefinitions, type GameKey } from "@/domain/game";
+import { useContentIdentityStore } from "./content/_shared/contentIdentityStore";
+import { ReadinessBadge, ReadinessLine } from "./content/_shared/ReadinessBadge";
 import styles from "./page.module.css";
 import type { BoardQuestionState } from "@/domain/game/boardQuestion";
+
+/** "Default Mini Jeopardy" is never a DB row — see prisma/schema.prisma's
+ * "Content Studio" comment on deliberately not seeding fake content. This
+ * sentinel just means "start with the built-in sampleBoard," which is
+ * exactly what `game.start` already does when `content` is omitted. */
+type ContentSelection = { type: "sample" } | { type: "playlist"; playlistId: string; contentToken: string };
 
 export default function HostPage() {
   const identity = useIdentityStore((state) => state.identity);
@@ -78,6 +86,15 @@ function HostConnexion() {
           />
         </CardBody>
       </Card>
+      {/* Content Studio has its own, session-independent auth (a Content
+          Studio bearer token, not this session's HOST Participant token —
+          see prisma/schema.prisma's "Content Studio" comment) — a Host
+          must be able to reach it to prepare a show BEFORE creating any
+          game, not only from inside one already running (HostGame's own
+          header link below covers that second case). */}
+      <p className={styles.connexionFooter}>
+        Just preparing? <Link href="/host/content">Go to the Content Studio</Link> — no game needed.
+      </p>
     </div>
   );
 }
@@ -328,6 +345,51 @@ function HostGame({ identity }: { identity: Identity }) {
   const [selectedGameKey, setSelectedGameKey] = useState<GameKey>(games[0]?.id ?? "board-question");
   const startLabel = phase === "GAME_FINISHED" ? "Start Next Game" : "Start Game";
 
+  // "Choose your content" (see AGENTS.md-equivalent write-up in
+  // prisma/schema.prisma's "Content Studio" comment) — only meaningful
+  // for a content-capable game (today, just board-question). The
+  // ContentHost token is a SEPARATE identity from this session's own
+  // HOST Participant identity (`identity` above) — a Host may be running
+  // this show in a browser that never signed into Content Studio at all,
+  // which is why this degrades to "Default Mini Jeopardy only" rather
+  // than blocking Start Game.
+  const contentToken = useContentIdentityStore((s) => s.token);
+  const selectedGameDefinition = games.find((g) => g.id === selectedGameKey);
+  const playlists = trpc.content.playlist.list.useQuery(
+    { token: contentToken ?? "", gameKey: selectedGameKey as "board-question" },
+    { enabled: Boolean(contentToken) && selectedGameDefinition?.hasContentStudio === true },
+  );
+  const [contentSelection, setContentSelection] = useState<ContentSelection>({ type: "sample" });
+  // The built-in sample board (boardQuestion/fixtures.ts) has no
+  // Playlist row and no readiness concept — it's fixture data, complete
+  // by construction. Only a real selected Playlist has a readiness to
+  // validate before Start (product brief "Show Preparation" section 3).
+  const selectedPlaylist =
+    contentSelection.type === "playlist" ? playlists.data?.find((p) => p.id === contentSelection.playlistId) : undefined;
+  const noPlaylistsYet = Boolean(contentToken) && playlists.data?.length === 0;
+  // Selecting an incomplete board and clicking Start is never a silent
+  // no-op — the backend genuinely refuses it now (see router.ts's
+  // game.start, PLAYLIST_NOT_READY). Blocking the button here is the same
+  // fact shown a beat earlier, so the Host resolves it (Review board / Use
+  // sample board) instead of clicking Start and watching it bounce
+  // (product brief "Show Preparation" section 10).
+  const startBlocked = Boolean(selectedPlaylist && !selectedPlaylist.readiness.ready);
+
+  // Stale-selection cleanup (product brief "Show Preparation" section 11):
+  // a playlist picked earlier can be deleted from another tab (e.g. the
+  // Content Studio open alongside this one) while this page stays open.
+  // Once the list refetches (mount, window focus — React Query's default)
+  // and the selected id is genuinely gone, fall back to the sample board
+  // instead of leaving a phantom selection pointing at nothing. Render-
+  // phase reset (React's blessed "adjusting state when a prop changes"
+  // pattern — same shape as PlaylistEditorPage's syncedPlaylistId and
+  // BoardEditor's CategoryNameField), not an effect+setState — no
+  // localStorage involved either, this is a plain derived reset off the
+  // live query result, not a second source of truth.
+  if (contentSelection.type === "playlist" && playlists.data && !playlists.data.some((p) => p.id === contentSelection.playlistId)) {
+    setContentSelection({ type: "sample" });
+  }
+
   const [forgetOpen, setForgetOpen] = useState(false);
   const [endSessionOpen, setEndSessionOpen] = useState(false);
 
@@ -363,7 +425,11 @@ function HostGame({ identity }: { identity: Identity }) {
 
   function handleStartGame() {
     setSequenceActive(true);
-    start.mutate({ token: identity.token, gameKey: selectedGameKey as "board-question" });
+    start.mutate({
+      token: identity.token,
+      gameKey: selectedGameKey as "board-question",
+      content: contentSelection.type === "playlist" ? contentSelection : undefined,
+    });
   }
 
   if (phase === "SESSION_FINISHED") {
@@ -419,6 +485,9 @@ function HostGame({ identity }: { identity: Identity }) {
               everyone else watching — "End session" — not the local-only
               one, which is the opposite of what this looked like before. */}
           <div className={styles.headerActions}>
+            <Link href="/host/content" className={styles.contentStudioLink}>
+              Content Studio
+            </Link>
             {/* Local-only — clears THIS browser's identity, never touches
                 the session server-side. For "I'm testing and want a
                 completely new show" without kicking the players/display
@@ -556,13 +625,103 @@ function HostGame({ identity }: { identity: Identity }) {
                 </div>
               </div>
 
+              {selectedGameDefinition?.hasContentStudio && (
+                <div className={styles.gameSelection} role="radiogroup" aria-label="Choose your content">
+                  <p className={styles.gameSelectionLabel}>Choose your content</p>
+                  <div className={styles.gameCardGrid}>
+                    <label className={[styles.gameCard, contentSelection.type === "sample" && styles.gameCardSelected].filter(Boolean).join(" ")}>
+                      <input
+                        type="radio"
+                        name="contentSelection"
+                        checked={contentSelection.type === "sample"}
+                        onChange={() => setContentSelection({ type: "sample" })}
+                        className={styles.gameCardRadio}
+                      />
+                      {contentSelection.type === "sample" && <span className={styles.gameCardChip}>SELECTED</span>}
+                      <p className={styles.gameCardTitle}>Default Mini Jeopardy</p>
+                      <p className={styles.contentCardMeta}>Sample content</p>
+                    </label>
+                    {playlists.data?.map((playlist) => {
+                      const selected = contentSelection.type === "playlist" && contentSelection.playlistId === playlist.id;
+                      return (
+                        <label key={playlist.id} className={[styles.gameCard, selected && styles.gameCardSelected].filter(Boolean).join(" ")}>
+                          <input
+                            type="radio"
+                            name="contentSelection"
+                            checked={selected}
+                            onChange={() => setContentSelection({ type: "playlist", playlistId: playlist.id, contentToken: contentToken! })}
+                            className={styles.gameCardRadio}
+                          />
+                          {selected && <span className={styles.gameCardChip}>SELECTED</span>}
+                          <p className={styles.gameCardTitle}>{playlist.name}</p>
+                          <p className={styles.contentCardMeta}>{playlist.questionCount} questions</p>
+                          <div className={styles.contentCardReadiness}>
+                            <ReadinessBadge readiness={playlist.readiness} size="sm" />
+                          </div>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  {!contentToken && (
+                    <p className={styles.contentStudioCta}>
+                      Prepare your own board in the <Link href="/host/content">Content Studio</Link>.
+                    </p>
+                  )}
+                  {contentToken && playlists.isError && (
+                    <p className={styles.contentStudioCta}>Couldn&apos;t load your playlists — Default Mini Jeopardy is still available.</p>
+                  )}
+                  {/* Signed into Content Studio but never built a board —
+                      a distinct state from "not signed in" above, per
+                      product brief "Show Preparation" section 9: a Host
+                      here shouldn't stare at a picker with only the sample
+                      board in it and wonder if something's broken. */}
+                  {noPlaylistsYet && (
+                    <div className={styles.noPlaylistsYet}>
+                      <p className={styles.noPlaylistsYetTitle}>You haven&apos;t created a Jeopardy board yet.</p>
+                      <p className={styles.noPlaylistsYetHint}>Default Mini Jeopardy is ready to go, or build your own in a couple of minutes.</p>
+                      <Link href="/host/content/jeopardy">
+                        <Button size="sm" variant="secondary">
+                          + Create a board
+                        </Button>
+                      </Link>
+                    </div>
+                  )}
+                  {/* The backend genuinely refuses Start on an incomplete
+                      board now (router.ts's game.start, PLAYLIST_NOT_READY)
+                      — this banner gives the Host both real ways out
+                      instead of a dead end (product brief "Show
+                      Preparation" section 10). */}
+                  {selectedPlaylist && !selectedPlaylist.readiness.ready && (
+                    <div className={styles.readinessWarning}>
+                      <p className={styles.readinessWarningTitle}>⚠ This board isn&apos;t ready</p>
+                      <ReadinessLine readiness={selectedPlaylist.readiness} />
+                      <div className={styles.readinessWarningActions}>
+                        <Link href={`/host/content/jeopardy/playlists/${selectedPlaylist.id}`} className={styles.reviewBoardLink}>
+                          Review board →
+                        </Link>
+                        <button
+                          type="button"
+                          className={styles.useSampleBoardLink}
+                          onClick={() => setContentSelection({ type: "sample" })}
+                        >
+                          Use sample board instead
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  {selectedPlaylist && selectedPlaylist.readiness.ready && (
+                    <p className={styles.readinessOk}>✓ Ready to play</p>
+                  )}
+                </div>
+              )}
+
               {/* `sequenceActive` (GameStartingSequence, rendered above
                   this whole phase-driven block once it's true — see
                   below) takes over the instant this button is clicked,
                   so in practice this plain row is what's showing
                   whenever the Lobby itself is visible. */}
               <div className={styles.startRow}>
-                <Button size="lg" onClick={handleStartGame}>
+                <Button size="lg" onClick={handleStartGame} disabled={startBlocked}>
                   {startLabel}
                 </Button>
                 {start.error && <p className={styles.errorBanner}>{readableSessionError(start.error.data?.sessionErrorCode, start.error.message)}</p>}

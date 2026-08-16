@@ -1,0 +1,53 @@
+.wrap {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.2em;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.row {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--vb-space-1);
+}
+
+.dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.saving {
+  color: var(--vb-text-muted);
+}
+
+.saving .dot {
+  border: 1.5px solid currentColor;
+  border-top-color: transparent;
+  background: transparent;
+  animation: vb-save-spin 700ms linear infinite;
+}
+
+.saved {
+  color: var(--vb-success);
+}
+
+.saved .dot {
+  background: var(--vb-success);
+}
+
+.error {
+  color: var(--vb-danger);
+}
+
+.error .dot {
+  background: var(--vb-danger);
+}
+
+@keyframes vb-save-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

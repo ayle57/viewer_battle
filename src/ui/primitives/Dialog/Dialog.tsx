@@ -3,7 +3,7 @@
 import { useEffect, useId, useRef, type MouseEvent, type ReactNode } from "react";
 import styles from "./Dialog.module.css";
 
-export type DialogSize = "sm" | "md" | "lg";
+export type DialogSize = "sm" | "md" | "lg" | "xl";
 
 export interface DialogProps {
   open: boolean;

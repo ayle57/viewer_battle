@@ -261,6 +261,7 @@ export const boardQuestionEngine: GameEngine<BoardQuestionState, BoardQuestionAc
     label: "Mini Jeopardy",
     description: "Host-picked categories and questions — buzz in, answer, and steal points.",
     meta: "2 teams · live quiz",
+    hasContentStudio: true,
     createInitialState,
     apply,
     availableActions,

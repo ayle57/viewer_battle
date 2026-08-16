@@ -1,0 +1,55 @@
+.page {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: var(--vb-space-6) var(--vb-space-4) var(--vb-space-8);
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-5);
+  animation: vb-fade-in-up 280ms ease both;
+}
+
+.gate {
+  max-width: 26rem;
+  margin: var(--vb-space-8) auto;
+  width: 100%;
+  min-height: 12rem;
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-3);
+}
+
+.hostLobbyLink {
+  align-self: flex-start;
+  color: var(--vb-text-muted);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.85rem;
+  padding: var(--vb-space-1) var(--vb-space-2);
+  margin-left: calc(var(--vb-space-2) * -1);
+  border-radius: var(--vb-radius-sm);
+  transition: color var(--vb-transition-fast), background var(--vb-transition-fast);
+}
+
+.hostLobbyLink:hover {
+  color: var(--vb-text);
+  background: var(--vb-surface-raised);
+}
+
+.gateCard {
+  animation: vb-fade-in-up 320ms ease both;
+}
+
+.gateForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-4);
+}
+
+.errorBanner {
+  padding: var(--vb-space-2) var(--vb-space-3);
+  background: var(--vb-danger-bg);
+  color: var(--vb-danger);
+  border-radius: var(--vb-radius-sm);
+  font-size: 0.85rem;
+  font-weight: 600;
+}

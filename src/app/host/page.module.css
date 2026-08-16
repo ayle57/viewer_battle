@@ -19,6 +19,23 @@
   gap: var(--vb-space-4);
 }
 
+.connexionFooter {
+  margin: var(--vb-space-4) 0 0;
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--vb-text-muted);
+}
+
+.connexionFooter a {
+  color: var(--vb-accent);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.connexionFooter a:hover {
+  text-decoration: underline;
+}
+
 .errorBanner {
   padding: var(--vb-space-2) var(--vb-space-3);
   background: var(--vb-danger-bg);
@@ -309,6 +326,130 @@
   color: var(--vb-text-muted);
   text-transform: none;
   letter-spacing: normal;
+}
+
+.contentStudioLink {
+  color: var(--vb-text-muted);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.85rem;
+  padding: var(--vb-space-1) var(--vb-space-2);
+  border-radius: var(--vb-radius-sm);
+  transition: color var(--vb-transition-fast), background var(--vb-transition-fast);
+}
+
+.contentStudioLink:hover {
+  color: var(--vb-text);
+  background: var(--vb-surface-raised);
+}
+
+.contentCardMeta {
+  margin: var(--vb-space-2) 0 0;
+  font-size: 0.8125rem;
+  color: var(--vb-text-muted);
+}
+
+.contentStudioCta {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--vb-text-muted);
+}
+
+.contentStudioCta a {
+  color: var(--vb-accent);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.contentStudioCta a:hover {
+  text-decoration: underline;
+}
+
+.contentCardReadiness {
+  margin-top: var(--vb-space-2);
+}
+
+.readinessWarning {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--vb-space-1);
+  margin-top: var(--vb-space-3);
+  padding: var(--vb-space-3) var(--vb-space-4);
+  background: var(--vb-warning-bg);
+  border: 1px solid var(--vb-warning);
+  border-radius: var(--vb-radius-md);
+}
+
+.readinessWarningTitle {
+  margin: 0;
+  font-weight: 800;
+  color: var(--vb-warning);
+  font-size: 0.9rem;
+}
+
+.reviewBoardLink {
+  color: var(--vb-warning);
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-decoration: none;
+}
+
+.reviewBoardLink:hover {
+  text-decoration: underline;
+}
+
+.readinessOk {
+  margin: var(--vb-space-3) 0 0;
+  font-weight: 700;
+  color: var(--vb-success);
+  font-size: 0.9rem;
+}
+
+.readinessWarningActions {
+  display: flex;
+  align-items: center;
+  gap: var(--vb-space-3);
+  flex-wrap: wrap;
+}
+
+.useSampleBoardLink {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--vb-text-muted);
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.useSampleBoardLink:hover {
+  color: var(--vb-text);
+}
+
+.noPlaylistsYet {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--vb-space-2);
+  margin-top: var(--vb-space-3);
+  padding: var(--vb-space-3) var(--vb-space-4);
+  background: var(--vb-surface-raised);
+  border: 1px dashed var(--vb-border);
+  border-radius: var(--vb-radius-md);
+}
+
+.noPlaylistsYetTitle {
+  margin: 0;
+  font-weight: 800;
+  font-size: 0.9rem;
+}
+
+.noPlaylistsYetHint {
+  margin: 0;
+  color: var(--vb-text-muted);
+  font-size: 0.8125rem;
 }
 
 .layout {

@@ -29,6 +29,7 @@ export interface GameDefinition {
   label: string;
   description?: string;
   meta?: string;
+  hasContentStudio?: boolean;
 }
 
 /**
@@ -47,5 +48,6 @@ export function listGameDefinitions(): GameDefinition[] {
     label: engine.label,
     description: engine.description,
     meta: engine.meta,
+    hasContentStudio: engine.hasContentStudio,
   }));
 }

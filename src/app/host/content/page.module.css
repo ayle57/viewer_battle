@@ -1,0 +1,110 @@
+.intro {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-2);
+  padding-bottom: var(--vb-space-2);
+  border-bottom: 1px solid var(--vb-border);
+}
+
+.eyebrow {
+  color: var(--vb-accent);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.title {
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  margin: 0;
+  max-width: 40rem;
+}
+
+.subtitle {
+  color: var(--vb-text-muted);
+  font-size: 1rem;
+  margin: 0;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  gap: var(--vb-space-4);
+}
+
+.gameCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-3);
+  padding: var(--vb-space-5);
+  border-radius: var(--vb-radius-lg);
+  border: 1px solid var(--vb-border);
+  background: var(--vb-surface);
+  box-shadow: var(--vb-shadow-sm);
+  min-height: 13rem;
+  transition: border-color var(--vb-transition-fast), box-shadow var(--vb-transition-fast), transform var(--vb-transition-fast);
+}
+
+.gameCardLive {
+  border-color: color-mix(in srgb, var(--vb-accent) 45%, var(--vb-border));
+  box-shadow: var(--vb-shadow-md);
+}
+
+.gameCardLive:hover {
+  border-color: var(--vb-accent);
+  box-shadow: var(--vb-shadow-glow);
+  transform: translateY(-3px);
+}
+
+.gameCardComingSoon {
+  opacity: 0.65;
+  border-style: dashed;
+}
+
+.gameCardTitle {
+  font-size: 1.1rem;
+  font-weight: 800;
+  margin: 0;
+}
+
+.gameCardSub {
+  color: var(--vb-text-muted);
+  font-size: 0.85rem;
+  margin: 0 0 var(--vb-space-1);
+}
+
+.featureList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-1);
+  font-size: 0.85rem;
+  color: var(--vb-text-muted);
+  flex: 1;
+}
+
+.featureList li::before {
+  content: "· ";
+  color: var(--vb-accent);
+  font-weight: 700;
+}
+
+.statusRow {
+  margin-top: auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--vb-space-2);
+}
+
+.comingSoonTag {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--vb-text-muted);
+}

@@ -1,0 +1,304 @@
+.board {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--vb-space-3);
+  overflow-x: auto;
+  padding: var(--vb-space-1) var(--vb-space-1) var(--vb-space-3);
+  /* A wide board WILL scroll — that's by design (see the max-width:640px
+     rule below, where it stacks instead). The OS/browser default
+     scrollbar is thick and light-gray-on-white by default, which reads as
+     a jarring, unstyled seam against this card's dark surface. A thin,
+     theme-matched bar (both engines: Firefox's scrollbar-color, Chromium/
+     Safari's ::-webkit-scrollbar below) keeps the same functional
+     scrollbar without it looking like a rendering glitch. */
+  scrollbar-width: thin;
+  scrollbar-color: var(--vb-border) transparent;
+}
+
+.board::-webkit-scrollbar {
+  height: 8px;
+}
+
+.board::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.board::-webkit-scrollbar-thumb {
+  background: var(--vb-border);
+  border-radius: var(--vb-radius-full);
+}
+
+.board::-webkit-scrollbar-thumb:hover {
+  background: var(--vb-text-muted);
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-2);
+  min-width: 11rem;
+  flex: 1 0 11rem;
+}
+
+.categoryHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--vb-space-1);
+  padding: var(--vb-space-2) var(--vb-space-1);
+  border-radius: var(--vb-radius-sm);
+  background: var(--vb-surface-raised);
+}
+
+.categoryNameInput {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: var(--vb-radius-sm);
+  padding: var(--vb-space-1) var(--vb-space-2);
+  font-weight: 800;
+  font-size: 0.85rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--vb-text);
+}
+
+.categoryNameInput:hover,
+.categoryNameInput:focus {
+  border-color: var(--vb-border);
+  outline: none;
+  background: var(--vb-surface);
+}
+
+.iconButton {
+  border: none;
+  background: transparent;
+  color: var(--vb-text-muted);
+  cursor: pointer;
+  border-radius: var(--vb-radius-sm);
+  width: 1.6rem;
+  height: 1.6rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  flex-shrink: 0;
+  transition: background var(--vb-transition-fast), color var(--vb-transition-fast), opacity var(--vb-transition-fast);
+}
+
+.iconButton:hover:not(:disabled) {
+  background: var(--vb-surface);
+  color: var(--vb-text);
+}
+
+.iconButton:disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
+}
+
+.deleteButton:hover:not(:disabled) {
+  color: var(--vb-danger);
+}
+
+/* Secondary actions stay discreet at rest (per product brief: "les
+   actions secondaires doivent être discrètes") and reveal themselves on
+   hover/keyboard-focus of their row — a coarse pointer (touch) can't
+   hover, so it gets a lower-but-still-usable resting opacity instead of
+   fully invisible controls. */
+.categoryHeader .iconButton:not(:disabled) {
+  opacity: 0;
+}
+
+.categoryHeader:hover .iconButton,
+.categoryHeader:focus-within .iconButton {
+  opacity: 1;
+}
+
+.cellControls {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity var(--vb-transition-fast);
+}
+
+.cellRow:hover .cellControls,
+.cellRow:focus-within .cellControls {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .categoryHeader .iconButton:not(:disabled),
+  .cellControls {
+    opacity: 0.55;
+  }
+}
+
+.cell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--vb-space-1);
+  min-height: 4.75rem;
+  padding: var(--vb-space-2);
+  border-radius: var(--vb-radius-md);
+  border: 1px solid var(--vb-border);
+  background: var(--vb-surface);
+  cursor: pointer;
+  text-align: center;
+  width: 100%;
+  font-family: inherit;
+  transition: border-color var(--vb-transition-fast), box-shadow var(--vb-transition-fast), transform var(--vb-transition-fast);
+}
+
+.cell:hover {
+  border-color: var(--vb-accent);
+  box-shadow: 0 0 0 1px var(--vb-accent), 0 6px 18px -6px color-mix(in srgb, var(--vb-accent) 55%, transparent);
+  transform: translateY(-2px);
+}
+
+.cell:focus-visible {
+  outline: 2px solid var(--vb-primary);
+  outline-offset: 2px;
+}
+
+/* A question missing prompt/answer/value never silently reads as "ready"
+   — see product brief "Show Preparation" section 1. Warning-tinted at
+   rest, not just on hover, since this is real state the Host needs to
+   notice at a glance across the whole board. */
+.cellIncomplete {
+  border-color: var(--vb-warning);
+  background: var(--vb-warning-bg);
+}
+
+.cellIncomplete:hover {
+  border-color: var(--vb-warning);
+  box-shadow: 0 0 0 1px var(--vb-warning), 0 6px 18px -6px color-mix(in srgb, var(--vb-warning) 55%, transparent);
+}
+
+.cellStatus {
+  position: absolute;
+  top: 0.3rem;
+  right: 0.4rem;
+  font-size: 0.7rem;
+  color: var(--vb-success);
+  line-height: 1;
+}
+
+.cellIncomplete .cellStatus {
+  color: var(--vb-warning);
+}
+
+.cellValue {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: var(--vb-accent);
+  transition: transform var(--vb-transition-fast);
+}
+
+.cell:hover .cellValue {
+  transform: scale(1.08);
+}
+
+.cellPrompt {
+  font-size: 0.72rem;
+  color: var(--vb-text-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.cellRow {
+  display: flex;
+  align-items: stretch;
+  gap: var(--vb-space-1);
+}
+
+.cellRow .cell {
+  flex: 1;
+}
+
+/* The empty-cell affordance — distinct from a filled cell, not "a blank
+   white box": dashed, muted, with a real plus glyph, warming to the
+   accent color on hover so it visibly invites a click instead of reading
+   as dead space. */
+.addQuestionCell {
+  min-height: 3.5rem;
+  border-style: dashed;
+  color: var(--vb-text-muted);
+  font-weight: 700;
+  font-size: 0.78rem;
+  gap: 0;
+}
+
+.addQuestionPlus {
+  font-size: 1.3rem;
+  font-weight: 300;
+  line-height: 1.1;
+}
+
+.addQuestionCell:hover {
+  color: var(--vb-accent);
+  border-color: var(--vb-accent);
+  background: color-mix(in srgb, var(--vb-accent) 6%, transparent);
+  box-shadow: none;
+  transform: none;
+}
+
+.addCategoryColumn {
+  display: flex;
+  align-items: flex-start;
+  min-width: 8rem;
+  flex: 0 0 8rem;
+}
+
+.addCategoryButton {
+  width: 100%;
+  padding: var(--vb-space-3);
+  border-radius: var(--vb-radius-md);
+  border: 1px dashed var(--vb-border);
+  background: transparent;
+  color: var(--vb-text-muted);
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color var(--vb-transition-fast), color var(--vb-transition-fast), background var(--vb-transition-fast);
+}
+
+.addCategoryButton:hover {
+  border-color: var(--vb-accent);
+  color: var(--vb-accent);
+  background: color-mix(in srgb, var(--vb-accent) 6%, transparent);
+}
+
+@media (max-width: 640px) {
+  .board {
+    flex-direction: column;
+    overflow-x: visible;
+  }
+
+  .column,
+  .addCategoryColumn {
+    min-width: 100%;
+    flex: 1 1 auto;
+  }
+
+  /* Discreet-on-hover doesn't work on a column that's about to be
+     stacked for touch anyway — matches the (hover: none) rule above,
+     kept here too since a narrow viewport is usually also a touch one. */
+  .categoryHeader .iconButton:not(:disabled),
+  .cellControls {
+    opacity: 0.55;
+  }
+}
+
+.errorBanner {
+  padding: var(--vb-space-2) var(--vb-space-3);
+  background: var(--vb-danger-bg);
+  color: var(--vb-danger);
+  border-radius: var(--vb-radius-sm);
+  font-size: 0.85rem;
+  font-weight: 600;
+}

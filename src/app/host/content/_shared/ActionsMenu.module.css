@@ -1,0 +1,74 @@
+.root {
+  position: relative;
+  display: inline-flex;
+}
+
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--vb-radius-sm);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--vb-text-muted);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color var(--vb-transition-fast), color var(--vb-transition-fast), border-color var(--vb-transition-fast);
+}
+
+.trigger:hover {
+  background: var(--vb-surface-raised);
+  color: var(--vb-text);
+}
+
+.trigger:focus-visible {
+  outline: 2px solid var(--vb-primary);
+  outline-offset: 2px;
+}
+
+.menu {
+  position: absolute;
+  top: calc(100% + var(--vb-space-1));
+  right: 0;
+  z-index: 20;
+  min-width: 10rem;
+  padding: var(--vb-space-1);
+  background: var(--vb-surface);
+  border: 1px solid var(--vb-border);
+  border-radius: var(--vb-radius-md);
+  box-shadow: var(--vb-shadow-md);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  transform-origin: top right;
+}
+
+.item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: var(--vb-space-2) var(--vb-space-3);
+  border: none;
+  background: transparent;
+  border-radius: var(--vb-radius-sm);
+  color: var(--vb-text);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color var(--vb-transition-fast), color var(--vb-transition-fast);
+}
+
+.item:hover {
+  background: var(--vb-surface-raised);
+}
+
+.item.danger {
+  color: var(--vb-danger);
+}
+
+.item.danger:hover {
+  background: var(--vb-danger-bg);
+}

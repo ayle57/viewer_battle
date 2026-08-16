@@ -8,10 +8,15 @@ import { joinSession, reclaimHost, resolveParticipantByToken } from "@/server/db
 import { joinSessionInputSchema, reclaimHostInputSchema, sessionCodeSchema, SessionError } from "@/domain/session";
 import { verifyHostPassword } from "@/server/auth/hostPassword";
 import { sampleBoard } from "@/domain/game/boardQuestion";
+import { ContentError, getPlaylistReadiness, playlistToBoardQuestionConfig } from "@/domain/content";
 import { startGame } from "@/server/game";
 import { broadcastGameSnapshot } from "@/server/sockets/game";
 import { broadcastSessionEnded } from "@/server/sockets/session";
 import { getSocketServer } from "@/server/sockets/instance";
+import { getOwnedPlaylist } from "@/server/db/content";
+import { resolveContentHost } from "@/server/db/contentHost";
+import { toContentTRPCError } from "@/server/trpc/contentErrors";
+import { contentRouter } from "@/server/trpc/contentRouter";
 
 /**
  * system.health: a real DB reachability check, consumed by the /dev
@@ -128,9 +133,25 @@ const sessionRouter = router({
  * subsequent in-game action (SELECT_QUESTION, BUZZ, ...) goes through
  * `game:action` over the socket (src/server/sockets/game.ts), not here.
  */
+/**
+ * "Choose your content" (see AGENTS.md-equivalent write-up in
+ * prisma/schema.prisma's "Content Studio" comment): a game either uses
+ * the built-in sample board (unchanged — the literal default when
+ * `content` is omitted, so every pre-existing caller/test keeps working
+ * verbatim) or a Host-prepared Playlist, resolved and snapshotted
+ * server-side. The client never sends board data itself — only an id — so
+ * there's nothing here for a tampered request to inject.
+ */
+const gameStartContentSchema = z
+  .discriminatedUnion("type", [
+    z.object({ type: z.literal("sample") }),
+    z.object({ type: z.literal("playlist"), playlistId: z.string().min(1), contentToken: z.string().min(1) }),
+  ])
+  .optional();
+
 const gameRouter = router({
   start: publicProcedure
-    .input(z.object({ token: z.string().min(1), gameKey: z.literal("board-question") }))
+    .input(z.object({ token: z.string().min(1), gameKey: z.literal("board-question"), content: gameStartContentSchema }))
     .mutation(async ({ input }) => {
       let participant;
       try {
@@ -142,11 +163,43 @@ const gameRouter = router({
         throw toTRPCError(new SessionError("FORBIDDEN"));
       }
 
-      // Content authoring doesn't exist yet — sampleBoard is the only
-      // config available, chosen server-side from gameKey. Not a client
-      // input, so a caller can't inject arbitrary board data.
-      const config = sampleBoard;
-      const result = await startGame(participant.sessionId, input.gameKey, config);
+      let config: unknown = sampleBoard;
+      let playlistId: string | null = null;
+      if (input.content?.type === "playlist") {
+        try {
+          // Ownership resolved fresh from the ContentHost token on every
+          // start — the SAME check Content Studio's own CRUD uses
+          // (src/server/db/content.ts's getOwnedPlaylist), so a Host can
+          // never start a game off a Playlist that isn't theirs, even by
+          // guessing another host's playlistId.
+          const { hostId } = await resolveContentHost(input.content.contentToken);
+          const playlist = await getOwnedPlaylist(hostId, input.content.playlistId);
+          // boardQuestionSchema (src/domain/game/boardQuestion/types.ts)
+          // requires every question's prompt/answer to be non-empty and
+          // its value a positive integer — a real Game Kernel rule, not
+          // something introduced here. Without this check,
+          // engine.createInitialState (called inside startGame below)
+          // would `.parse()`-throw on the first incomplete question and
+          // surface as a raw, unhelpful INTERNAL_SERVER_ERROR instead of
+          // a business error the Host can act on. Re-using the exact same
+          // getPlaylistReadiness the Library card/Host lobby already show
+          // means this can never disagree with what the Host was told
+          // before clicking Start (product brief "Show Preparation"
+          // section 10) — the backend stays the source of truth, it just
+          // reports its refusal properly instead of crashing.
+          const readiness = getPlaylistReadiness(playlist.categories);
+          if (!readiness.ready) {
+            throw new ContentError("PLAYLIST_NOT_READY", readiness.summary);
+          }
+          const questions = playlist.categories.flatMap((c) => c.questions);
+          config = playlistToBoardQuestionConfig(playlist.categories, questions);
+          playlistId = playlist.id;
+        } catch (error) {
+          throw toContentTRPCError(error);
+        }
+      }
+
+      const result = await startGame(participant.sessionId, input.gameKey, config, playlistId);
       if (!result.ok) {
         throw new TRPCError({ code: "CONFLICT", message: result.error.message, cause: result.error });
       }
@@ -162,6 +215,7 @@ export const appRouter = router({
   system: systemRouter,
   session: sessionRouter,
   game: gameRouter,
+  content: contentRouter,
 });
 
 export type AppRouter = typeof appRouter;

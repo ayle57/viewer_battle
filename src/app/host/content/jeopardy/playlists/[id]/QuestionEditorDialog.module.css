@@ -1,0 +1,310 @@
+.layout {
+  display: grid;
+  grid-template-columns: 10.5rem 1.15fr 1fr;
+  gap: var(--vb-space-5);
+  align-items: start;
+}
+
+/* --- Mini board map (product brief "Show Preparation" section 4) --- */
+
+.boardMap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-3);
+  max-height: 28rem;
+  overflow-y: auto;
+  padding-right: var(--vb-space-1);
+  /* Same theme-matched thin scrollbar as BoardEditor's .board — a default
+     OS scrollbar reads as broken against this dialog's dark surface. */
+  scrollbar-width: thin;
+  scrollbar-color: var(--vb-border) transparent;
+}
+
+.boardMap::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.boardMap::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.boardMap::-webkit-scrollbar-thumb {
+  background: var(--vb-border);
+  border-radius: var(--vb-radius-full);
+}
+
+.boardMap::-webkit-scrollbar-thumb:hover {
+  background: var(--vb-text-muted);
+}
+
+.boardMapGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.boardMapCategory {
+  margin: 0 0 2px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--vb-text-muted);
+}
+
+.boardMapEmpty {
+  margin: 0;
+  font-size: 0.72rem;
+  color: var(--vb-text-muted);
+  font-style: italic;
+}
+
+.boardMapRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--vb-space-1);
+  padding: var(--vb-space-1) var(--vb-space-2);
+  border: 1px solid transparent;
+  border-radius: var(--vb-radius-sm);
+  background: transparent;
+  color: var(--vb-text-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--vb-transition-fast), border-color var(--vb-transition-fast), color var(--vb-transition-fast);
+}
+
+.boardMapRow:hover {
+  background: var(--vb-surface-raised);
+  color: var(--vb-text);
+}
+
+.boardMapRowActive {
+  background: color-mix(in srgb, var(--vb-primary) 12%, transparent);
+  border-color: var(--vb-primary);
+  color: var(--vb-text);
+}
+
+.boardMapReady {
+  color: var(--vb-success);
+}
+
+.boardMapWarning {
+  color: var(--vb-warning);
+}
+
+@media (max-width: 62rem) {
+  .layout {
+    grid-template-columns: 9rem 1fr 1fr;
+  }
+}
+
+.editorColumn {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-4);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-1);
+}
+
+.fieldRow {
+  display: grid;
+  grid-template-columns: 1fr 8rem;
+  gap: var(--vb-space-4);
+}
+
+.readOnlyField {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-1);
+}
+
+.readOnlyLabel {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--vb-text-muted);
+}
+
+.readOnlyValue {
+  padding: var(--vb-space-2) var(--vb-space-3);
+  border-radius: var(--vb-radius-sm);
+  background: var(--vb-surface-raised);
+  font-weight: 700;
+}
+
+.textarea {
+  width: 100%;
+  min-height: 4.5rem;
+  border-radius: var(--vb-radius-sm);
+  border: 1px solid var(--vb-border);
+  background: var(--vb-surface);
+  color: var(--vb-text);
+  padding: var(--vb-space-2) var(--vb-space-3);
+  font: inherit;
+  font-size: 16px; /* never below 16px — prevents iOS Safari's automatic zoom-on-focus */
+  resize: vertical;
+}
+
+.textarea:focus-visible,
+.textarea:focus {
+  outline: 2px solid var(--vb-accent);
+  outline-offset: 1px;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--vb-space-3);
+  flex-wrap: wrap;
+}
+
+.footerLeft {
+  display: flex;
+  align-items: center;
+  gap: var(--vb-space-2);
+  min-height: var(--vb-tap-target);
+}
+
+.footerRight {
+  display: flex;
+  align-items: center;
+  gap: var(--vb-space-3);
+}
+
+.duplicatedPill {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--vb-success);
+  white-space: nowrap;
+}
+
+.nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--vb-space-2);
+  padding-top: var(--vb-space-3);
+  border-top: 1px solid var(--vb-border);
+}
+
+.navCounter {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--vb-text-muted);
+  white-space: nowrap;
+}
+
+.errorBanner {
+  padding: var(--vb-space-2) var(--vb-space-3);
+  background: var(--vb-danger-bg);
+  color: var(--vb-danger);
+  border-radius: var(--vb-radius-sm);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+/* --- Live preview column --- */
+
+.previewColumn {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-2);
+  position: sticky;
+  top: 0;
+}
+
+.previewHeaderRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--vb-space-2);
+}
+
+.previewLabel {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--vb-text-muted);
+  margin: 0;
+}
+
+.answerToggle {
+  border: 1px solid var(--vb-border);
+  background: var(--vb-surface);
+  color: var(--vb-text-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.2rem var(--vb-space-2);
+  border-radius: var(--vb-radius-full);
+  cursor: pointer;
+  transition: color var(--vb-transition-fast), border-color var(--vb-transition-fast);
+}
+
+.answerToggle:hover {
+  color: var(--vb-text);
+  border-color: var(--vb-accent);
+}
+
+.previewFrame {
+  min-height: 12rem;
+  display: flex;
+  align-items: center;
+}
+
+.previewHint {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--vb-text-muted);
+  text-align: center;
+}
+
+@media (max-width: 46rem) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+
+  /* On a narrow viewport the map becomes a horizontal scroll strip
+     ABOVE the editor rather than eating vertical space meant for the
+     fields themselves — still fully usable, per product brief section
+     13 ("le board peut devenir horizontalement scrollable"). */
+  .boardMap {
+    flex-direction: row;
+    max-height: none;
+    overflow-x: auto;
+    overflow-y: visible;
+    padding-right: 0;
+    padding-bottom: var(--vb-space-2);
+  }
+
+  .boardMapGroup {
+    flex-direction: row;
+    align-items: center;
+    flex-shrink: 0;
+  }
+
+  .boardMapCategory {
+    margin: 0 var(--vb-space-2) 0 0;
+    white-space: nowrap;
+  }
+
+  .boardMapRow {
+    flex-shrink: 0;
+  }
+
+  .previewColumn {
+    position: static;
+  }
+
+  .fieldRow {
+    grid-template-columns: 1fr;
+  }
+}

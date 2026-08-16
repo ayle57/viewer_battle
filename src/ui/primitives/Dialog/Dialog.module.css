@@ -54,6 +54,14 @@
   max-width: 40rem;
 }
 
+/* Added for Content Studio's Question Editor — a two-column
+   editor/live-preview layout (src/app/host/content/jeopardy/playlists/
+   [id]/QuestionEditorDialog.tsx) genuinely needs more width than any
+   existing consumer asked for; every other size/consumer is untouched. */
+.xl {
+  max-width: 60rem;
+}
+
 .header {
   display: flex;
   align-items: flex-start;

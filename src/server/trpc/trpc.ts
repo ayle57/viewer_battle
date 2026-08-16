@@ -1,5 +1,6 @@
 import { initTRPC } from "@trpc/server";
 import { SessionError } from "@/domain/session";
+import { ContentError } from "@/domain/content";
 
 /**
  * tRPC is used for request/response CRUD and admin operations only
@@ -17,6 +18,12 @@ import { SessionError } from "@/domain/session";
  *     GameError from an engine's own EngineResult (e.g.
  *     TEAM_ALREADY_ATTEMPTED). Same shape either way, so one field covers
  *     both without the client needing to know which layer rejected it.
+ *   - error.data.contentErrorCode — cause is a ContentError
+ *     (src/domain/content/errors.ts), thrown via
+ *     src/server/trpc/contentErrors.ts's toContentTRPCError. A separate
+ *     field from sessionErrorCode/gameErrorCode on purpose: Content Studio
+ *     is a deliberately separate identity system (ContentHost, not
+ *     Participant) — see prisma/schema.prisma's "Content Studio" comment.
  */
 function hasStringCode(value: unknown): value is { code: string } {
   return typeof value === "object" && value !== null && typeof (value as { code?: unknown }).code === "string";
@@ -30,7 +37,11 @@ const t = initTRPC.create({
       data: {
         ...shape.data,
         sessionErrorCode: cause instanceof SessionError ? cause.code : undefined,
-        gameErrorCode: !(cause instanceof SessionError) && hasStringCode(cause) ? cause.code : undefined,
+        contentErrorCode: cause instanceof ContentError ? cause.code : undefined,
+        gameErrorCode:
+          !(cause instanceof SessionError) && !(cause instanceof ContentError) && hasStringCode(cause)
+            ? cause.code
+            : undefined,
       },
     };
   },
