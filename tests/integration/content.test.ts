@@ -20,10 +20,25 @@ import { DEV_PLAYGROUND_HOST_PASSWORD } from "@/domain/session";
 describe("Content Studio", () => {
   const createdSessionIds = new Set<string>();
   const caller = appRouter.createCaller({});
+  // Everything this file's ContentHost cleanup removes is scoped to rows
+  // created from THIS moment on — never a blanket `contentHost.deleteMany({})`.
+  // This app has exactly ONE real ContentHost (the streamer —
+  // signInContentHost's own doc comment: "there is exactly one real Host
+  // identity in practice"), and a global delete here destroyed that same
+  // real row — and cascaded onto every real Playlist/Category/Question
+  // under it — the next time this suite ran, with zero relation to what
+  // any individual test actually exercised. This was a REAL, reported bug
+  // ("playlists keep disappearing"), not a hypothetical: `pnpm test`
+  // periodically wiped the streamer's actual prepared content. A
+  // timestamp cutoff (not per-call `hostId` tracking, which this file's
+  // three `auth.login` calls below don't return anyway) is what makes
+  // this genuinely exhaustive — nothing created during this run's window
+  // can be missed, from any call site, present or future.
+  const suiteStartedAt = new Date();
 
   afterAll(async () => {
     await prisma.session.deleteMany({ where: { id: { in: Array.from(createdSessionIds) } } });
-    await prisma.contentHost.deleteMany({});
+    await prisma.contentHost.deleteMany({ where: { createdAt: { gte: suiteStartedAt } } });
     await prisma.$disconnect();
   });
 
@@ -53,6 +68,30 @@ describe("Content Studio", () => {
       const { token } = await caller.content.auth.login({ hostPassword: DEV_PLAYGROUND_HOST_PASSWORD });
       expect(token).toBeTruthy();
       await expect(caller.content.auth.me({ token })).resolves.toEqual({ ok: true });
+    });
+
+    it("signing in again (a new browser/device) reattaches to the SAME Content Studio identity and its existing playlists, not a fresh empty one", async () => {
+      // The real product's login path (auth.login -> signInContentHost),
+      // not `freshHost()`/`createContentHost` — this app is single-
+      // streamer (see AGENTS.md "Session invariants"), so a second real
+      // sign-in must never orphan whatever the first session already
+      // built.
+      const { token: firstToken } = await caller.content.auth.login({ hostPassword: DEV_PLAYGROUND_HOST_PASSWORD });
+      const playlist = await caller.content.playlist.create({ token: firstToken, gameKey: "board-question", name: "Reattach Test" });
+
+      const { token: secondToken } = await caller.content.auth.login({ hostPassword: DEV_PLAYGROUND_HOST_PASSWORD });
+      expect(secondToken).not.toBe(firstToken);
+
+      // The new token sees the playlist the old token created — same host.
+      const list = await caller.content.playlist.list({ token: secondToken, gameKey: "board-question" });
+      expect(list.some((p) => p.id === playlist.id)).toBe(true);
+      await expect(caller.content.playlist.get({ token: secondToken, playlistId: playlist.id })).resolves.toMatchObject({
+        id: playlist.id,
+      });
+
+      // A fresh token replaces the old one — same single-active-credential
+      // posture as every other identity in this app, not two valid tokens.
+      await expect(caller.content.auth.me({ token: firstToken })).rejects.toMatchObject({ code: "UNAUTHORIZED" });
     });
 
     it("rejects a garbage token", async () => {
@@ -373,6 +412,30 @@ describe("Content Studio", () => {
       expect(await getCurrentGame(session.id)).toBeNull();
     });
 
+    it("rejects starting a game with a playlist that has an empty category, even though every question that DOES exist is complete", async () => {
+      const contentToken = await freshHost();
+      const playlist = await caller.content.playlist.create({ token: contentToken, gameKey: "board-question", name: "Almost There" });
+      const geo = await caller.content.category.create({ token: contentToken, playlistId: playlist.id, name: "Geography" });
+      await caller.content.question.create({ token: contentToken, categoryId: geo.id, value: 100, prompt: "Longest river?", answer: "The Amazon" });
+      // A second category with no questions at all yet — a real column
+      // on the board with nothing to click, not a lighter form of ready.
+      await caller.content.category.create({ token: contentToken, playlistId: playlist.id, name: "Science" });
+
+      const detail = await caller.content.playlist.get({ token: contentToken, playlistId: playlist.id });
+      expect(detail.readiness.status).toBe("incomplete");
+      expect(detail.readiness.emptyCategories).toEqual([{ categoryId: expect.any(String), categoryName: "Science" }]);
+
+      const { session, hostToken } = await hostedSession();
+      await expect(
+        caller.game.start({
+          token: hostToken,
+          gameKey: "board-question",
+          content: { type: "playlist", playlistId: playlist.id, contentToken },
+        }),
+      ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+      expect(await getCurrentGame(session.id)).toBeNull();
+    });
+
     it("a non-HOST participant cannot start a game at all, playlist or not", async () => {
       const contentToken = await freshHost();
       const playlist = await freshPlaylistWithBoard(contentToken);
@@ -444,7 +507,13 @@ describe("Content Studio", () => {
       // Finish the first game outright via END_GAME so a second one can start.
       await applyGameAction(session.id, { type: "END_GAME", by: "HOST" });
 
-      await caller.content.category.create({ token: contentToken, playlistId: playlist.id, name: "Sports" });
+      // A category needs at least one question to keep the playlist
+      // READY (see readiness.ts's "empty category" rule) — an empty
+      // "Sports" here would correctly get this second `game.start`
+      // rejected with PLAYLIST_NOT_READY, which isn't what this test is
+      // about; give it real content instead.
+      const sports = await caller.content.category.create({ token: contentToken, playlistId: playlist.id, name: "Sports" });
+      await caller.content.question.create({ token: contentToken, categoryId: sports.id, value: 100, prompt: "Sport with a love-15-30 scoring quirk?", answer: "Tennis" });
 
       const again = await caller.game.start({
         token: hostToken,
@@ -523,7 +592,7 @@ describe("Content Studio", () => {
       expect(listed.readiness.ready).toBe(false);
       expect(listed.readiness.incompleteQuestions).toHaveLength(1);
       expect(listed.readiness.incompleteQuestions[0]).toMatchObject({ questionId: target.id, issues: ["MISSING_ANSWER"] });
-      expect(listed.readiness.summary).toMatch(/missing an answer/);
+      expect(listed.readiness.summary).toBe("1 question needs attention.");
     });
 
     it("a question missing its prompt is also flagged, independently of the answer check", async () => {
