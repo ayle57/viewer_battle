@@ -4,3 +4,29 @@
   border-radius: var(--vb-radius-md);
   overflow: hidden;
 }
+
+.tabLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--vb-space-1);
+}
+
+/* The notification bubble — a real, if minor, use of --vb-danger beyond
+   destructive actions: an unread count is exactly the kind of "needs
+   attention" signal red conventionally carries in a chat UI (Discord,
+   Slack, ...), and it never appears next to anything else styled danger
+   in this same view, so there's nothing for it to be confused with. */
+.unreadBubble {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  padding: 0 0.35em;
+  border-radius: var(--vb-radius-full);
+  background: var(--vb-danger);
+  color: var(--vb-primary-text);
+  font-size: 0.7rem;
+  font-weight: 800;
+  line-height: 1;
+}
