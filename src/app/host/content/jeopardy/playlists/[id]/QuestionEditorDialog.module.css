@@ -54,10 +54,22 @@
 }
 
 .boardMapEmpty {
+  display: block;
+  width: 100%;
   margin: 0;
+  padding: var(--vb-space-1) var(--vb-space-2);
+  border: 1px dashed var(--vb-warning);
+  border-radius: var(--vb-radius-sm);
+  background: var(--vb-warning-bg);
+  color: var(--vb-warning);
   font-size: 0.72rem;
-  color: var(--vb-text-muted);
-  font-style: italic;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.boardMapEmpty:hover {
+  background: color-mix(in srgb, var(--vb-warning) 14%, transparent);
 }
 
 .boardMapRow {

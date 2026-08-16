@@ -205,6 +205,15 @@ export function QuestionEditorDialog({
     await goToQuestion(flattened[targetIndex]!.question.id);
   }
 
+  /** Same dirty-save-first shape as `goToQuestion` above, for jumping to an EMPTY category's first question from the mini map — the other real readiness problem (src/domain/content/readiness.ts) besides an incomplete existing question. */
+  async function goToCreate(categoryId: string) {
+    if (isDirty) {
+      const savedId = await save();
+      if (!savedId) return;
+    }
+    onNavigate({ type: "create", categoryId });
+  }
+
   /**
    * The one `onClose` Dialog ever calls — whether the Host clicked the ×,
    * clicked the overlay, or pressed Escape (Dialog's own Escape handler
@@ -312,6 +321,7 @@ export function QuestionEditorDialog({
           categories={detail.categories}
           activeQuestionId={mode.type === "edit" ? mode.questionId : null}
           onSelect={(questionId) => void goToQuestion(questionId)}
+          onSelectEmptyCategory={(categoryId) => void goToCreate(categoryId)}
         />
 
         <div className={styles.editorColumn}>
@@ -474,24 +484,39 @@ export function QuestionEditorDialog({
  * shared `getQuestionIssues` the Board Editor's cells and the backend's
  * readiness computation use — src/domain/content/readiness.ts), and the
  * currently-open question highlighted. Lets a Host parkour through a
- * 24-question board without ever closing this dialog.
+ * 24-question board without ever closing this dialog. An empty category
+ * (also a real readiness problem now, see readiness.ts) is itself a
+ * button — clicking "No questions yet" jumps straight to a fresh
+ * "create" slot in that category, same as clicking an existing cell
+ * jumps to editing it.
  */
 function BoardMap({
   categories,
   activeQuestionId,
   onSelect,
+  onSelectEmptyCategory,
 }: {
   categories: PlaylistDetailClient["categories"];
   activeQuestionId: string | null;
   onSelect: (questionId: string) => void;
+  onSelectEmptyCategory: (categoryId: string) => void;
 }) {
   return (
     <nav className={styles.boardMap} aria-label="Jump to a question">
       {categories.map((category) => (
         <div key={category.id} className={styles.boardMapGroup}>
-          <p className={styles.boardMapCategory}>{category.name}</p>
+          <p className={styles.boardMapCategory}>
+            {category.questions.length === 0 && (
+              <span className={styles.boardMapWarning} aria-hidden="true">
+                ⚠{" "}
+              </span>
+            )}
+            {category.name}
+          </p>
           {category.questions.length === 0 ? (
-            <p className={styles.boardMapEmpty}>No questions yet</p>
+            <button type="button" className={styles.boardMapEmpty} onClick={() => onSelectEmptyCategory(category.id)}>
+              + Add first question
+            </button>
           ) : (
             category.questions.map((question) => {
               const complete = getQuestionIssues(question).length === 0;

@@ -82,6 +82,17 @@ export function BoardEditor({
               >
                 ‹
               </button>
+              {/* A category with zero questions is a real readiness
+                  problem now (src/domain/content/readiness.ts), not a
+                  lighter form of ready — same ✓/⚠ vocabulary as
+                  QuestionCell below, at the column level instead of the
+                  cell level, so scanning the board top-to-bottom already
+                  tells the Host exactly which columns still need work. */}
+              {category.questions.length === 0 && (
+                <span className={styles.categoryEmptyGlyph} aria-hidden="true" title="This category has no questions yet">
+                  ⚠
+                </span>
+              )}
               <CategoryNameField
                 name={category.name}
                 onCommit={(name) => name !== category.name && renameCategory.mutate({ token, categoryId: category.id, name })}
@@ -144,7 +155,9 @@ export function BoardEditor({
             <motion.button
               type="button"
               layout
-              className={`${styles.cell} ${styles.addQuestionCell}`}
+              className={[styles.cell, styles.addQuestionCell, category.questions.length === 0 && styles.addQuestionCellUrgent]
+                .filter(Boolean)
+                .join(" ")}
               onClick={() => onCreateQuestion(category.id)}
             >
               <span className={styles.addQuestionPlus} aria-hidden="true">

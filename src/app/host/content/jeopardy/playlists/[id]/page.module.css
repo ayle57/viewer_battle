@@ -57,6 +57,28 @@
   flex-wrap: wrap;
 }
 
+.readinessRow {
+  display: flex;
+  align-items: baseline;
+  gap: var(--vb-space-3);
+  flex-wrap: wrap;
+}
+
+.fixFirstIssueLink {
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--vb-warning);
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.fixFirstIssueLink:hover {
+  text-decoration: underline;
+}
+
 .descriptionInput {
   border: 1px solid transparent;
   background: transparent;
@@ -196,4 +218,15 @@
   border-radius: var(--vb-radius-sm);
   font-size: 0.85rem;
   font-weight: 600;
+}
+
+/* A single-line <input> can't wrap the way a heading would — at 320-375px
+   a real playlist name (not just "Summer Show") clips inside itself
+   rather than overflowing the page, which reads as broken even though
+   nothing actually breaks layout. Shrinking the font is enough for it to
+   fit real names at this width without touching the desktop treatment. */
+@media (max-width: 30rem) {
+  .nameInput {
+    font-size: 1.3rem;
+  }
 }

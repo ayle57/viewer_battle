@@ -15,11 +15,16 @@
  *     authored before any engine ever sees it);
  *   - its prompt is non-empty (after trimming);
  *   - its answer is non-empty (after trimming).
- * No "category is complete" concept beyond "has at least one question" —
- * Jeopardy doesn't require a fixed question count per category (see
- * PlaylistQuestion.value's schema comment on not hardcoding 100/200/300/
- * 400), so there's no canonical "should have N questions" to compare
- * against.
+ * No fixed per-category question count — Jeopardy doesn't require
+ * exactly N questions per category (see PlaylistQuestion.value's schema
+ * comment on not hardcoding 100/200/300/400), so there's no canonical
+ * "should have N questions" to compare against. There IS a floor,
+ * though: a category with ZERO questions is a column on the board with
+ * nothing to click — not a lighter version of ready, a real reason a
+ * Host shouldn't be told "you can go live." READY means exactly what the
+ * product brief says it should: "I can start this Jeopardy right now
+ * with no surprise" — an empty category is a guaranteed surprise the
+ * first time someone's eyes land on that column live.
  */
 
 export interface QuestionCompletenessInput {
@@ -73,6 +78,25 @@ export interface FlaggedQuestion {
   issues: QuestionIssue[];
 }
 
+/** A category with zero questions — a real reason the board isn't ready (see this file's top comment), distinct from a question that exists but is missing a field. */
+export interface EmptyCategory {
+  categoryId: string;
+  categoryName: string;
+}
+
+/**
+ * The single next thing a Host should fix, in board reading order
+ * (category by category, top-to-bottom within each) — what "go to the
+ * first problem" (product brief "Show Preparation" section 3) actually
+ * jumps to. `null` once the board is ready. Computed here, alongside the
+ * rest of readiness, instead of a caller re-deriving "which one is
+ * first" from `incompleteQuestions`/`emptyCategories` itself — there's
+ * exactly one reading order and this is the one place it's defined.
+ */
+export type ReadinessProblem =
+  | { type: "empty_category"; categoryId: string; categoryName: string }
+  | { type: "question"; questionId: string; categoryId: string; categoryName: string };
+
 export type PlaylistReadinessStatus = "empty" | "incomplete" | "ready";
 
 export interface PlaylistReadiness {
@@ -83,7 +107,9 @@ export interface PlaylistReadiness {
   questionCount: number;
   completeQuestionCount: number;
   incompleteQuestions: FlaggedQuestion[];
-  /** One human-readable line summarizing the state — "Add categories and questions to get started." / "2 questions are missing answers." / "Ready to play." — built from the SAME data as the rest of this object, not a separately-maintained copy. */
+  emptyCategories: EmptyCategory[];
+  firstProblem: ReadinessProblem | null;
+  /** One human-readable line summarizing the state — "Add a category to get started." / "1 category is empty." / "3 questions need attention." / "Ready to play." — built from the SAME data as the rest of this object, not a separately-maintained copy. */
   summary: string;
 }
 
@@ -91,21 +117,30 @@ function pluralize(count: number, noun: string): string {
   return `${count} ${noun}${count === 1 ? "" : "s"}`;
 }
 
-function buildSummary(status: PlaylistReadinessStatus, incompleteQuestions: FlaggedQuestion[]): string {
-  if (status === "empty") return "Add categories and questions to get started.";
+/** "category" doesn't pluralize by just appending "s" — its own tiny irregular case, not worth a general inflector for one word. */
+function pluralizeCategories(count: number): string {
+  return `${count} ${count === 1 ? "category" : "categories"}`;
+}
+
+function buildSummary(status: PlaylistReadinessStatus, emptyCategories: EmptyCategory[], incompleteQuestions: FlaggedQuestion[]): string {
+  if (status === "empty") return "Add a category to get started.";
   if (status === "ready") return "Ready to play.";
 
-  // Group by issue kind so "3 questions are missing answers, 1 is missing question text"
-  // reads as a real sentence instead of a raw list of ids.
-  const missingAnswer = incompleteQuestions.filter((q) => q.issues.includes("MISSING_ANSWER")).length;
-  const missingPrompt = incompleteQuestions.filter((q) => q.issues.includes("MISSING_PROMPT")).length;
-  const invalidValue = incompleteQuestions.filter((q) => q.issues.includes("INVALID_VALUE")).length;
-
+  // Two genuinely different kinds of problem (a column with nothing in
+  // it vs. a cell that's there but not filled in) — say both plainly
+  // when both exist, rather than picking one to report and burying the
+  // other. Deliberately a COUNT, not a breakdown by issue kind (missing
+  // prompt vs. missing answer vs. invalid value) — that level of detail
+  // belongs at the point of actually fixing a question (the cell's own
+  // tooltip, the editor's own validation error), not in the one-line
+  // headline whose job is "how many things, go look."
   const parts: string[] = [];
-  if (missingAnswer > 0) parts.push(`${pluralize(missingAnswer, "question")} missing ${missingAnswer === 1 ? "an answer" : "answers"}`);
-  if (missingPrompt > 0) parts.push(`${pluralize(missingPrompt, "question")} missing question text`);
-  if (invalidValue > 0) parts.push(`${pluralize(invalidValue, "question")} with an invalid value`);
-
+  if (emptyCategories.length > 0) {
+    parts.push(`${pluralizeCategories(emptyCategories.length)} empty`);
+  }
+  if (incompleteQuestions.length > 0) {
+    parts.push(`${pluralize(incompleteQuestions.length, "question")} need${incompleteQuestions.length === 1 ? "s" : ""} attention`);
+  }
   return `${parts.join("; ")}.`;
 }
 
@@ -117,35 +152,52 @@ function buildSummary(status: PlaylistReadinessStatus, incompleteQuestions: Flag
  * Library card shows and what the Host lobby's content picker shows.
  */
 export function getPlaylistReadiness(categories: CategoryReadinessInput[]): PlaylistReadiness {
-  const questionCount = categories.reduce((sum, c) => sum + c.questions.length, 0);
   const categoryCount = categories.length;
+  const questionCount = categories.reduce((sum, c) => sum + c.questions.length, 0);
 
-  if (categoryCount === 0 || questionCount === 0) {
+  // EMPTY means "nothing built yet at all" — no category exists to even
+  // judge. A playlist with categories but zero questions in ALL of them
+  // is NOT this state: it's "incomplete" (every one of those categories
+  // is flagged below), because the Host has already started — the next
+  // thing to do is fill a category in, not "add a category" from
+  // scratch.
+  if (categoryCount === 0) {
     return {
       status: "empty",
       ready: false,
-      categoryCount,
-      questionCount,
+      categoryCount: 0,
+      questionCount: 0,
       completeQuestionCount: 0,
       incompleteQuestions: [],
-      summary: buildSummary("empty", []),
+      emptyCategories: [],
+      firstProblem: null,
+      summary: buildSummary("empty", [], []),
     };
   }
 
   const incompleteQuestions: FlaggedQuestion[] = [];
+  const emptyCategories: EmptyCategory[] = [];
   let completeQuestionCount = 0;
+  let firstProblem: ReadinessProblem | null = null;
+
   for (const category of categories) {
+    if (category.questions.length === 0) {
+      emptyCategories.push({ categoryId: category.id, categoryName: category.name });
+      firstProblem ??= { type: "empty_category", categoryId: category.id, categoryName: category.name };
+      continue;
+    }
     for (const question of category.questions) {
       const issues = getQuestionIssues(question);
       if (issues.length === 0) {
         completeQuestionCount += 1;
-      } else {
-        incompleteQuestions.push({ questionId: question.id, categoryId: category.id, categoryName: category.name, value: question.value, issues });
+        continue;
       }
+      incompleteQuestions.push({ questionId: question.id, categoryId: category.id, categoryName: category.name, value: question.value, issues });
+      firstProblem ??= { type: "question", questionId: question.id, categoryId: category.id, categoryName: category.name };
     }
   }
 
-  const status: PlaylistReadinessStatus = incompleteQuestions.length === 0 ? "ready" : "incomplete";
+  const status: PlaylistReadinessStatus = incompleteQuestions.length === 0 && emptyCategories.length === 0 ? "ready" : "incomplete";
   return {
     status,
     ready: status === "ready",
@@ -153,6 +205,8 @@ export function getPlaylistReadiness(categories: CategoryReadinessInput[]): Play
     questionCount,
     completeQuestionCount,
     incompleteQuestions,
-    summary: buildSummary(status, incompleteQuestions),
+    emptyCategories,
+    firstProblem,
+    summary: buildSummary(status, emptyCategories, incompleteQuestions),
   };
 }

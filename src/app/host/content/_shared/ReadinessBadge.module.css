@@ -2,7 +2,15 @@
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 0;
+  /* Was 0 with the spacing coming from a literal " " in the JSX between
+     flex children — but flexbox wraps a bare text-node child in its own
+     anonymous box, and a space at the very start of that box is
+     collapsible whitespace, so it silently vanished ("✓Ready to play."
+     with the glyph jammed against the word, confirmed on-screen — see
+     ReadinessBadge.tsx). Every child is a real element now (glyph span,
+     summary span, counts span); `gap` is the one source of spacing
+     between them instead of a mix of `gap` and hopeful literal spaces. */
+  gap: 0.35em;
   margin: 0;
   font-size: 0.85rem;
   font-weight: 600;

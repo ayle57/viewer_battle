@@ -48,10 +48,20 @@
   color: var(--vb-text-muted);
 }
 
+/* --vb-accent (gold), not --vb-primary — --vb-primary sits one step
+   from --vb-danger in the same red family (barely distinct in dark
+   mode: #c4443f vs #e2554e), and this is the one component where focus
+   and error use the identical visual grammar (colored border + colored
+   glow) on the identical element. An autofocused field reading as
+   "already invalid" the instant a page loads (every entry form in the
+   app autofocuses its first field) is the concrete symptom this avoids.
+   Matches the precedent QuestionEditorDialog's own textarea already
+   set independently (its `.textarea:focus-visible` also uses
+   --vb-accent) — this makes that the one rule instead of two. */
 .input:focus-visible {
   outline: none;
-  border-color: var(--vb-primary);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--vb-primary) 20%, transparent);
+  border-color: var(--vb-accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--vb-accent) 25%, transparent);
 }
 
 .input:disabled {

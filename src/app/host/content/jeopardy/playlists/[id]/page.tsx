@@ -12,6 +12,7 @@ import { StudioBreadcrumb } from "../../../_shared/StudioBreadcrumb";
 import { ActionsMenu } from "../../../_shared/ActionsMenu";
 import { SaveStatus, type SaveState } from "../../../_shared/SaveStatus";
 import { ReadinessLine } from "../../../_shared/ReadinessBadge";
+import { parseIssueQueryParam, problemToTarget } from "../../../_shared/readinessNav";
 import { BoardEditor } from "./BoardEditor";
 import { QuestionEditorDialog, type QuestionEditorMode } from "./QuestionEditorDialog";
 import styles from "./page.module.css";
@@ -46,7 +47,14 @@ export default function PlaylistEditorPage() {
     },
   });
 
-  const [editorMode, setEditorMode] = useState<QuestionEditorMode | null>(null);
+  // A `?issue=` param (product brief "Show Preparation" section 3: "go
+  // straight to the first problem") arrives one-shot from either the
+  // Host lobby's "Review board" link or this same page's own "Fix first
+  // issue" button — read exactly once, at mount, via the lazy
+  // initializer (same shape as `showDuplicatedBanner` below), so the
+  // Question Editor opens already pointed at the right question/category
+  // instead of the Host having to hunt for it on the board.
+  const [editorMode, setEditorMode] = useState<QuestionEditorMode | null>(() => parseIssueQueryParam(searchParams.get("issue")));
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [name, setName] = useState("");
@@ -61,12 +69,13 @@ export default function PlaylistEditorPage() {
   // URL updates, flashing the banner and immediately hiding it again.
   const [showDuplicatedBanner, setShowDuplicatedBanner] = useState(() => searchParams.get("duplicated") === "1");
   useEffect(() => {
-    if (searchParams.get("duplicated") === "1") {
+    if (searchParams.get("duplicated") === "1" || searchParams.get("issue")) {
       router.replace(`/host/content/jeopardy/playlists/${playlistId}`, { scroll: false });
     }
     // Intentionally once-per-mount: this cleans up the URL exactly at the
-    // moment this playlist page is navigated to from a duplicate action,
-    // not on every searchParams identity change.
+    // moment this playlist page is navigated to from a duplicate action
+    // or a "go to the first problem" link, not on every searchParams
+    // identity change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -183,7 +192,18 @@ export default function PlaylistEditorPage() {
               />
               <SaveStatus state={saveState} />
             </div>
-            <ReadinessLine readiness={detail.readiness} />
+            <div className={styles.readinessRow}>
+              <ReadinessLine readiness={detail.readiness} />
+              {!detail.readiness.ready && detail.readiness.firstProblem && (
+                <button
+                  type="button"
+                  className={styles.fixFirstIssueLink}
+                  onClick={() => setEditorMode(problemToTarget(detail.readiness.firstProblem!))}
+                >
+                  Fix first issue →
+                </button>
+              )}
+            </div>
           </div>
           <div className={styles.actions}>
             <ActionsMenu

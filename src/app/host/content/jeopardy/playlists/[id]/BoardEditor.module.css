@@ -49,6 +49,13 @@
   background: var(--vb-surface-raised);
 }
 
+.categoryEmptyGlyph {
+  color: var(--vb-warning);
+  font-size: 0.85rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
 .categoryNameInput {
   flex: 1;
   min-width: 0;
@@ -246,6 +253,23 @@
   background: color-mix(in srgb, var(--vb-accent) 6%, transparent);
   box-shadow: none;
   transform: none;
+}
+
+/* The ONLY "add question" cell in a category that has none yet — the
+   thing actually blocking readiness (see categoryEmptyGlyph above), so
+   it reads as "fix this" rather than "optionally add more" the way the
+   dashed neutral cell does for an already-playable category. */
+.addQuestionCellUrgent {
+  border-style: solid;
+  border-color: color-mix(in srgb, var(--vb-warning) 45%, var(--vb-border));
+  background: var(--vb-warning-bg);
+  color: var(--vb-warning);
+}
+
+.addQuestionCellUrgent:hover {
+  border-color: var(--vb-warning);
+  background: color-mix(in srgb, var(--vb-warning) 12%, transparent);
+  color: var(--vb-warning);
 }
 
 .addCategoryColumn {
