@@ -5,6 +5,7 @@ import { trpc } from "@/app/_trpc/client";
 import { TRPCClientError } from "@trpc/client";
 import { Button, Card, CardBody, CardHeader, Input, TeamRoster } from "@/ui";
 import { DisplayBoardPanel } from "@/app/_shared/boardQuestion/DisplayBoardPanel";
+import { DisplayGeoPanel } from "@/app/_shared/geoGuessr/DisplayGeoPanel";
 import { MatchScore } from "@/app/_shared/MatchScore";
 import { WinnerReveal } from "@/app/_shared/boardQuestion/WinnerReveal";
 import { GameChatPanel } from "@/app/_shared/GameChatPanel";
@@ -17,8 +18,14 @@ import { toRosterSeats } from "@/app/_shared/roster";
 import { deriveSessionPhase, readGameStatus } from "@/app/_shared/sessionPhase";
 import { useIdentityStore, type Identity } from "@/app/_shared/identityStore";
 import { readableSessionError } from "@/app/_shared/sessionErrorMessages";
+import type { Scoreboard } from "@/domain/game";
+import type { TeamRole } from "@/domain/session";
 import styles from "./page.module.css";
 import type { BoardQuestionState } from "@/domain/game/boardQuestion";
+import type { GeoGuessrState } from "@/domain/game/geoGuessr";
+
+/** See host/page.tsx's identical type — the generic slice WinnerReveal needs, without either engine's full state type. */
+type GenericGameState = { scores: Scoreboard; winner: TeamRole | "TIE" | null };
 
 export default function DisplayPage() {
   const identity = useIdentityStore((state) => state.identity);
@@ -101,8 +108,9 @@ function DisplayConnect() {
 function DisplayGame({ identity }: { identity: Identity }) {
   const { sendChatMessage } = useGameSocket(identity.token);
   const gameId = useGameStore((state) => state.gameId);
+  const gameKey = useGameStore((state) => state.gameKey);
   const rawGameState = useGameStore((state) => state.gameState);
-  const gameState = rawGameState as unknown as BoardQuestionState | null;
+  const gameState = rawGameState as unknown as GenericGameState | null;
   const lastEvents = useGameStore((state) => state.lastEvents);
   const liveSessionEnded = useGameStore((state) => state.sessionEnded);
   const presence = usePresenceStore((state) => state.participants);
@@ -144,7 +152,11 @@ function DisplayGame({ identity }: { identity: Identity }) {
           AGENTS.md "Session vs. Game phases"). */}
       {phase === "GAME_IN_PROGRESS" && gameState ? (
         <div key={phase} className={styles.phaseIn}>
-          <DisplayBoardPanel state={gameState} lastEvents={lastEvents} />
+          {gameKey === "geoguessr" ? (
+            <DisplayGeoPanel state={rawGameState as unknown as GeoGuessrState} />
+          ) : (
+            <DisplayBoardPanel state={rawGameState as unknown as BoardQuestionState} lastEvents={lastEvents} />
+          )}
         </div>
       ) : (
         <div key={phase} className={[styles.hero, styles.phaseIn].join(" ")}>

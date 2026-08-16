@@ -27,3 +27,6 @@ export type { PresenceDotProps } from "./PresenceDot/PresenceDot";
 
 export { TeamRoster } from "./TeamRoster/TeamRoster";
 export type { TeamRosterProps, TeamRosterSeat } from "./TeamRoster/TeamRoster";
+
+export { ClickableImageMap } from "./ClickableImageMap/ClickableImageMap";
+export type { ClickableImageMapProps, MapMarker, MapMarkerColor, MapLine } from "./ClickableImageMap/ClickableImageMap";

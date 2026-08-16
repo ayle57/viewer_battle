@@ -2,7 +2,7 @@ import { z } from "zod";
 import { getPlaylistReadiness } from "@/domain/content";
 import { router, publicProcedure } from "@/server/trpc/trpc";
 import { toContentTRPCError } from "@/server/trpc/contentErrors";
-import { createContentHost, resolveContentHost } from "@/server/db/contentHost";
+import { resolveContentHost, signInContentHost } from "@/server/db/contentHost";
 import {
   createCategory,
   createPlaylist,
@@ -21,6 +21,7 @@ import {
   updatePlaylist,
   updateQuestion,
 } from "@/server/db/content";
+import { contentGeoRouter } from "@/server/trpc/contentGeoRouter";
 
 /**
  * Content Studio's tRPC surface — everything a Host uses to prepare a
@@ -49,10 +50,10 @@ async function requireHostId(token: string): Promise<string> {
 }
 
 const authRouter = router({
-  /** Verifies HOST_PASSWORD (same shared secret as session.create) and issues a fresh, durable ContentHost token — stored client-side in localStorage, never re-derivable server-side if lost. */
+  /** Verifies HOST_PASSWORD (same shared secret as session.create) and signs in to the one real Content Studio identity (`signInContentHost` — reattaches to existing playlists rather than forking a fresh empty host), issuing a durable token stored client-side in localStorage. */
   login: publicProcedure.input(z.object({ hostPassword: z.string().min(1) })).mutation(async ({ input }) => {
     try {
-      const { token } = await createContentHost(input.hostPassword);
+      const { token } = await signInContentHost(input.hostPassword);
       return { token };
     } catch (error) {
       throw toContentTRPCError(error);
@@ -244,4 +245,12 @@ export const contentRouter = router({
   playlist: playlistRouter,
   category: categoryRouter,
   question: questionRouter,
+  // GeoGuessr's own content shape (rounds, not categories/questions) —
+  // namespaced `geoPlaylist`/`geoRound`/`geoAsset` rather than reusing
+  // `playlist`/`category`/`question` above, since those three are
+  // genuinely Jeopardy-shaped procedures this pass must not touch. Same
+  // `content.auth` identity serves both. See contentGeoRouter.ts.
+  geoPlaylist: contentGeoRouter.playlist,
+  geoRound: contentGeoRouter.round,
+  geoAsset: contentGeoRouter.asset,
 });

@@ -6,6 +6,18 @@ services:
       PORT: 3000
       DATABASE_URL: postgresql://viewerbattle:${POSTGRES_PASSWORD}@postgres:5432/viewerbattle
       HOST_PASSWORD: ${HOST_PASSWORD}
+    volumes:
+      # GeoGuessr map images the streamer uploads from Content Studio
+      # (src/server/content/geoAssets.ts) are written straight to this
+      # path — without a volume here they'd live only in the container's
+      # own writable layer and vanish on the next `docker compose up
+      # --build`/redeploy. A fresh volume starts EMPTY, which also means
+      # the sample map baked into the image at build time (public/images/
+      # maps/*, committed in the repo) won't appear here on first run —
+      # accepted on purpose rather than adding an init-container copy
+      # step for one demo file; the streamer uploads their own real maps
+      # into this same path from then on.
+      - geo_maps:/app/public/images/maps
     depends_on:
       postgres:
         condition: service_healthy
@@ -46,3 +58,4 @@ services:
 volumes:
   postgres_data:
   caddy_data:
+  geo_maps:

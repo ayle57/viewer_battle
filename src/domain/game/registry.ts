@@ -1,4 +1,6 @@
+import { z } from "zod";
 import { boardQuestionEngine } from "./boardQuestion";
+import { geoGuessrEngine } from "./geoGuessr";
 import type { GameEngine } from "./kernel";
 
 /**
@@ -16,6 +18,7 @@ import type { GameEngine } from "./kernel";
  */
 export const gameEngines: Record<string, GameEngine<any, any, any, any>> = {
   [boardQuestionEngine.id]: boardQuestionEngine,
+  [geoGuessrEngine.id]: geoGuessrEngine,
 };
 
 export type GameKey = keyof typeof gameEngines;
@@ -23,6 +26,19 @@ export type GameKey = keyof typeof gameEngines;
 export function getGameEngine(gameKey: string) {
   return gameEngines[gameKey];
 }
+
+/**
+ * A zod schema for "any registered engine id," derived from `gameEngines`
+ * itself instead of hand-listed literals — the ONE place a tRPC input
+ * schema needs to accept a `gameKey` (router.ts's `game.start`,
+ * contentRouter.ts's playlist procedures) imports this rather than each
+ * maintaining its own `z.literal(...)`/`z.enum([...])` that could drift
+ * out of sync with the registry as engines are added. `Object.keys` is
+ * evaluated once, at module load, after `gameEngines` above is already
+ * fully populated — safe because both live in this same module's
+ * top-to-bottom initialization order.
+ */
+export const gameKeySchema = z.enum(Object.keys(gameEngines) as [string, ...string[]]);
 
 export interface GameDefinition {
   id: string;

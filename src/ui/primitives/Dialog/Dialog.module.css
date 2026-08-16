@@ -29,6 +29,18 @@
   border-radius: var(--vb-radius-lg);
   box-shadow: var(--vb-shadow-md);
   animation: vb-dialog-in var(--vb-transition-base) both;
+  /* `.overlay` centers this with `align-items: center` and never
+     scrolls itself — without a cap, content taller than the viewport
+     (a GeoGuessr RoundEditorDialog with a large map image, on a modest
+     laptop screen) overflows top AND bottom with no way to reach it:
+     no scrollbar anywhere, buttons below the fold genuinely
+     unclickable. Confirmed live, not theoretical — caught driving the
+     real round editor with Playwright. Purely additive: a dialog that
+     already fit the viewport (every existing consumer, today) is
+     completely unaffected, since this only ever engages once content
+     actually exceeds the available height. */
+  max-height: calc(100vh - var(--vb-space-8));
+  overflow-y: auto;
 }
 
 @keyframes vb-dialog-in {

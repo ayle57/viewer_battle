@@ -8,6 +8,7 @@ import { Badge, Button, Card, CardBody, CardHeader, ConfirmDialog, Input, Tabs, 
 import { HostBoardPanel } from "@/app/_shared/boardQuestion/HostBoardPanel";
 import { PreviousGameCard } from "@/app/_shared/boardQuestion/PreviousGameCard";
 import { WinnerReveal } from "@/app/_shared/boardQuestion/WinnerReveal";
+import { HostGeoPanel } from "@/app/_shared/geoGuessr/HostGeoPanel";
 import { ConnectionBadge } from "@/app/_shared/ConnectionBadge";
 import { GameChatPanel } from "@/app/_shared/GameChatPanel";
 import { GameStartingSequence } from "@/app/_shared/GameStartingSequence";
@@ -22,11 +23,18 @@ import { toRosterSeats } from "@/app/_shared/roster";
 import { deriveSessionPhase, readGameStatus } from "@/app/_shared/sessionPhase";
 import { useIdentityStore, type Identity } from "@/app/_shared/identityStore";
 import { readableSessionError } from "@/app/_shared/sessionErrorMessages";
-import { listGameDefinitions, type GameKey } from "@/domain/game";
+import { listGameDefinitions, type GameKey, type Scoreboard } from "@/domain/game";
+import type { TeamRole } from "@/domain/session";
 import { useContentIdentityStore } from "./content/_shared/contentIdentityStore";
 import { ReadinessBadge, ReadinessLine } from "./content/_shared/ReadinessBadge";
+import { GeoReadinessLine } from "./content/_shared/GeoReadinessBadge";
+import { issueQueryParam } from "./content/_shared/readinessNav";
 import styles from "./page.module.css";
 import type { BoardQuestionState } from "@/domain/game/boardQuestion";
+import type { GeoGuessrState } from "@/domain/game/geoGuessr";
+
+/** Game engines all expose `scores`/`winner` via scoring.ts's shared Scoreboard shape (see PreviousGameCard.tsx's identical narrowing) — enough to drive the header score badges / WinnerReveal / PreviousGameCard generically, without either engine's full state type. Panels that need the FULL state (HostBoardPanel/HostGeoPanel) narrow separately, keyed on the real `gameKey` from the store. */
+type GenericGameState = { scores: Scoreboard; winner: TeamRole | "TIE" | null };
 
 /** "Default Mini Jeopardy" is never a DB row — see prisma/schema.prisma's
  * "Content Studio" comment on deliberately not seeding fake content. This
@@ -295,8 +303,9 @@ function HostGame({ identity }: { identity: Identity }) {
   const { sendAction, sendChatMessage } = useGameSocket(identity.token);
   const clearIdentity = useIdentityStore((state) => state.clearIdentity);
   const gameId = useGameStore((state) => state.gameId);
+  const gameKey = useGameStore((state) => state.gameKey);
   const rawGameState = useGameStore((state) => state.gameState);
-  const gameState = rawGameState as unknown as BoardQuestionState | null;
+  const gameState = rawGameState as unknown as GenericGameState | null;
   const status = useGameStore((state) => state.status);
   const lastEvents = useGameStore((state) => state.lastEvents);
   const liveSessionEnded = useGameStore((state) => state.sessionEnded);
@@ -356,37 +365,56 @@ function HostGame({ identity }: { identity: Identity }) {
   const contentToken = useContentIdentityStore((s) => s.token);
   const selectedGameDefinition = games.find((g) => g.id === selectedGameKey);
   const playlists = trpc.content.playlist.list.useQuery(
-    { token: contentToken ?? "", gameKey: selectedGameKey as "board-question" },
-    { enabled: Boolean(contentToken) && selectedGameDefinition?.hasContentStudio === true },
+    { token: contentToken ?? "", gameKey: "board-question" },
+    { enabled: Boolean(contentToken) && selectedGameKey === "board-question" },
+  );
+  // GeoGuessr's own content list (contentGeoRouter.ts) — a separate query
+  // returning a separate, round-shaped summary (GeoPlaylistSummary), not
+  // `playlists` above widened to accept it; see contentGeo.ts's doc
+  // comment on why this is a parallel module rather than a gameKey branch
+  // inside the Jeopardy one.
+  const geoPlaylists = trpc.content.geoPlaylist.list.useQuery(
+    { token: contentToken ?? "", gameKey: "geoguessr" },
+    { enabled: Boolean(contentToken) && selectedGameKey === "geoguessr" },
   );
   const [contentSelection, setContentSelection] = useState<ContentSelection>({ type: "sample" });
-  // The built-in sample board (boardQuestion/fixtures.ts) has no
-  // Playlist row and no readiness concept — it's fixture data, complete
-  // by construction. Only a real selected Playlist has a readiness to
-  // validate before Start (product brief "Show Preparation" section 3).
+  // The built-in sample content (boardQuestion/fixtures.ts's sampleBoard,
+  // geoGuessr/fixtures.ts's sampleGeoPlaylist) has no Playlist row and no
+  // readiness concept — it's fixture data, complete by construction. Only
+  // a real selected Playlist has a readiness to validate before Start
+  // (product brief "Show Preparation" section 3).
   const selectedPlaylist =
     contentSelection.type === "playlist" ? playlists.data?.find((p) => p.id === contentSelection.playlistId) : undefined;
-  const noPlaylistsYet = Boolean(contentToken) && playlists.data?.length === 0;
-  // Selecting an incomplete board and clicking Start is never a silent
-  // no-op — the backend genuinely refuses it now (see router.ts's
+  const selectedGeoPlaylist =
+    contentSelection.type === "playlist" ? geoPlaylists.data?.find((p) => p.id === contentSelection.playlistId) : undefined;
+  const noPlaylistsYet = Boolean(contentToken) && selectedGameKey === "board-question" && playlists.data?.length === 0;
+  const noGeoPlaylistsYet = Boolean(contentToken) && selectedGameKey === "geoguessr" && geoPlaylists.data?.length === 0;
+  // Selecting an incomplete board/playlist and clicking Start is never a
+  // silent no-op — the backend genuinely refuses it now (see router.ts's
   // game.start, PLAYLIST_NOT_READY). Blocking the button here is the same
   // fact shown a beat earlier, so the Host resolves it (Review board / Use
-  // sample board) instead of clicking Start and watching it bounce
+  // sample content) instead of clicking Start and watching it bounce
   // (product brief "Show Preparation" section 10).
-  const startBlocked = Boolean(selectedPlaylist && !selectedPlaylist.readiness.ready);
+  const startBlocked = Boolean(
+    (selectedPlaylist && !selectedPlaylist.readiness.ready) || (selectedGeoPlaylist && !selectedGeoPlaylist.readiness.ready),
+  );
 
   // Stale-selection cleanup (product brief "Show Preparation" section 11):
   // a playlist picked earlier can be deleted from another tab (e.g. the
   // Content Studio open alongside this one) while this page stays open.
   // Once the list refetches (mount, window focus — React Query's default)
-  // and the selected id is genuinely gone, fall back to the sample board
+  // and the selected id is genuinely gone, fall back to the sample content
   // instead of leaving a phantom selection pointing at nothing. Render-
   // phase reset (React's blessed "adjusting state when a prop changes"
   // pattern — same shape as PlaylistEditorPage's syncedPlaylistId and
   // BoardEditor's CategoryNameField), not an effect+setState — no
   // localStorage involved either, this is a plain derived reset off the
-  // live query result, not a second source of truth.
-  if (contentSelection.type === "playlist" && playlists.data && !playlists.data.some((p) => p.id === contentSelection.playlistId)) {
+  // live query result, not a second source of truth. Checks whichever
+  // list is actually active for the currently selected game — a stale
+  // Jeopardy playlist id must not be "cleaned up" by GeoGuessr's list
+  // still loading (and vice versa).
+  const activeList = selectedGameKey === "geoguessr" ? geoPlaylists.data : playlists.data;
+  if (contentSelection.type === "playlist" && activeList && !activeList.some((p) => p.id === contentSelection.playlistId)) {
     setContentSelection({ type: "sample" });
   }
 
@@ -427,7 +455,13 @@ function HostGame({ identity }: { identity: Identity }) {
     setSequenceActive(true);
     start.mutate({
       token: identity.token,
-      gameKey: selectedGameKey as "board-question",
+      // `GameKey` (registry.ts) is deliberately widened to `string` — the
+      // registry can't know every engine's shape statically — so this
+      // still narrows with one explicit cast to whatever the tRPC schema
+      // (gameKeySchema, domain/game/registry.ts) currently accepts; kept
+      // in sync with `gameEngines` by construction since that schema is
+      // now DERIVED from the registry, not hand-listed.
+      gameKey: selectedGameKey as "board-question" | "geoguessr",
       content: contentSelection.type === "playlist" ? contentSelection : undefined,
     });
   }
@@ -569,7 +603,9 @@ function HostGame({ identity }: { identity: Identity }) {
 
       {(phase === "SESSION_LOBBY" || (phase === "GAME_FINISHED" && !showResultsSplash)) && (
         <>
-          {phase === "GAME_FINISHED" && gameState && <PreviousGameCard gameLabel="Mini Jeopardy" state={gameState} />}
+          {phase === "GAME_FINISHED" && gameState && (
+            <PreviousGameCard gameLabel={games.find((g) => g.id === gameKey)?.label ?? "Game"} state={gameState} />
+          )}
 
           <Card>
             <CardHeader title="Lobby" subtitle="Start whenever you're ready — teams don't need to be full." />
@@ -625,7 +661,7 @@ function HostGame({ identity }: { identity: Identity }) {
                 </div>
               </div>
 
-              {selectedGameDefinition?.hasContentStudio && (
+              {selectedGameDefinition?.hasContentStudio && selectedGameKey === "board-question" && (
                 <div className={styles.gameSelection} role="radiogroup" aria-label="Choose your content">
                   <p className={styles.gameSelectionLabel}>Choose your content</p>
                   <div className={styles.gameCardGrid}>
@@ -640,6 +676,16 @@ function HostGame({ identity }: { identity: Identity }) {
                       {contentSelection.type === "sample" && <span className={styles.gameCardChip}>SELECTED</span>}
                       <p className={styles.gameCardTitle}>Default Mini Jeopardy</p>
                       <p className={styles.contentCardMeta}>Sample content</p>
+                      <div className={styles.contentCardReadiness}>
+                        {/* Fixture data, complete by construction — no
+                            Playlist row, no real `getPlaylistReadiness`
+                            call needed for something that can never be
+                            anything but ready (see the `ContentSelection`
+                            type's own comment above). */}
+                        <Badge variant="success" dot size="sm">
+                          Ready
+                        </Badge>
+                      </div>
                     </label>
                     {playlists.data?.map((playlist) => {
                       const selected = contentSelection.type === "playlist" && contentSelection.playlistId === playlist.id;
@@ -654,7 +700,9 @@ function HostGame({ identity }: { identity: Identity }) {
                           />
                           {selected && <span className={styles.gameCardChip}>SELECTED</span>}
                           <p className={styles.gameCardTitle}>{playlist.name}</p>
-                          <p className={styles.contentCardMeta}>{playlist.questionCount} questions</p>
+                          <p className={styles.contentCardMeta}>
+                            {playlist.questionCount} question{playlist.questionCount === 1 ? "" : "s"}
+                          </p>
                           <div className={styles.contentCardReadiness}>
                             <ReadinessBadge readiness={playlist.readiness} size="sm" />
                           </div>
@@ -696,7 +744,14 @@ function HostGame({ identity }: { identity: Identity }) {
                       <p className={styles.readinessWarningTitle}>⚠ This board isn&apos;t ready</p>
                       <ReadinessLine readiness={selectedPlaylist.readiness} />
                       <div className={styles.readinessWarningActions}>
-                        <Link href={`/host/content/jeopardy/playlists/${selectedPlaylist.id}`} className={styles.reviewBoardLink}>
+                        <Link
+                          href={
+                            selectedPlaylist.readiness.firstProblem
+                              ? `/host/content/jeopardy/playlists/${selectedPlaylist.id}?issue=${issueQueryParam(selectedPlaylist.readiness.firstProblem)}`
+                              : `/host/content/jeopardy/playlists/${selectedPlaylist.id}`
+                          }
+                          className={styles.reviewBoardLink}
+                        >
                           Review board →
                         </Link>
                         <button
@@ -710,6 +765,102 @@ function HostGame({ identity }: { identity: Identity }) {
                     </div>
                   )}
                   {selectedPlaylist && selectedPlaylist.readiness.ready && (
+                    <p className={styles.readinessOk}>✓ Ready to play</p>
+                  )}
+                </div>
+              )}
+
+              {/* GeoGuessr's own content picker — same card grid/radio
+                  pattern as Jeopardy's above (unchanged), reading the
+                  geo-shaped list/readiness instead. Kept as a genuinely
+                  separate block rather than parameterizing the Jeopardy
+                  one over a generic shape: the two content shapes
+                  (questionCount+categoryCount vs. roundCount) differ
+                  enough that a forced-generic version would need as much
+                  branching internally as two plain blocks do externally,
+                  and this way Jeopardy's own JSX above is untouched. */}
+              {selectedGameDefinition?.hasContentStudio && selectedGameKey === "geoguessr" && (
+                <div className={styles.gameSelection} role="radiogroup" aria-label="Choose your content">
+                  <p className={styles.gameSelectionLabel}>Choose your content</p>
+                  <div className={styles.gameCardGrid}>
+                    <label className={[styles.gameCard, contentSelection.type === "sample" && styles.gameCardSelected].filter(Boolean).join(" ")}>
+                      <input
+                        type="radio"
+                        name="contentSelection"
+                        checked={contentSelection.type === "sample"}
+                        onChange={() => setContentSelection({ type: "sample" })}
+                        className={styles.gameCardRadio}
+                      />
+                      {contentSelection.type === "sample" && <span className={styles.gameCardChip}>SELECTED</span>}
+                      <p className={styles.gameCardTitle}>Default GeoGuessr</p>
+                      <p className={styles.contentCardMeta}>Sample content</p>
+                      <div className={styles.contentCardReadiness}>
+                        <Badge variant="success" dot size="sm">
+                          Ready
+                        </Badge>
+                      </div>
+                    </label>
+                    {geoPlaylists.data?.map((playlist) => {
+                      const selected = contentSelection.type === "playlist" && contentSelection.playlistId === playlist.id;
+                      return (
+                        <label key={playlist.id} className={[styles.gameCard, selected && styles.gameCardSelected].filter(Boolean).join(" ")}>
+                          <input
+                            type="radio"
+                            name="contentSelection"
+                            checked={selected}
+                            onChange={() => setContentSelection({ type: "playlist", playlistId: playlist.id, contentToken: contentToken! })}
+                            className={styles.gameCardRadio}
+                          />
+                          {selected && <span className={styles.gameCardChip}>SELECTED</span>}
+                          <p className={styles.gameCardTitle}>{playlist.name}</p>
+                          <p className={styles.contentCardMeta}>
+                            {playlist.roundCount} round{playlist.roundCount === 1 ? "" : "s"}
+                          </p>
+                          <div className={styles.contentCardReadiness}>
+                            <ReadinessBadge readiness={playlist.readiness} size="sm" />
+                          </div>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  {!contentToken && (
+                    <p className={styles.contentStudioCta}>
+                      Prepare your own maps in the <Link href="/host/content">Content Studio</Link>.
+                    </p>
+                  )}
+                  {contentToken && geoPlaylists.isError && (
+                    <p className={styles.contentStudioCta}>Couldn&apos;t load your playlists — Default GeoGuessr is still available.</p>
+                  )}
+                  {noGeoPlaylistsYet && (
+                    <div className={styles.noPlaylistsYet}>
+                      <p className={styles.noPlaylistsYetTitle}>You haven&apos;t created a GeoGuessr playlist yet.</p>
+                      <p className={styles.noPlaylistsYetHint}>Default GeoGuessr is ready to go, or build your own maps in the Content Studio.</p>
+                      <Link href="/host/content/geoguessr">
+                        <Button size="sm" variant="secondary">
+                          + Create a playlist
+                        </Button>
+                      </Link>
+                    </div>
+                  )}
+                  {selectedGeoPlaylist && !selectedGeoPlaylist.readiness.ready && (
+                    <div className={styles.readinessWarning}>
+                      <p className={styles.readinessWarningTitle}>⚠ This playlist isn&apos;t ready</p>
+                      <GeoReadinessLine readiness={selectedGeoPlaylist.readiness} />
+                      <div className={styles.readinessWarningActions}>
+                        <Link href={`/host/content/geoguessr/playlists/${selectedGeoPlaylist.id}`} className={styles.reviewBoardLink}>
+                          Review playlist →
+                        </Link>
+                        <button
+                          type="button"
+                          className={styles.useSampleBoardLink}
+                          onClick={() => setContentSelection({ type: "sample" })}
+                        >
+                          Use sample content instead
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  {selectedGeoPlaylist && selectedGeoPlaylist.readiness.ready && (
                     <p className={styles.readinessOk}>✓ Ready to play</p>
                   )}
                 </div>
@@ -741,7 +892,11 @@ function HostGame({ identity }: { identity: Identity }) {
       {phase === "GAME_IN_PROGRESS" && gameState && (
         <div className={styles.layout}>
           <div className={styles.main}>
-            <HostBoardPanel state={gameState} lastEvents={lastEvents} sendAction={sendAction} />
+            {gameKey === "geoguessr" ? (
+              <HostGeoPanel state={rawGameState as unknown as GeoGuessrState} sendAction={sendAction} />
+            ) : (
+              <HostBoardPanel state={rawGameState as unknown as BoardQuestionState} lastEvents={lastEvents} sendAction={sendAction} />
+            )}
           </div>
           <div className={styles.sidebar}>
             {roster && (

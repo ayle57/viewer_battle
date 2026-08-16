@@ -8,12 +8,15 @@ import { joinSession, reclaimHost, resolveParticipantByToken } from "@/server/db
 import { joinSessionInputSchema, reclaimHostInputSchema, sessionCodeSchema, SessionError } from "@/domain/session";
 import { verifyHostPassword } from "@/server/auth/hostPassword";
 import { sampleBoard } from "@/domain/game/boardQuestion";
-import { ContentError, getPlaylistReadiness, playlistToBoardQuestionConfig } from "@/domain/content";
+import { sampleGeoPlaylist } from "@/domain/game/geoGuessr";
+import { gameKeySchema } from "@/domain/game";
+import { ContentError, getGeoPlaylistReadiness, getPlaylistReadiness, playlistToBoardQuestionConfig, playlistToGeoGuessrConfig } from "@/domain/content";
 import { startGame } from "@/server/game";
 import { broadcastGameSnapshot } from "@/server/sockets/game";
 import { broadcastSessionEnded } from "@/server/sockets/session";
 import { getSocketServer } from "@/server/sockets/instance";
 import { getOwnedPlaylist } from "@/server/db/content";
+import { getOwnedGeoPlaylist } from "@/server/db/contentGeo";
 import { resolveContentHost } from "@/server/db/contentHost";
 import { toContentTRPCError } from "@/server/trpc/contentErrors";
 import { contentRouter } from "@/server/trpc/contentRouter";
@@ -149,9 +152,46 @@ const gameStartContentSchema = z
   ])
   .optional();
 
+/**
+ * Resolves a Host-selected Playlist into the exact engine config
+ * `startGame` needs, for whichever game is starting — the ONE dispatch
+ * point between Content Studio data and a specific engine's config shape
+ * (mirrors how src/domain/game/registry.ts's `getGameEngine` is the one
+ * dispatch point from a `gameKey` string to a specific engine), so
+ * neither this file nor content.ts/contentGeo.ts need a scattered
+ * `if (gameKey === "geoguessr")` anywhere else. Each branch re-uses the
+ * SAME readiness check its own Content Studio surface already shows the
+ * Host (getPlaylistReadiness / getGeoPlaylistReadiness) before ever
+ * calling into `engine.createInitialState` — never a raw
+ * INTERNAL_SERVER_ERROR from a `.parse()` throw on incomplete content,
+ * always a real PLAYLIST_NOT_READY the Host can act on. Ownership is
+ * resolved fresh from the ContentHost token on every call, the same
+ * check Content Studio's own CRUD uses, so a Host can never start a game
+ * off a Playlist that isn't theirs, even by guessing another host's id.
+ */
+async function resolveGameConfig(gameKey: string, content: { playlistId: string; contentToken: string }): Promise<{ config: unknown; playlistId: string }> {
+  const { hostId } = await resolveContentHost(content.contentToken);
+  if (gameKey === "geoguessr") {
+    const playlist = await getOwnedGeoPlaylist(hostId, content.playlistId);
+    const readiness = getGeoPlaylistReadiness(playlist.rounds);
+    if (!readiness.ready) throw new ContentError("PLAYLIST_NOT_READY", readiness.summary);
+    return { config: playlistToGeoGuessrConfig(playlist.rounds), playlistId: playlist.id };
+  }
+  const playlist = await getOwnedPlaylist(hostId, content.playlistId);
+  const readiness = getPlaylistReadiness(playlist.categories);
+  if (!readiness.ready) throw new ContentError("PLAYLIST_NOT_READY", readiness.summary);
+  const questions = playlist.categories.flatMap((c) => c.questions);
+  return { config: playlistToBoardQuestionConfig(playlist.categories, questions), playlistId: playlist.id };
+}
+
+/** The built-in sample content per engine, used when `content` is omitted or `{ type: "sample" }` — unchanged default for board-question (every pre-existing caller/test keeps working verbatim), sampleGeoPlaylist for geoguessr. */
+function sampleConfigFor(gameKey: string): unknown {
+  return gameKey === "geoguessr" ? sampleGeoPlaylist : sampleBoard;
+}
+
 const gameRouter = router({
   start: publicProcedure
-    .input(z.object({ token: z.string().min(1), gameKey: z.literal("board-question"), content: gameStartContentSchema }))
+    .input(z.object({ token: z.string().min(1), gameKey: gameKeySchema, content: gameStartContentSchema }))
     .mutation(async ({ input }) => {
       let participant;
       try {
@@ -163,37 +203,13 @@ const gameRouter = router({
         throw toTRPCError(new SessionError("FORBIDDEN"));
       }
 
-      let config: unknown = sampleBoard;
+      let config: unknown = sampleConfigFor(input.gameKey);
       let playlistId: string | null = null;
       if (input.content?.type === "playlist") {
         try {
-          // Ownership resolved fresh from the ContentHost token on every
-          // start — the SAME check Content Studio's own CRUD uses
-          // (src/server/db/content.ts's getOwnedPlaylist), so a Host can
-          // never start a game off a Playlist that isn't theirs, even by
-          // guessing another host's playlistId.
-          const { hostId } = await resolveContentHost(input.content.contentToken);
-          const playlist = await getOwnedPlaylist(hostId, input.content.playlistId);
-          // boardQuestionSchema (src/domain/game/boardQuestion/types.ts)
-          // requires every question's prompt/answer to be non-empty and
-          // its value a positive integer — a real Game Kernel rule, not
-          // something introduced here. Without this check,
-          // engine.createInitialState (called inside startGame below)
-          // would `.parse()`-throw on the first incomplete question and
-          // surface as a raw, unhelpful INTERNAL_SERVER_ERROR instead of
-          // a business error the Host can act on. Re-using the exact same
-          // getPlaylistReadiness the Library card/Host lobby already show
-          // means this can never disagree with what the Host was told
-          // before clicking Start (product brief "Show Preparation"
-          // section 10) — the backend stays the source of truth, it just
-          // reports its refusal properly instead of crashing.
-          const readiness = getPlaylistReadiness(playlist.categories);
-          if (!readiness.ready) {
-            throw new ContentError("PLAYLIST_NOT_READY", readiness.summary);
-          }
-          const questions = playlist.categories.flatMap((c) => c.questions);
-          config = playlistToBoardQuestionConfig(playlist.categories, questions);
-          playlistId = playlist.id;
+          const resolved = await resolveGameConfig(input.gameKey, input.content);
+          config = resolved.config;
+          playlistId = resolved.playlistId;
         } catch (error) {
           throw toContentTRPCError(error);
         }

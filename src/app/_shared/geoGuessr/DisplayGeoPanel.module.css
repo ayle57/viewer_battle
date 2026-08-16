@@ -1,0 +1,95 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--vb-space-4);
+}
+
+.scoreCard {
+  width: 100%;
+}
+
+.roundLabel {
+  font-size: 1.1rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: var(--vb-text-muted);
+  margin: 0;
+}
+
+/* OBS-scale — the audience needs to read this from a couch, same
+   "legible at a distance" bar as everything else on Display. */
+.question {
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--vb-accent);
+  margin: 0;
+  text-align: center;
+  max-width: 48rem;
+}
+
+.lockStatusRow {
+  display: flex;
+  gap: var(--vb-space-4);
+}
+
+.lockChip {
+  padding: var(--vb-space-2) var(--vb-space-4);
+  border-radius: var(--vb-radius-full);
+  background: var(--vb-surface-raised);
+  border: 2px solid var(--vb-border);
+  font-weight: 800;
+  font-size: 0.85rem;
+  letter-spacing: 0.04em;
+  color: var(--vb-text-muted);
+}
+
+.lockChipLocked {
+  border-color: var(--vb-success);
+  color: var(--vb-success);
+  background: var(--vb-success-bg);
+}
+
+.revealCaption {
+  font-size: 2rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  color: var(--vb-accent);
+  margin: 0;
+}
+
+.mapCard {
+  width: 100%;
+  max-width: 900px;
+}
+
+.distanceRow {
+  display: flex;
+  gap: var(--vb-space-6);
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.distanceTeamA {
+  color: var(--vb-team-a);
+}
+
+.distanceTeamB {
+  color: var(--vb-team-b);
+}
+
+.winnerBanner {
+  font-size: 1.75rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-align: center;
+  margin: 0;
+}
+
+.winnerA {
+  color: var(--vb-team-a);
+}
+
+.winnerB {
+  color: var(--vb-team-b);
+}

@@ -1,0 +1,244 @@
+/* The fixed-size box — never grows with zoom. `overflow: auto` is what
+   turns a zoomed-in `.frame` (wider/taller than this) into something
+   pannable via the browser's own scrollbars/trackpad/touch-drag, no
+   custom pan-tracking code. Owns the visual chrome (border/radius/bg)
+   that used to live on `.frame` itself, since `.frame` can now be
+   larger than its visible box and `overflow: auto` clips to THIS
+   element's rounded corners. */
+.viewport {
+  position: relative;
+  width: 100%;
+  border-radius: var(--vb-radius-lg);
+  overflow: auto;
+  border: 1px solid var(--vb-border);
+}
+
+.frame {
+  position: relative;
+  width: 100%;
+  line-height: 0; /* no baseline gap under the <img> */
+  background: var(--vb-surface-raised);
+  touch-action: none; /* a tap here is placing a guess, never a page scroll gesture — see .frameZoomed below for the one case that changes this */
+  user-select: none;
+}
+
+/* Once zoomed, `.frame` genuinely overflows `.viewport` and panning it
+   is a real drag/scroll gesture — touch-action has to allow that (the
+   browser's native pan, same one `.viewport`'s `overflow: auto` already
+   supports for mouse/trackpad). `onClick` (not `onPointerDown` — see
+   the component's own doc comment) is what keeps a genuine tap from
+   being confused with a pan once this is active. */
+.frameZoomed {
+  touch-action: pan-x pan-y;
+}
+
+.interactive {
+  cursor: crosshair;
+}
+
+.image {
+  display: block;
+  width: 100%;
+  height: auto;
+  pointer-events: none; /* clicks are handled by .frame, not the <img> itself — keeps the hit target exact even over transparent PNG areas */
+}
+
+.empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 220px;
+  border-radius: var(--vb-radius-lg);
+  border: 2px dashed var(--vb-border);
+  background: var(--vb-surface-raised);
+}
+
+.emptyText {
+  color: var(--vb-text-muted);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.lineLayer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.line {
+  stroke-width: 0.6;
+  stroke-dasharray: 1.5 1.2;
+  opacity: 0.85;
+}
+
+.line_teamA {
+  stroke: var(--vb-team-a);
+}
+
+.line_teamB {
+  stroke: var(--vb-team-b);
+}
+
+.line_target {
+  stroke: var(--vb-accent);
+}
+
+.line_neutral {
+  stroke: var(--vb-text-muted);
+}
+
+.marker {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  pointer-events: none;
+}
+
+.markerDot {
+  width: 22px;
+  height: 22px;
+  border-radius: var(--vb-radius-full);
+  border: 3px solid var(--vb-surface);
+  box-shadow: var(--vb-shadow-md);
+}
+
+.marker_teamA {
+  color: var(--vb-team-a);
+}
+
+.marker_teamA .markerDot {
+  background: var(--vb-team-a);
+}
+
+.marker_teamB {
+  color: var(--vb-team-b);
+}
+
+.marker_teamB .markerDot {
+  background: var(--vb-team-b);
+}
+
+.marker_target {
+  color: var(--vb-accent);
+}
+
+.marker_target .markerDot {
+  background: var(--vb-accent);
+  width: 26px;
+  height: 26px;
+}
+
+.marker_neutral {
+  color: var(--vb-text-muted);
+}
+
+.marker_neutral .markerDot {
+  background: var(--vb-text-muted);
+}
+
+/* A local pulse, not tokens.css's `vb-live-pulse` — that keyframe is
+   hardcoded to --vb-success (a "this is connected" green), wrong for a
+   team-colored "this is the marker you're currently placing" highlight.
+   `currentColor` lets one keyframe work for every marker color: each
+   `.marker_*` class below sets `color` to its own team/accent token, and
+   this animation just reads whatever that resolves to. */
+@keyframes vb-geo-marker-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 55%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 6px color-mix(in srgb, currentColor 0%, transparent);
+  }
+}
+
+.markerPulse .markerDot {
+  animation: vb-geo-marker-pulse 1.8s ease-in-out infinite;
+}
+
+.markerLabel {
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--vb-primary-text);
+  background: rgba(0, 0, 0, 0.72);
+  padding: 2px 6px;
+  border-radius: var(--vb-radius-sm);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .markerPulse .markerDot {
+    animation: none;
+  }
+}
+
+/* Pinned to `.viewport`'s own padding box (not `.frame`'s — `.frame`
+   scrolls around under it once zoomed, the controls must not). An
+   `overflow: auto` container's `position: relative` establishes exactly
+   that containing block for an absolutely-positioned child: fixed at
+   this corner regardless of how far the content underneath is
+   scrolled, no JS scroll-tracking needed. */
+.zoomControls {
+  position: absolute;
+  bottom: var(--vb-space-2);
+  right: var(--vb-space-2);
+  display: flex;
+  align-items: center;
+  gap: var(--vb-space-1);
+  padding: var(--vb-space-1);
+  border-radius: var(--vb-radius-full);
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(4px);
+  width: fit-content;
+  z-index: 1;
+}
+
+.zoomButton {
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: var(--vb-radius-full);
+  border: none;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.zoomButton:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.zoomButton:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.zoomLevel {
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  min-width: 2.75em;
+  text-align: center;
+}
+
+.zoomReset {
+  border: none;
+  background: none;
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0 var(--vb-space-1);
+}

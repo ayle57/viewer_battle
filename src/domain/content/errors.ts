@@ -15,6 +15,7 @@ export type ContentErrorCode =
   | "CATEGORY_NOT_FOUND"
   | "QUESTION_NOT_FOUND"
   | "CATEGORY_NOT_EMPTY"
+  | "ROUND_NOT_FOUND"
   | "VALIDATION"
   | "PLAYLIST_NOT_READY";
 
@@ -25,6 +26,7 @@ const MESSAGES: Record<ContentErrorCode, string> = {
   CATEGORY_NOT_FOUND: "No category with that id exists.",
   QUESTION_NOT_FOUND: "No question with that id exists.",
   CATEGORY_NOT_EMPTY: "This category still has questions — confirm before deleting.",
+  ROUND_NOT_FOUND: "No round with that id exists.",
   VALIDATION: "That value isn't valid.",
   // Default message only — src/server/trpc/router.ts's game.start always
   // supplies a specific one built from the playlist's own

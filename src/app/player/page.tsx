@@ -7,6 +7,7 @@ import { TRPCClientError } from "@trpc/client";
 import { Badge, Button, Card, CardBody, CardHeader, ConfirmDialog, Input, TeamRoster } from "@/ui";
 import { PlayerBoardPanel } from "@/app/_shared/boardQuestion/PlayerBoardPanel";
 import { PreviousGameCard } from "@/app/_shared/boardQuestion/PreviousGameCard";
+import { PlayerGeoPanel } from "@/app/_shared/geoGuessr/PlayerGeoPanel";
 import { ConnectionBadge } from "@/app/_shared/ConnectionBadge";
 import { GameChatPanel } from "@/app/_shared/GameChatPanel";
 import { HostDisconnectedBanner } from "@/app/_shared/HostDisconnectedBanner";
@@ -20,8 +21,15 @@ import { toRosterSeats } from "@/app/_shared/roster";
 import { deriveSessionPhase, readGameStatus } from "@/app/_shared/sessionPhase";
 import { useIdentityStore, type Identity } from "@/app/_shared/identityStore";
 import { readableSessionError } from "@/app/_shared/sessionErrorMessages";
+import { listGameDefinitions } from "@/domain/game";
+import type { Scoreboard } from "@/domain/game";
+import type { TeamRole } from "@/domain/session";
 import styles from "./page.module.css";
 import type { BoardQuestionState } from "@/domain/game/boardQuestion";
+import type { GeoGuessrState } from "@/domain/game/geoGuessr";
+
+/** See host/page.tsx's identical type — the generic slice PreviousGameCard needs, without either engine's full state type. */
+type GenericGameState = { scores: Scoreboard; winner: TeamRole | "TIE" | null };
 
 export default function PlayerPage() {
   const identity = useIdentityStore((state) => state.identity);
@@ -136,8 +144,9 @@ function PlayerGame({ identity }: { identity: Identity }) {
   const clearIdentity = useIdentityStore((state) => state.clearIdentity);
   const { sendAction, sendChatMessage } = useGameSocket(identity.token);
   const gameId = useGameStore((state) => state.gameId);
+  const gameKey = useGameStore((state) => state.gameKey);
   const rawGameState = useGameStore((state) => state.gameState);
-  const gameState = rawGameState as unknown as BoardQuestionState | null;
+  const gameState = rawGameState as unknown as GenericGameState | null;
   const status = useGameStore((state) => state.status);
   const lastEvents = useGameStore((state) => state.lastEvents);
   const liveSessionEnded = useGameStore((state) => state.sessionEnded);
@@ -220,7 +229,9 @@ function PlayerGame({ identity }: { identity: Identity }) {
             <LobbyStatus value={hostConnected ? "ready" : "waiting-for-host"} />
           </div>
 
-          {phase === "GAME_FINISHED" && gameState && <PreviousGameCard gameLabel="Mini Jeopardy" state={gameState} />}
+          {phase === "GAME_FINISHED" && gameState && (
+            <PreviousGameCard gameLabel={listGameDefinitions().find((g) => g.id === gameKey)?.label ?? "Game"} state={gameState} />
+          )}
 
           <Card>
             <CardBody>
@@ -255,7 +266,11 @@ function PlayerGame({ identity }: { identity: Identity }) {
 
       {phase === "GAME_IN_PROGRESS" && gameState && (
         <>
-          <PlayerBoardPanel state={gameState} role={role} lastEvents={lastEvents} sendAction={sendAction} />
+          {gameKey === "geoguessr" ? (
+            <PlayerGeoPanel state={rawGameState as unknown as GeoGuessrState} role={role} sendAction={sendAction} />
+          ) : (
+            <PlayerBoardPanel state={rawGameState as unknown as BoardQuestionState} role={role} lastEvents={lastEvents} sendAction={sendAction} />
+          )}
           <Card>
             <CardHeader title="Chat" />
             <CardBody>

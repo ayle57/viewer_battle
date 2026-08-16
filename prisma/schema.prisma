@@ -191,14 +191,22 @@ model Playlist {
   host        ContentHost        @relation(fields: [hostId], references: [id], onDelete: Cascade)
   /// Matches a GameEngine.id (src/domain/game/registry.ts) — future-proofs
   /// the content model for a second game's own playlists without a schema
-  /// change, even though only "board-question" (Mini Jeopardy) has an
-  /// editor built against it in this pass.
+  /// change. Now genuinely exercised by two: "board-question" (Mini
+  /// Jeopardy, categories/questions below) and "geoguessr" (rounds below)
+  /// — the SAME Playlist entity/ownership/CRUD surface serves both games'
+  /// top-level "named thing a Host prepares," with a game-specific CHILD
+  /// table for each game's own content shape (a Jeopardy playlist only
+  /// ever has `categories` populated; a GeoGuessr playlist only ever has
+  /// `rounds` populated — nothing enforces that at the schema level, it
+  /// falls out of which tRPC procedures a given `gameKey` ever calls, see
+  /// contentRouter.ts / contentGeoRouter.ts).
   gameKey     String
   name        String
   description String?
   createdAt   DateTime           @default(now())
   updatedAt   DateTime           @updatedAt
   categories  PlaylistCategory[]
+  rounds      PlaylistRound[]
   games       SessionGame[]
 
   @@index([hostId, gameKey])
@@ -239,4 +247,58 @@ model PlaylistQuestion {
 
   @@index([categoryId, position])
   @@index([playlistId])
+}
+
+/// GeoGuessr's own content shape — flat rounds, not a category tree (see
+/// Playlist's own comment on why the two games share one Playlist entity
+/// with different children). Nullable `imageUrl`/`targetX`/`targetY` on
+/// purpose: a Host can create a round shell (get an id, a position on the
+/// list) BEFORE picking an image or clicking a target, same as a
+/// PlaylistCategory can exist with zero questions — "exists but
+/// incomplete" is a real, distinct state from "doesn't exist," and
+/// src/domain/content/geoReadiness.ts is what turns "incomplete" into a
+/// real reason a Host can't start the show (see that file).
+///
+/// `imageUrl` is an opaque string, not a foreign key into an asset table
+/// — deliberately: this app has no upload/asset-storage system yet (see
+/// the product brief this shipped against), so a round's image today is
+/// literally its serving path under `public/` (e.g.
+/// "/images/maps/ac_odyssey_world_map.jpg", discovered dynamically —
+/// src/server/content/geoAssets.ts — never hardcoded into the Game
+/// Kernel). Swapping this for real object storage later is a change to
+/// what populates this ONE string column and to geoAssets.ts, nothing
+/// about GeoGuessrEngine or this schema's shape.
+///
+/// `targetX`/`targetY` are normalized 0..1 floats (see
+/// src/domain/game/geoGuessr/types.ts's top comment) — independent of
+/// the image's rendered size in any client (desktop/tablet/mobile/OBS
+/// 16:9), which is the entire reason they're stored this way instead of
+/// absolute pixels.
+model PlaylistRound {
+  id         String   @id @default(cuid())
+  playlistId String
+  playlist   Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  /// Reorder position within the playlist — same integer-position scheme
+  /// as PlaylistCategory.position/PlaylistQuestion.position above, not a
+  /// linked list; reordering rewrites every affected row's position in
+  /// one transaction (src/server/db/contentGeo.ts).
+  position   Int
+  title      String?
+  /// The player-facing prompt — "Where is the docking bay?" — shown to
+  /// every non-host role for the WHOLE guessing phase (unlike
+  /// targetX/targetY, never redacted while the round is current: a
+  /// player can't play a round they don't know the question for). Kept
+  /// separate from `title` on purpose: `title` is an editorial label for
+  /// the Content Studio round list/Host-Display headers ("Dam
+  /// Battlegrounds"), `question` is literally what's asked of the
+  /// player — the same split Jeopardy has between a category's name and
+  /// a question's own prompt.
+  question   String?
+  imageUrl   String?
+  targetX    Float?
+  targetY    Float?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([playlistId, position])
 }

@@ -1,0 +1,72 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-4);
+}
+
+.endGameRow {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.errorBanner {
+  padding: var(--vb-space-2) var(--vb-space-3);
+  background: var(--vb-danger-bg);
+  color: var(--vb-danger);
+  border-radius: var(--vb-radius-sm);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.teamStatusRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--vb-space-3);
+}
+
+.teamStatus {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--vb-space-3);
+  background: var(--vb-surface-raised);
+  border-radius: var(--vb-radius-md);
+}
+
+.guessing {
+  color: var(--vb-text-muted);
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.locked {
+  color: var(--vb-success);
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.resultBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--vb-space-2);
+  text-align: center;
+}
+
+.resultHeadline {
+  font-size: 1.3rem;
+  font-weight: 800;
+  margin: 0;
+}
+
+.distanceRow {
+  display: flex;
+  gap: var(--vb-space-4);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--vb-text-muted);
+}
+
+.nextRoundRow {
+  margin-top: var(--vb-space-4);
+}

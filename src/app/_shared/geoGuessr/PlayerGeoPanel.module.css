@@ -1,0 +1,101 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-4);
+}
+
+.roundHeader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--vb-space-1);
+  margin-bottom: var(--vb-space-3);
+  text-align: center;
+}
+
+.roundLabel {
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--vb-text-muted);
+  margin: 0;
+}
+
+/* The actual prompt — "Where is the docking bay?" — the headline of this
+   whole screen; the map is how you answer it, not the other way around. */
+.question {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: var(--vb-accent);
+  margin: 0;
+  max-width: 32rem;
+}
+
+.instruction {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--vb-text-muted);
+  margin: 0;
+}
+
+.actionRow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-2);
+}
+
+.lockedBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--vb-space-2);
+  padding: var(--vb-space-4);
+}
+
+.statusLine {
+  text-align: center;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--vb-text-muted);
+  margin: 0;
+}
+
+.errorBanner {
+  padding: var(--vb-space-2) var(--vb-space-3);
+  background: var(--vb-danger-bg);
+  color: var(--vb-danger);
+  border-radius: var(--vb-radius-sm);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.resultBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--vb-space-2);
+  text-align: center;
+}
+
+.resultHeadline {
+  font-size: 1.3rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  margin: 0;
+}
+
+.resultWin {
+  color: var(--vb-success);
+}
+
+.resultLoss {
+  color: var(--vb-text-muted);
+}
+
+.distanceRow {
+  display: flex;
+  gap: var(--vb-space-4);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--vb-text-muted);
+}

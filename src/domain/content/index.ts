@@ -11,6 +11,20 @@ export type {
   QuestionReadinessInput,
   CategoryReadinessInput,
   FlaggedQuestion,
+  EmptyCategory,
+  ReadinessProblem,
   PlaylistReadinessStatus,
   PlaylistReadiness,
 } from "./readiness";
+
+export { isRoundComplete, getGeoPlaylistReadiness } from "./geoReadiness";
+export type {
+  RoundCompletenessInput,
+  RoundReadinessInput,
+  IncompleteRound,
+  GeoPlaylistReadinessStatus,
+  GeoPlaylistReadiness,
+} from "./geoReadiness";
+
+export { playlistToGeoGuessrConfig } from "./geoMapping";
+export type { ContentRoundInput } from "./geoMapping";

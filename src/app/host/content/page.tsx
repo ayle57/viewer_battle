@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { motion, useReducedMotion } from "motion/react";
 import { Badge, Button } from "@/ui";
 import { listGameDefinitions } from "@/domain/game";
@@ -34,11 +35,26 @@ const COMING_SOON_GAMES = [
  */
 const CONTENT_ROUTES: Record<string, string> = {
   "board-question": "/host/content/jeopardy",
+  geoguessr: "/host/content/geoguessr",
 };
 
 export default function ContentStudioHome() {
   const games = listGameDefinitions();
   const reduced = useReducedMotion() ?? false;
+
+  // Skip the "pick a game" grid entirely when there's only one real
+  // choice to make — today that's every real Host, since Jeopardy is
+  // the only content-capable game, and landing on a grid with one live
+  // card and a wall of "Coming soon" placeholders before "Your Shows"
+  // is a genuinely pointless extra click for that Host. Registry-driven
+  // (`hasContentStudio` + CONTENT_ROUTES), not `if game ===
+  // "board-question"` — the moment a second content-capable game gets
+  // its own CONTENT_ROUTES entry, this naturally starts showing the
+  // grid below instead of redirecting, no further change needed here.
+  const manageableGames = games.filter((game) => game.hasContentStudio && CONTENT_ROUTES[game.id]);
+  if (manageableGames.length === 1) {
+    redirect(CONTENT_ROUTES[manageableGames[0]!.id]!);
+  }
 
   return (
     <>

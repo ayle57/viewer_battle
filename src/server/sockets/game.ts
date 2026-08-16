@@ -1,8 +1,12 @@
 import type { Server as SocketIOServer, Socket } from "socket.io";
-import { gameRoomName } from "@/domain/game";
+import { gameAudienceForRole, gameRoomName } from "@/domain/game";
+import type { ParticipantRole } from "@/domain/session";
 import type { SocketIdentity } from "@/server/auth";
 import { applyGameAction, getCurrentGame, publicStateFor, type GameError } from "@/server/game";
 import { logger } from "@/server/logger";
+
+/** Every concrete role `broadcastGameSnapshot` sends its own redacted `game:state` to — see rooms.ts's doc comment on why this is 4 targeted emits, not one shared "public" broadcast. */
+const ALL_ROLES: readonly ParticipantRole[] = ["HOST", "TEAM_A", "TEAM_B", "DISPLAY"];
 
 type GameActionAck = (
   response: { ok: true; state: unknown; events: unknown[] } | { ok: false; error: GameError },
@@ -22,6 +26,11 @@ export function registerGameHandlers(io: SocketIOServer, socket: Socket) {
   const identity = socket.data.identity as SocketIdentity;
   const audience = identity.role === "HOST" ? "host" : "public";
   socket.join(gameRoomName(identity.sessionId, audience));
+  // Also join this exact role's own room — what broadcastGameSnapshot
+  // below actually targets. Additive to the "host"/"public" join above
+  // (never replacing it): presence.ts and session.ts's session:ended
+  // still broadcast to "host"/"public" exactly as before, untouched.
+  socket.join(gameRoomName(identity.sessionId, gameAudienceForRole(identity.role)));
 
   sendCurrentSnapshot(socket, identity).catch((error: unknown) => {
     logger.error({ error, socketId: socket.id }, "failed to load current game state");
@@ -85,13 +94,16 @@ export function broadcastGameSnapshot(
   state: unknown,
   events: unknown[],
 ) {
-  const hostState = publicStateFor(gameKey, state, "HOST");
-  io.to(gameRoomName(sessionId, "host")).emit("game:state", { gameId, gameKey, state: hostState, events });
-
-  // TEAM_A stands in for "the public audience" here: BoardQuestionEngine
-  // redacts identically for TEAM_A/TEAM_B/DISPLAY, so one emit covers the
-  // whole "public" room. An engine whose redaction genuinely differs BY
-  // team would need per-team rooms instead of a single shared one.
-  const publicState = publicStateFor(gameKey, state, "TEAM_A");
-  io.to(gameRoomName(sessionId, "public")).emit("game:state", { gameId, gameKey, state: publicState, events });
+  // One emit per CONCRETE role (see rooms.ts's doc comment) — every
+  // engine gets genuinely correct per-role redaction this way, with no
+  // "does this engine's redaction differ by team" special-casing here.
+  // For an engine that redacts identically for every non-host role
+  // (BoardQuestionEngine today), this sends three byte-identical
+  // payloads to three different rooms instead of one shared broadcast —
+  // functionally the same outcome for any client, at the cost of a few
+  // extra cheap emits.
+  for (const role of ALL_ROLES) {
+    const roleState = publicStateFor(gameKey, state, role);
+    io.to(gameRoomName(sessionId, gameAudienceForRole(role))).emit("game:state", { gameId, gameKey, state: roleState, events });
+  }
 }
