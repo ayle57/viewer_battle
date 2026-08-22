@@ -66,13 +66,13 @@ function PlayerGame({ identity }: { identity: DevIdentity }) {
               <TeamRoster
                 teamName={role === "TEAM_A" ? "Your team — Team A" : "Your team — Team B"}
                 variant={rosterVariant[role]}
-                seats={toRosterSeats(role === "TEAM_A" ? roster.teamA : roster.teamB, presence)}
+                seats={toRosterSeats(role === "TEAM_A" ? roster.teamA : roster.teamB, presence, role)}
                 highlightId={presence.find((p) => p.role === role && p.displayName === identity.displayName)?.participantId}
               />
               <TeamRoster
                 teamName={otherTeam === "TEAM_A" ? "Opponents — Team A" : "Opponents — Team B"}
                 variant={rosterVariant[otherTeam]}
-                seats={toRosterSeats(otherTeam === "TEAM_A" ? roster.teamA : roster.teamB, presence)}
+                seats={toRosterSeats(otherTeam === "TEAM_A" ? roster.teamA : roster.teamB, presence, otherTeam)}
               />
             </div>
           )}

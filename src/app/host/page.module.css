@@ -13,6 +13,31 @@
   width: 100%;
 }
 
+.accountRow {
+  display: flex;
+  justify-content: center;
+  margin-bottom: var(--vb-space-4);
+}
+
+.resumeCard {
+  margin-bottom: var(--vb-space-4);
+  border: 1px solid color-mix(in srgb, var(--vb-accent) 40%, transparent);
+  background: color-mix(in srgb, var(--vb-accent) 8%, var(--vb-surface));
+}
+
+.resumeLabel {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--vb-text-muted);
+}
+
+.resumeCode {
+  margin: var(--vb-space-1) 0 var(--vb-space-3);
+  font-size: 1.3rem;
+  font-weight: 800;
+}
+
 .connexionForm {
   display: flex;
   flex-direction: column;
@@ -33,6 +58,26 @@
 }
 
 .connexionFooter a:hover {
+  text-decoration: underline;
+}
+
+.switchAccountLink {
+  display: block;
+  width: 100%;
+  margin-top: var(--vb-space-3);
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--vb-text-muted);
+  text-align: center;
+  cursor: pointer;
+}
+
+.switchAccountLink:hover {
+  color: var(--vb-text);
   text-decoration: underline;
 }
 
@@ -98,10 +143,20 @@
 
 /* A quiet divider from the score badges — separates "what's happening"
    from "ways to leave," so the two never read as one undifferentiated
-   row of chips. */
+   row of chips. `flex-wrap: wrap` — missing here specifically was a
+   real, reproduced bug (confirmed via a real narrow-viewport
+   screenshot, not a code read): every OTHER group in this header
+   (.header/.headerLeft/.headerRight) already wraps, but this one didn't,
+   so its 3 items ("Content Studio" / "Forget this session" / "End
+   session") were forced onto a single line that's wider than a 320-375px
+   viewport on its own. tokens.css sets `overflow-x: hidden` globally on
+   html/body, so that overflow wasn't even a scrollbar — "End session"
+   (the one irreversible, everyone-affecting action in this row) was
+   just silently clipped off-screen with no way to reach it at all. */
 .headerActions {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: var(--vb-space-2);
   padding-left: var(--vb-space-3);
   margin-left: var(--vb-space-1);
@@ -131,6 +186,87 @@
   outline: 2px solid var(--vb-primary);
   outline-offset: 2px;
   border-radius: var(--vb-radius-sm);
+}
+
+/* --- Show Control card: GAME SCORE vs MATCH SCORE, side by side,
+   explicitly labeled, right in the sidebar during play — never two
+   numbers a Host could mix up at a glance. --- */
+
+.showControlHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--vb-space-2);
+}
+
+.showControlEyebrow {
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: var(--vb-text-muted);
+  margin: 0;
+}
+
+.showControlGame {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--vb-text);
+  margin: 0;
+}
+
+.showControlContent {
+  font-size: 0.78rem;
+  color: var(--vb-text-muted);
+  margin: var(--vb-space-1) 0 0;
+}
+
+.showControlScores {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--vb-space-3);
+  margin-top: var(--vb-space-3);
+  padding-top: var(--vb-space-3);
+  border-top: 1px solid var(--vb-border);
+}
+
+.showControlScoreBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.showControlScoreLabel {
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  color: var(--vb-text-muted);
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.showControlScoreRow {
+  display: flex;
+  align-items: baseline;
+  gap: var(--vb-space-2);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  font-size: 1.3rem;
+}
+
+.showControlScoreA {
+  color: var(--vb-team-a);
+}
+
+.showControlScoreB {
+  color: var(--vb-team-b);
+}
+
+.showControlScoreB::before {
+  content: "—";
+  color: var(--vb-text-muted);
+  margin-right: var(--vb-space-2);
+  font-size: 1rem;
+  font-weight: 600;
 }
 
 .rosterGrid {
@@ -173,6 +309,24 @@
   .resultsActions > * {
     flex: 1;
   }
+}
+
+/* --- Results splash beat 2 ("GAME OVER -> +1 POINT") --- */
+
+.resultShowPoints {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--vb-space-2);
+  margin-top: var(--vb-space-3);
+}
+
+.resultShowPointsValue {
+  font-size: 1.1rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--vb-accent);
+  margin: 0;
 }
 
 /* This wraps every phase's content (the results splash, the Lobby+Chat
@@ -328,20 +482,6 @@
   letter-spacing: normal;
 }
 
-.contentStudioLink {
-  color: var(--vb-text-muted);
-  text-decoration: none;
-  font-weight: 600;
-  font-size: 0.85rem;
-  padding: var(--vb-space-1) var(--vb-space-2);
-  border-radius: var(--vb-radius-sm);
-  transition: color var(--vb-transition-fast), background var(--vb-transition-fast);
-}
-
-.contentStudioLink:hover {
-  color: var(--vb-text);
-  background: var(--vb-surface-raised);
-}
 
 .contentCardMeta {
   margin: var(--vb-space-2) 0 0;

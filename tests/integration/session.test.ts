@@ -4,7 +4,9 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { io as ioClient, type Socket as ClientSocket } from "socket.io-client";
 import { createSocketServer } from "@/server/sockets";
 import { createSession, endSession, getSessionState } from "@/server/db/session";
-import { joinSession, reclaimHost, resolveParticipantByToken } from "@/server/db/participant";
+import { joinSession, kickParticipant, reclaimHost, resolveParticipantByToken } from "@/server/db/participant";
+import { broadcastParticipantKicked } from "@/server/sockets/session";
+import { getSocketServer } from "@/server/sockets/instance";
 import { SessionError } from "@/domain/session";
 import { prisma } from "@/server/db/client";
 
@@ -264,14 +266,14 @@ describe("Session + Participant", () => {
     ).rejects.toMatchObject({ code: "SESSION_NOT_FOUND" });
   });
 
-  it("rejects joining a session that was ended (the row is genuinely gone)", async () => {
+  it("rejects joining a session that was ended (the row survives, marked FINISHED)", async () => {
     const session = await freshSession();
     await joinSession({ sessionCode: session.code, role: "HOST", displayName: "Host" });
     await endSession(session.id);
 
     await expect(
       joinSession({ sessionCode: session.code, role: "TEAM_A", displayName: "A1" }),
-    ).rejects.toMatchObject({ code: "SESSION_NOT_FOUND" });
+    ).rejects.toMatchObject({ code: "SESSION_CLOSED" });
   });
 
   it("getSessionState rejects an unknown session code", async () => {
@@ -282,36 +284,35 @@ describe("Session + Participant", () => {
     await expect(resolveParticipantByToken("not-a-real-token")).rejects.toMatchObject({ code: "INVALID_TOKEN" });
   });
 
-  it("resolveParticipantByToken rejects a token for an ended session (its participant row is cascade-deleted too)", async () => {
+  it("resolveParticipantByToken rejects a token for an ended session (the participant row survives, the session is just closed)", async () => {
     const session = await freshSession();
     const join = await joinSession({ sessionCode: session.code, role: "HOST", displayName: "Host" });
     await endSession(session.id);
 
-    await expect(resolveParticipantByToken(join.token)).rejects.toMatchObject({ code: "INVALID_TOKEN" });
+    await expect(resolveParticipantByToken(join.token)).rejects.toMatchObject({ code: "SESSION_CLOSED" });
   });
 
-  it("a second session.finish with the same host token fails predictably, and getSessionState reflects the session being genuinely gone (Quick Demo Reset repro)", async () => {
+  it("a second session.finish with the same host token fails predictably, and getSessionState reflects the session being FINISHED (Quick Demo Reset repro)", async () => {
     // Mirrors the tRPC `session.finish` handler exactly: resolve the
     // token, then end. Calling that twice in a row — e.g. a stale demo
     // record surviving in a second tab, or a double click before the
     // button's `loading` state paints — is the scenario reported against
     // the Quick Demo's Reset button: first call must succeed, the second
-    // must fail with a stable, expected INVALID_TOKEN (the participant
-    // row is gone along with the session — not loop, not throw something
-    // unclassified), and session.getState must fail with a clear
-    // SESSION_NOT_FOUND afterward rather than getting stuck, erroring
-    // unclassified, or (the old soft-finish behavior) reporting the
-    // session as if it still existed.
+    // must fail with a stable, expected SESSION_CLOSED (the session's
+    // own status is what's checked, not loop, not throw something
+    // unclassified), and session.getState must keep resolving with
+    // `status: "FINISHED"` afterward rather than getting stuck, erroring
+    // unclassified, or pretending the session never ended.
     const session = await freshSession();
     const host = await joinSession({ sessionCode: session.code, role: "HOST", displayName: "Host" });
 
     const first = await resolveParticipantByToken(host.token);
     await endSession(first.sessionId);
 
-    await expect(resolveParticipantByToken(host.token)).rejects.toMatchObject({ code: "INVALID_TOKEN" });
-    await expect(resolveParticipantByToken(host.token)).rejects.toMatchObject({ code: "INVALID_TOKEN" });
+    await expect(resolveParticipantByToken(host.token)).rejects.toMatchObject({ code: "SESSION_CLOSED" });
+    await expect(resolveParticipantByToken(host.token)).rejects.toMatchObject({ code: "SESSION_CLOSED" });
 
-    await expect(getSessionState(session.code)).rejects.toMatchObject({ code: "SESSION_NOT_FOUND" });
+    await expect(getSessionState(session.code)).resolves.toMatchObject({ status: "FINISHED" });
   });
 
   it("rejects a new join once the session has been ended, even with a genuinely connected host socket still open", async () => {
@@ -320,7 +321,7 @@ describe("Session + Participant", () => {
 
     await expect(
       joinSession({ sessionCode: session.code, role: "TEAM_A", displayName: "A1" }),
-    ).rejects.toMatchObject({ code: "SESSION_NOT_FOUND" });
+    ).rejects.toMatchObject({ code: "SESSION_CLOSED" });
 
     hostSocket.close();
   });
@@ -365,14 +366,14 @@ describe("Session + Participant", () => {
       ).rejects.toMatchObject({ code: "SESSION_NOT_FOUND" });
     });
 
-    it("rejects an ended session with SESSION_NOT_FOUND, even with the correct key", async () => {
+    it("rejects an ended session with SESSION_CLOSED, even with the correct key", async () => {
       const session = await freshSession();
       const host = await joinSession({ sessionCode: session.code, role: "HOST", displayName: "Alex" });
       await endSession((await resolveParticipantByToken(host.token)).sessionId);
 
       await expect(
         reclaimHost({ sessionCode: session.code, hostKey: session.hostKey, displayName: "Alex" }),
-      ).rejects.toMatchObject({ code: "SESSION_NOT_FOUND" });
+      ).rejects.toMatchObject({ code: "SESSION_CLOSED" });
     });
   });
 
@@ -515,6 +516,146 @@ describe("Session + Participant", () => {
       expect(state.teamA).toHaveLength(1);
       expect(state.teamB).toHaveLength(1);
       expect(state.displayCount).toBe(2);
+    });
+  });
+
+  describe("kickParticipant — the Host forcibly freeing a seat", () => {
+    it("removes the participant; their old token stops resolving", async () => {
+      const { session } = await freshSessionWithHost();
+      const a1 = await joinSession({ sessionCode: session.code, role: "TEAM_A", displayName: "A1" });
+
+      const kicked = await kickParticipant(session.id, a1.id);
+      expect(kicked).toEqual({ role: "TEAM_A", displayName: "A1" });
+
+      await expect(resolveParticipantByToken(a1.token)).rejects.toMatchObject({ code: "INVALID_TOKEN" });
+    });
+
+    it("frees the seat for a genuinely new join, even when the REMAINING seat isn't seat 1 (the gap this exists to close)", async () => {
+      const { session } = await freshSessionWithHost();
+      // seat 1
+      const a1 = await joinSession({ sessionCode: session.code, role: "TEAM_A", displayName: "A1" });
+      // seat 2 — MAX_PLAYERS_PER_TEAM is 2, so the team is now full
+      await joinSession({ sessionCode: session.code, role: "TEAM_A", displayName: "A2" });
+      await expect(
+        joinSession({ sessionCode: session.code, role: "TEAM_A", displayName: "A3" }),
+      ).rejects.toMatchObject({ code: "TEAM_FULL" });
+
+      // Kick whoever holds the LOWER seat, leaving only the higher one —
+      // the exact shape that broke the old `count + 1` seat assignment
+      // (it would recompute the same taken seat number and hit the
+      // unique constraint instead of reusing the freed one).
+      await kickParticipant(session.id, a1.id);
+
+      const rejoined = await joinSession({ sessionCode: session.code, role: "TEAM_A", displayName: "A3" });
+      expect(rejoined.role).toBe("TEAM_A");
+
+      const state = await getSessionState(session.code);
+      expect(state.teamA).toHaveLength(2); // the seat was reused, not stacked on top
+    });
+
+    it("rejects kicking the HOST", async () => {
+      const { session, host } = await freshSessionWithHost();
+      await expect(kickParticipant(session.id, host.id)).rejects.toMatchObject({ code: "FORBIDDEN" });
+    });
+
+    it("rejects an unknown participant id", async () => {
+      const { session } = await freshSessionWithHost();
+      await expect(kickParticipant(session.id, "not-a-real-id")).rejects.toMatchObject({ code: "PARTICIPANT_NOT_FOUND" });
+    });
+
+    it("scopes to the caller's own session — can't kick a participant that belongs to a DIFFERENT session (IDOR)", async () => {
+      const { session: sessionA } = await freshSessionWithHost();
+      const { session: sessionB } = await freshSessionWithHost();
+      const bPlayer = await joinSession({ sessionCode: sessionB.code, role: "TEAM_A", displayName: "B-player" });
+
+      await expect(kickParticipant(sessionA.id, bPlayer.id)).rejects.toMatchObject({ code: "PARTICIPANT_NOT_FOUND" });
+      // Untouched — the rejected cross-session attempt didn't reach it.
+      await expect(resolveParticipantByToken(bPlayer.token)).resolves.toMatchObject({ role: "TEAM_A" });
+    });
+
+    it("kicking an already-kicked participant fails with a clear PARTICIPANT_NOT_FOUND, not a crash", async () => {
+      const { session } = await freshSessionWithHost();
+      const a1 = await joinSession({ sessionCode: session.code, role: "TEAM_A", displayName: "A1" });
+      await kickParticipant(session.id, a1.id);
+      await expect(kickParticipant(session.id, a1.id)).rejects.toMatchObject({ code: "PARTICIPANT_NOT_FOUND" });
+    });
+
+    it("real-time: the kicked participant's own socket receives participant:kicked and is disconnected — nothing else broadcasts to it", async () => {
+      const { session } = await freshSessionWithHost();
+      const a1 = await joinSession({ sessionCode: session.code, role: "TEAM_A", displayName: "A1" });
+      const { socket, ready } = connectAndWaitForPresence(a1.token);
+      await ready;
+
+      const kickedEvent = new Promise<void>((resolve) => socket.once("participant:kicked", () => resolve()));
+      const disconnected = new Promise<void>((resolve) => socket.once("disconnect", () => resolve()));
+
+      await kickParticipant(session.id, a1.id);
+      const io = getSocketServer();
+      if (!io) throw new Error("expected a live Socket.IO server in this test file");
+      broadcastParticipantKicked(io, a1.id);
+
+      await kickedEvent;
+      await disconnected;
+    });
+  });
+
+  describe("joinSession — reclaim-by-name for a returning TEAM_A/TEAM_B player with no token", () => {
+    it("hands back the SAME seat when the old holder isn't currently connected", async () => {
+      const { session } = await freshSessionWithHost();
+      const first = await joinSession({ sessionCode: session.code, role: "TEAM_A", displayName: "Jamie" });
+      // No socket ever opened for `first` — genuinely "not connected",
+      // the exact scenario a closed tab / a different device leaves behind.
+
+      const second = await joinSession({ sessionCode: session.code, role: "TEAM_A", displayName: "Jamie" });
+      expect(second.id).toBe(first.id); // same participant, not a second seat
+      expect(second.reused).toBe(true);
+      expect(second.token).not.toBe(first.token); // a real new token — the old one is dead now
+
+      await expect(resolveParticipantByToken(first.token)).rejects.toMatchObject({ code: "INVALID_TOKEN" });
+      await expect(resolveParticipantByToken(second.token)).resolves.toMatchObject({ participantId: first.id });
+
+      const state = await getSessionState(session.code);
+      expect(state.teamA).toHaveLength(1); // never became two seats
+    });
+
+    it("does NOT steal the seat while the original holder is genuinely still connected — a second same-name join gets its own seat instead", async () => {
+      const { session } = await freshSessionWithHost();
+      const first = await joinSession({ sessionCode: session.code, role: "TEAM_A", displayName: "Jamie" });
+      const { ready } = connectAndWaitForPresence(first.token);
+      await ready;
+
+      const second = await joinSession({ sessionCode: session.code, role: "TEAM_A", displayName: "Jamie" });
+      expect(second.id).not.toBe(first.id);
+      expect(second.reused).toBe(false);
+
+      // First seat is untouched and still real.
+      await expect(resolveParticipantByToken(first.token)).resolves.toMatchObject({ participantId: first.id });
+
+      const state = await getSessionState(session.code);
+      expect(state.teamA).toHaveLength(2);
+    });
+
+    it("a genuinely full team (2 present, 0 disconnected) still rejects a third join with TEAM_FULL", async () => {
+      const { session } = await freshSessionWithHost();
+      await joinSession({ sessionCode: session.code, role: "TEAM_A", displayName: "Jamie" });
+      await joinSession({ sessionCode: session.code, role: "TEAM_A", displayName: "Alex" });
+
+      await expect(
+        joinSession({ sessionCode: session.code, role: "TEAM_A", displayName: "Someone else" }),
+      ).rejects.toMatchObject({ code: "TEAM_FULL" });
+    });
+
+    it("a DIFFERENT display name never reclaims someone else's disconnected seat — it claims its own free one normally", async () => {
+      const { session } = await freshSessionWithHost();
+      const jamie = await joinSession({ sessionCode: session.code, role: "TEAM_A", displayName: "Jamie" });
+      // Jamie never connects — genuinely offline, same as the reclaim test above.
+
+      const alex = await joinSession({ sessionCode: session.code, role: "TEAM_A", displayName: "Alex" });
+      expect(alex.id).not.toBe(jamie.id);
+      expect(alex.reused).toBe(false);
+
+      const state = await getSessionState(session.code);
+      expect(state.teamA).toHaveLength(2); // Jamie's stale seat is still there, untouched, alongside Alex's new one
     });
   });
 });

@@ -20,32 +20,67 @@ interface GameStoreState {
   /**
    * A real-time push, not a derived value — flips true the instant this
    * tab's socket receives `session:ended` (src/server/sockets/session.ts),
-   * fired by the host's own "End session" ending the session for real
-   * (a hard delete, not the old soft `status: FINISHED`). Every product
-   * page treats this as an override on top of `deriveSessionPhase`
-   * (sessionPhase.ts): once true, it's the terminal SESSION_FINISHED
-   * screen regardless of what a stale/failing `session.getState` poll
-   * says, because after a real delete there IS no `sessionStatus` left to
-   * poll. Never reset back to false — a session that's gone stays gone
-   * for this tab; a genuinely new session means a fresh page/token/store
-   * anyway.
+   * fired by the host's own "End session" the moment it runs, ahead of
+   * the `status: "FINISHED"` update actually landing
+   * (src/server/db/session.ts's `endSession`). Every product page treats
+   * this as an override on top of `deriveSessionPhase` (sessionPhase.ts):
+   * once true, it's the terminal SESSION_FINISHED screen right away,
+   * instead of waiting on this tab's next `session.getState` poll to
+   * observe the same status flip on its own. Stays true for as long as
+   * THIS identity/token is connected — see `reset()` below for the one
+   * moment it actually needs to clear.
    */
   sessionEnded: boolean;
+  /**
+   * True once THIS tab's own socket receives `participant:kicked`
+   * (src/server/sockets/session.ts's broadcastParticipantKicked) — the
+   * Host forcibly freed this seat. Distinct from `sessionEnded`: the
+   * session itself is still very much alive for everyone else, only
+   * THIS participant's token just stopped working. Same reset contract
+   * as `sessionEnded` — see `reset()` below.
+   */
+  kicked: boolean;
   setSnapshot: (snapshot: { gameId: string; gameKey: string; state: Record<string, unknown>; events: unknown[] }) => void;
   setStatus: (status: GameConnectionStatus) => void;
   setError: (error: GameError | null) => void;
   setSessionEnded: () => void;
+  setKicked: () => void;
+  /**
+   * Back to every field's true initial value — called once by
+   * useGameSocket.ts at the START of its connection effect, whenever
+   * `token` actually changes to a new, real value. `sessionEnded`/
+   * `kicked` were originally documented as "never reset — a genuinely
+   * new session means a fresh page/token/store anyway," which held back
+   * when the only way to start a new session was a full page reload. It
+   * stopped holding the moment this store was pinned to `globalThis`
+   * (this file's own doc comment, for an unrelated Fast Refresh bug):
+   * clicking "Start a new game" after a session ends (Host/Player/
+   * Display's own SESSION_FINISHED screens) is now a PURE client-side
+   * identity swap — clearIdentity() then a fresh setIdentity() — with no
+   * reload at all, so this store's stale `sessionEnded: true` from the
+   * OLD, actually-ended session silently carried over and permanently
+   * pinned the BRAND NEW session's own phase to SESSION_FINISHED too,
+   * even though it had barely started (confirmed: "Start a new game"
+   * kept landing right back on "Session ended"). This is the actual
+   * connection-lifecycle boundary that should have reset it all along.
+   */
+  reset: () => void;
 }
+
+const initialGameStoreState = {
+  gameId: null as string | null,
+  gameKey: null as string | null,
+  gameState: null as Record<string, unknown> | null,
+  status: "connecting" as GameConnectionStatus,
+  lastEvents: [] as unknown[],
+  lastError: null as GameError | null,
+  sessionEnded: false,
+  kicked: false,
+};
 
 function createGameStore() {
   return create<GameStoreState>((set) => ({
-    gameId: null,
-    gameKey: null,
-    gameState: null,
-    status: "connecting",
-    lastEvents: [],
-    lastError: null,
-    sessionEnded: false,
+    ...initialGameStoreState,
     setSnapshot: (snapshot) =>
       set({
         gameId: snapshot.gameId,
@@ -56,6 +91,8 @@ function createGameStore() {
     setStatus: (status) => set({ status }),
     setError: (error) => set({ lastError: error }),
     setSessionEnded: () => set({ sessionEnded: true }),
+    setKicked: () => set({ kicked: true }),
+    reset: () => set({ ...initialGameStoreState }),
   }));
 }
 

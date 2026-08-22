@@ -15,6 +15,7 @@ const SESSION_ERROR_MESSAGES: Record<string, string> = {
   INVALID_HOST_KEY: "That recovery key doesn't match this session code.",
   INVALID_HOST_PASSWORD: "That password isn't correct.",
   FORBIDDEN: "You don't have permission to do that.",
+  DISPLAY_NAME_MATCHES_ACCOUNT: "That name belongs to a real account — pick a different one, or log in instead.",
 };
 
 export function readableSessionError(code: string | undefined, fallbackMessage: string): string {

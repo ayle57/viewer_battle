@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { TRPCProvider } from "@/app/_trpc/Provider";
 import { PageTransition } from "@/app/_shared/PageTransition";
 import { PageChangeCurtain } from "@/app/_shared/PageChangeCurtain";
+import { ReturnToGameCorner } from "@/app/_shared/ReturnToGameCorner";
 import "@/ui/tokens.css";
 
 export const metadata = {
@@ -29,6 +30,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <TRPCProvider>
           <PageTransition>{children}</PageTransition>
           <PageChangeCurtain />
+          <ReturnToGameCorner />
         </TRPCProvider>
       </body>
     </html>

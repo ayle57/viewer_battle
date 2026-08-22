@@ -37,19 +37,21 @@ export interface SessionPhaseInput {
   /** From useGameStore's gameState.status — read generically (see the file doc comment), null until a game exists or before its first snapshot arrives. */
   gameStatus: GameStatus | null;
   /**
-   * True once this tab has learned, by ANY means, that the session is
-   * genuinely gone — either a real-time `session:ended` push
-   * (gameStore.ts's `sessionEnded`, set the instant this tab's socket
-   * hears it) or `session.getState` itself failing with
-   * SESSION_NOT_FOUND (a client that reconnects/refreshes after the
-   * session was already deleted, so there was no live push to catch).
-   * Optional, not a required third leg of the derivation the way
-   * `sessionStatus`/`gameId`/`gameStatus` are — most callsites (tests,
-   * anything not driven by a real socket) simply never have this signal
-   * and that's fine, it defaults to "no." See AGENTS.md "Session vs.
-   * Game phases": a session that's merely marked FINISHED can still be
-   * read back by `sessionStatus`; one that's been DELETED can't, so this
-   * exists specifically to cover the gap a hard delete opens up.
+   * True once THIS tab has heard, in real time, that the session just
+   * ended — the `session:ended` socket push (gameStore.ts's
+   * `sessionEnded`, set the instant this tab's socket hears it), fired
+   * the moment `session.finish` runs, before `sessionStatus` itself even
+   * flips to "FINISHED" server-side. A currently-connected tab gets the
+   * instant version through this flag instead of waiting up to one
+   * polling interval for `session.getState` to report `status:
+   * "FINISHED"` on its own — which it always eventually will regardless
+   * (ending a session is a soft update, not a delete — see `endSession`
+   * in src/server/db/session.ts), so this is a latency shortcut, not the
+   * only path to this phase. Optional, not a required third leg of the
+   * derivation the way `sessionStatus`/`gameId`/`gameStatus` are — most
+   * callsites (tests, anything not driven by a real socket) simply never
+   * have this signal and that's fine, it defaults to "no," and
+   * `sessionStatus === "FINISHED"` alone still gets them here.
    */
   sessionEnded?: boolean;
 }

@@ -2,6 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { motion } from "motion/react";
+import { useReducedMotionSafe } from "@/app/_shared/motion/useReducedMotionSafe";
+import { popIn } from "@/app/_shared/motion/variants";
 import { trpc } from "@/app/_trpc/client";
 import { TRPCClientError } from "@trpc/client";
 import { Badge, Button, Card, CardBody, CardHeader, ConfirmDialog, Input, Tabs, TeamRoster, PresenceDot } from "@/ui";
@@ -22,6 +26,9 @@ import { usePresenceStore } from "@/app/_shared/presenceStore";
 import { toRosterSeats } from "@/app/_shared/roster";
 import { deriveSessionPhase, readGameStatus } from "@/app/_shared/sessionPhase";
 import { useIdentityStore, type Identity } from "@/app/_shared/identityStore";
+import { useAccountStore, type Account } from "@/app/_shared/accountStore";
+import { AccountBadge } from "@/app/_shared/AccountBadge";
+import { ActionsMenu } from "@/app/_shared/ActionsMenu";
 import { readableSessionError } from "@/app/_shared/sessionErrorMessages";
 import { listGameDefinitions, type GameKey, type Scoreboard } from "@/domain/game";
 import type { TeamRole } from "@/domain/session";
@@ -59,16 +66,31 @@ export default function HostPage() {
  * what calls setIdentity, not anything downstream of it (HostGame,
  * useGameSocket, the board, ...).
  *
- * Two tabs, not one form: "New game" (create + join, the common case) and
- * "Reconnect" (session.reclaimHost — recovers the HOST seat with the
- * one-time recovery key instead of the lost bearer token). Host identity
- * only lives in sessionStorage (identityStore.ts), so closing the tab —
- * not just reloading it — genuinely loses it; without this second tab a
- * host in that spot would be permanently locked out of a session that's
- * still live for every other connected participant.
+ * Gated behind a real, `isAdmin` account (accountStore.ts) — "il faut se
+ * connecter au compte streamer": the whole point of `User.isAdmin`
+ * (prisma/schema.prisma) is that reaching this screen at all now means
+ * proving you're logged in as the streamer's own account, the same real
+ * identity the admin dashboard already trusts, not a shared password
+ * typed fresh into a form every time. `CreateGameForm` below passes that
+ * SAME account token straight to `session.create` — no separate
+ * "Host password" field left to fill in once you're already past this
+ * gate (see router.ts's own doc comment: HOST_PASSWORD still works
+ * byte-for-byte for the /dev playground, this is purely an additive,
+ * stronger alternative for the real product's own /host page).
+ *
+ * Two tabs, not one form, once past the gate: "New game" (create + join,
+ * the common case) and "Reconnect" (session.reclaimHost — recovers the
+ * HOST seat with the one-time recovery key instead of the lost bearer
+ * token). Host identity only lives in sessionStorage (identityStore.ts),
+ * so closing the tab — not just reloading it — genuinely loses it;
+ * without this second tab a host in that spot would be permanently
+ * locked out of a session that's still live for every other connected
+ * participant.
  */
 function HostConnexion() {
   const setIdentity = useIdentityStore((state) => state.setIdentity);
+  const account = useAccountStore((state) => state.account);
+  const clearAccount = useAccountStore((state) => state.clearAccount);
   const [pendingReveal, setPendingReveal] = useState<{ hostKey: string; identity: Identity } | null>(null);
 
   if (pendingReveal) {
@@ -81,15 +103,30 @@ function HostConnexion() {
     );
   }
 
+  if (!account) return <HostAccountGate />;
+  // A real, resolved account — just cached as not `isAdmin` at its own
+  // last login (see accountStore.ts's own doc comment on why this is a
+  // client-side nicety, not the real boundary: session.create itself
+  // always re-checks server-side regardless). Never silently shows the
+  // Create/Reconnect forms for an account that would just fail anyway.
+  if (!account.isAdmin) return <HostNotAdminNotice account={account} />;
+
   return (
     <div className={styles.connexion}>
+      {/* Same pill everywhere on the site that shows "signed in" —
+          AccountBadge's own doc comment explains why this replaced a
+          plain CardHeader subtitle text here. */}
+      <div className={styles.accountRow}>
+        <AccountBadge />
+      </div>
+      <ResumeShowBanner account={account} onResumed={setIdentity} />
       <Card variant="raised">
         <CardHeader title="Host a game" subtitle="ViewerBattle" />
         <CardBody>
           <Tabs
             items={[
-              { value: "create", label: "New game", content: <CreateGameForm onCreated={setPendingReveal} /> },
-              { value: "reclaim", label: "Reconnect", content: <ReclaimHostForm onReclaimed={setIdentity} /> },
+              { value: "create", label: "New game", content: <CreateGameForm account={account} onCreated={setPendingReveal} /> },
+              { value: "reclaim", label: "Reconnect", content: <ReclaimHostForm account={account} onReclaimed={setIdentity} /> },
             ]}
           />
         </CardBody>
@@ -103,13 +140,126 @@ function HostConnexion() {
       <p className={styles.connexionFooter}>
         Just preparing? <Link href="/host/content">Go to the Content Studio</Link> — no game needed.
       </p>
+      <button type="button" className={styles.switchAccountLink} onClick={() => clearAccount()}>
+        Not {account.username}? Log out
+      </button>
     </div>
   );
 }
 
-function CreateGameForm({ onCreated }: { onCreated: (reveal: { hostKey: string; identity: Identity }) => void }) {
-  const [displayName, setDisplayName] = useState("");
-  const [hostPassword, setHostPassword] = useState("");
+/**
+ * A REAL, REPORTED UX gap — walking `/host` as an actual streamer
+ * surfaced it directly (findActiveHostSessionForAccount's own doc
+ * comment, src/server/db/participant.ts, has the full reasoning): the
+ * one-time recovery key is redundant friction now that a real,
+ * `isAdmin` account already proves who's asking. Renders nothing at
+ * all — not even a loading flicker — until it actually finds something
+ * to resume; the overwhelmingly common case (no show running yet) shows
+ * the ordinary New game / Reconnect card below with zero extra chrome.
+ */
+function ResumeShowBanner({ account, onResumed }: { account: Account; onResumed: (identity: Identity) => void }) {
+  const resume = trpc.session.resumeByAccount.useQuery({ accountToken: account.token });
+  const reclaim = trpc.session.reclaimByAccount.useMutation();
+  const [error, setError] = useState<string | null>(null);
+
+  if (!resume.data) return null;
+
+  async function handleResume() {
+    setError(null);
+    try {
+      const result = await reclaim.mutateAsync({ accountToken: account.token });
+      onResumed({ sessionCode: result.sessionCode, role: "HOST", displayName: result.displayName, token: result.token });
+    } catch (err) {
+      setError(err instanceof TRPCClientError ? err.message : "Couldn't resume — try again.");
+    }
+  }
+
+  return (
+    <Card variant="raised" className={styles.resumeCard}>
+      <CardBody>
+        <p className={styles.resumeLabel}>You have a show already running</p>
+        <p className={styles.resumeCode}>Session {resume.data.sessionCode}</p>
+        {error && <p className={styles.errorBanner}>{error}</p>}
+        <Button size="lg" fullWidth loading={reclaim.isPending} onClick={() => void handleResume()}>
+          Resume show
+        </Button>
+      </CardBody>
+    </Card>
+  );
+}
+
+/** The login step "il faut se connecter au compte streamer" actually asks for — login only, deliberately no "create an account" toggle the way /account's own AccountAuth has: a fresh, self-registered account could never be `isAdmin` anyway (see User.isAdmin's own doc comment), so offering to register one here would just be a dead end dressed up as a real option. */
+function HostAccountGate() {
+  const setAccount = useAccountStore((state) => state.setAccount);
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const login = trpc.user.login.useMutation();
+
+  async function handleSubmit() {
+    setError(null);
+    try {
+      const result = await login.mutateAsync({ username, password });
+      setAccount({ token: result.token, username: result.username, isAdmin: result.isAdmin });
+    } catch (err) {
+      setError(err instanceof TRPCClientError ? err.message : "Couldn't sign in — try again.");
+    }
+  }
+
+  return (
+    <div className={styles.connexion}>
+      <Card variant="raised">
+        <CardHeader title="Host a game" subtitle="Log in as the streamer to continue" />
+        <CardBody>
+          <form
+            className={styles.connexionForm}
+            onSubmit={(event) => {
+              event.preventDefault();
+              void handleSubmit();
+            }}
+          >
+            <Input size="lg" label="Username" value={username} onChange={(event) => setUsername(event.target.value)} placeholder="e.g. erwin" autoFocus />
+            <Input size="lg" type="password" label="Password" value={password} onChange={(event) => setPassword(event.target.value)} />
+            {error && <p className={styles.errorBanner}>{error}</p>}
+            <Button size="lg" type="submit" loading={login.isPending} disabled={!username.trim() || !password} fullWidth>
+              Log in
+            </Button>
+          </form>
+        </CardBody>
+      </Card>
+    </div>
+  );
+}
+
+/** A real, resolved account that just isn't the streamer's — see router.ts's session.create doc comment on why this is possible (any viewer can self-register) and User.isAdmin's own comment on why that's fine (it just never authorizes hosting). */
+function HostNotAdminNotice({ account }: { account: Account }) {
+  const clearAccount = useAccountStore((state) => state.clearAccount);
+  return (
+    <div className={styles.connexion}>
+      <Card variant="raised">
+        <CardHeader title="This account can't host" subtitle={`Signed in as ${account.username}`} />
+        <CardBody>
+          <p className={styles.hint}>Only the streamer&rsquo;s own account can create or reconnect to a show. If this isn&rsquo;t you, log out and sign in as the right account.</p>
+          <Button variant="ghost" onClick={() => clearAccount()}>
+            Log out
+          </Button>
+        </CardBody>
+      </Card>
+    </div>
+  );
+}
+
+function CreateGameForm({ account, onCreated }: { account: Account; onCreated: (reveal: { hostKey: string; identity: Identity }) => void }) {
+  // Defaults to the account's own username — editable, since the display
+  // name a Host shows the room isn't necessarily identical to their
+  // account username (e.g. a branded "Erwin Live" vs. the plain account
+  // "erwin"). No `getLastDisplayName`/`RememberedNameHint` machinery
+  // needed here anymore — that convenience existed to guess at a name
+  // with no better source of truth; a real, logged-in account (required
+  // to even reach this form now — see HostConnexion's own account gate)
+  // already IS that better source, same reasoning as PlayerJoin's own
+  // account-supersedes-remembered-name effect.
+  const [displayName, setDisplayName] = useState(account.username);
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
 
@@ -118,13 +268,16 @@ function CreateGameForm({ onCreated }: { onCreated: (reveal: { hostKey: string; 
 
   async function handleCreate() {
     const name = displayName.trim();
-    const password = hostPassword.trim();
-    if (!name || !password) return;
+    if (!name) return;
     setCreating(true);
     setError(null);
     try {
-      const session = await createSession.mutateAsync({ hostPassword: password });
-      const host = await joinSession.mutateAsync({ sessionCode: session.code, role: "HOST", displayName: name });
+      // No `hostPassword` — the account gate above already proved this
+      // is the operator (resolveAdminUserByToken, checked again
+      // server-side regardless of anything this client claims — see
+      // router.ts's own doc comment on session.create).
+      const session = await createSession.mutateAsync({ accountToken: account.token });
+      const host = await joinSession.mutateAsync({ sessionCode: session.code, role: "HOST", displayName: name, accountToken: account.token });
       onCreated({
         hostKey: session.hostKey,
         identity: { sessionCode: session.code, role: "HOST", displayName: host.displayName, token: host.token },
@@ -153,16 +306,8 @@ function CreateGameForm({ onCreated }: { onCreated: (reveal: { hostKey: string; 
         placeholder="e.g. Alex"
         autoFocus
       />
-      <Input
-        size="lg"
-        type="password"
-        label="Host password"
-        value={hostPassword}
-        onChange={(event) => setHostPassword(event.target.value)}
-        placeholder="Only the streamer knows this"
-      />
       {error && <p className={styles.errorBanner}>{error}</p>}
-      <Button size="lg" type="submit" loading={creating} disabled={!displayName.trim() || !hostPassword.trim()} fullWidth>
+      <Button size="lg" type="submit" loading={creating} disabled={!displayName.trim()} fullWidth>
         Create Game
       </Button>
     </form>
@@ -177,10 +322,14 @@ function CreateGameForm({ onCreated }: { onCreated: (reveal: { hostKey: string; 
  * this stays possible even while a game is in progress and other
  * participants are still connected, that's the entire point.
  */
-function ReclaimHostForm({ onReclaimed }: { onReclaimed: (identity: Identity) => void }) {
+function ReclaimHostForm({ account, onReclaimed }: { account: Account; onReclaimed: (identity: Identity) => void }) {
   const [sessionCode, setSessionCode] = useState("");
   const [hostKey, setHostKey] = useState("");
-  const [displayName, setDisplayName] = useState("");
+  // Same reasoning as CreateGameForm's identical field — see its own
+  // doc comment on why this no longer needs the localStorage
+  // remembered-name convenience now that a real account gates this
+  // whole form.
+  const [displayName, setDisplayName] = useState(account.username);
   const [error, setError] = useState<string | null>(null);
   const [reclaiming, setReclaiming] = useState(false);
 
@@ -299,9 +448,52 @@ function SaveHostKey({ hostKey, sessionCode, onContinue }: { hostKey: string; se
   );
 }
 
+/**
+ * "GAME OVER -> +1 POINT" — two purely COSMETIC beats over facts the
+ * results splash already has in full the instant it mounts
+ * (`gameState.winner`, `roster.matchScore`, both real broadcasts, never
+ * guessed at). Same shape as DisplayGeoPanel's own `useRevealStage`
+ * (src/app/_shared/geoGuessr/DisplayGeoPanel.tsx) — a local index
+ * advanced by `setTimeout`, gated on `!reduced`, that only decides which
+ * of two ALREADY-TRUE things is currently showing. Never a `sendAction`,
+ * never anything that could change what actually got counted.
+ *
+ * Deliberately no "next game" beat — the Host has total freedom over
+ * what to play next (no fixed lineup exists anymore, see MatchScore's
+ * own doc comment), so there's nothing honest to preview here.
+ */
+type ResultStage = "winner" | "points";
+const RESULT_STAGE_ORDER: ResultStage[] = ["winner", "points"];
+const RESULT_STAGE_HOLD_MS: Record<ResultStage, number> = { winner: 900, points: 0 };
+
+function useResultStage(active: boolean, resetKey: string, reduced: boolean): ResultStage {
+  const [index, setIndex] = useState(0);
+  // Render-phase reset on a genuine new result (a fresh gameId), same
+  // pattern DisplayGeoPanel's own reveal stage uses — not an effect+setState.
+  const [prevResetKey, setPrevResetKey] = useState(resetKey);
+  let effectiveIndex = index;
+  if (prevResetKey !== resetKey) {
+    setPrevResetKey(resetKey);
+    effectiveIndex = 0;
+    setIndex(0);
+  }
+
+  useEffect(() => {
+    if (!active || reduced) return;
+    if (effectiveIndex >= RESULT_STAGE_ORDER.length - 1) return;
+    const timeout = setTimeout(() => setIndex((i) => i + 1), RESULT_STAGE_HOLD_MS[RESULT_STAGE_ORDER[effectiveIndex]!]);
+    return () => clearTimeout(timeout);
+  }, [active, reduced, effectiveIndex]);
+
+  if (!active) return "winner";
+  return reduced ? "points" : RESULT_STAGE_ORDER[effectiveIndex]!;
+}
+
 function HostGame({ identity }: { identity: Identity }) {
+  const router = useRouter();
   const { sendAction, sendChatMessage } = useGameSocket(identity.token);
   const clearIdentity = useIdentityStore((state) => state.clearIdentity);
+  const setIdentity = useIdentityStore((state) => state.setIdentity);
   const gameId = useGameStore((state) => state.gameId);
   const gameKey = useGameStore((state) => state.gameKey);
   const rawGameState = useGameStore((state) => state.gameState);
@@ -313,18 +505,37 @@ function HostGame({ identity }: { identity: Identity }) {
 
   const start = trpc.game.start.useMutation();
   const finish = trpc.session.finish.useMutation();
+  const kick = trpc.session.kick.useMutation();
+  const rotateCode = trpc.session.rotateCode.useMutation();
   const sessionState = trpc.session.getState.useQuery(
     { sessionCode: identity.sessionCode },
     { refetchInterval: 2000, retry: false },
   );
 
   const roster = sessionState.data;
-  const totalRoster = roster ? 1 + roster.teamA.length + roster.teamB.length + roster.displayCount : 0;
+  // A REAL, REPRODUCED bug this `Math.max` closes: this count, like
+  // `toRosterSeats` (roster.ts's own doc comment on the identical root
+  // cause), used to come ONLY from the polled `session.getState` — up to
+  // ~2s stale. `presence` (real-time, socket-pushed) can genuinely
+  // outrun it: a player who just joined is already connected before the
+  // next poll tick confirms their seat. Confirmed directly: the header
+  // read "6/4 connected" right after a fresh join — MORE people
+  // connected than the roster-based denominator claimed existed at all,
+  // which reads as a bug/error rather than the "someone dropped their
+  // connection" signal this badge exists to give. Anyone genuinely
+  // present via a live socket has, BY DEFINITION, a real seat somewhere
+  // (the server only lets an authenticated participant hold a socket at
+  // all) — the poll just hasn't confirmed WHICH one yet. The
+  // denominator can never honestly be smaller than the live count.
+  const totalRoster = roster ? Math.max(1 + roster.teamA.length + roster.teamB.length + roster.displayCount, presence.length) : presence.length;
 
-  // `liveSessionEnded` (a real-time socket push) or the poll itself
-  // 404ing (SESSION_NOT_FOUND — this tab reconnected after the session
-  // was already deleted, missing the live push) both mean the same
-  // thing: there's no session left to show. See sessionPhase.ts.
+  // `liveSessionEnded` (a real-time socket push, the instant version —
+  // see gameStore.ts) is the common case; `sessionStatus === "FINISHED"`
+  // (sessionPhase.ts) catches the same fact from a plain poll on its
+  // own. SESSION_NOT_FOUND here means this session code was never real
+  // to begin with, not "it ended" — ending a session is a soft update
+  // now (src/server/db/session.ts's endSession), it doesn't delete the
+  // row.
   const sessionEnded = liveSessionEnded || sessionState.error?.data?.sessionErrorCode === "SESSION_NOT_FOUND";
   const phase = deriveSessionPhase({ sessionStatus: sessionState.data?.status, gameId, gameStatus: readGameStatus(rawGameState), sessionEnded });
 
@@ -339,6 +550,9 @@ function HostGame({ identity }: { identity: Identity }) {
   // wouldn't be.
   const [acknowledgedGameId, setAcknowledgedGameId] = useState<string | null>(null);
   const showResultsSplash = phase === "GAME_FINISHED" && acknowledgedGameId !== gameId;
+
+  const reduced = useReducedMotionSafe(); // hydration-safe — see that hook's own doc comment
+  const resultStage = useResultStage(showResultsSplash, gameId ?? "idle", reduced);
 
   const games = listGameDefinitions();
   // Genuinely selectable, not hardcoded — today `games` has exactly one
@@ -430,6 +644,43 @@ function HostGame({ identity }: { identity: Identity }) {
     );
   }
 
+  // "Disconnect this player" — a real ConfirmDialog (same posture as
+  // "End session" below): kicking someone is irreversible from THEIR
+  // side — the session's join code rotates in the same call (see
+  // session.kick, router.ts), so they can't just rejoin under a
+  // different name a second later — see KickedNotice. `kickTarget`
+  // doubles as both the dialog's open/closed state and which seat it's
+  // about, instead of a separate boolean synced by hand.
+  const [kickTarget, setKickTarget] = useState<{ id: string; displayName: string } | null>(null);
+
+  function handleKick() {
+    if (!kickTarget) return;
+    kick.mutate(
+      { token: identity.token, participantId: kickTarget.id },
+      {
+        onSuccess: (result) => setIdentity({ ...identity, sessionCode: result.newSessionCode }),
+        onSettled: () => setKickTarget(null),
+      },
+    );
+  }
+
+  // Self-service version of the same rotation `kick` does automatically
+  // — "I think this leaked" without needing to kick anyone. A real,
+  // confirmed action (same posture as End session): the OLD code stops
+  // working for new joins the instant this succeeds, so any invite
+  // link/message already sent out goes stale.
+  const [rotateCodeOpen, setRotateCodeOpen] = useState(false);
+
+  function handleRotateCode() {
+    rotateCode.mutate(
+      { token: identity.token },
+      {
+        onSuccess: (result) => setIdentity({ ...identity, sessionCode: result.newSessionCode }),
+        onSettled: () => setRotateCodeOpen(false),
+      },
+    );
+  }
+
   // Shared by the Lobby's "Start Game"/"Start Next Game" button and the
   // results splash's "Play Again" — same mutation, same selected game,
   // two entry points. Nothing to reconcile afterward: `game.start`
@@ -490,6 +741,15 @@ function HostGame({ identity }: { identity: Identity }) {
       <div className={styles.header}>
         <div className={styles.headerLeft}>
           <Link href="/" className={`${styles.brandMark} vb-wordmark-transition`}>VIEWERBATTLE</Link>
+          {/* No inline "New code" button here any more — that's a rare,
+              administrative action now folded into the "···" menu below
+              (a REAL, reported UX complaint: "imagine être un streamer...
+              trop surchargé" — this header alone used to carry SIX
+              secondary action buttons at equal visual weight: Copy, New
+              code, Content Studio, Admin, Forget this session, End
+              session). Copy stays inline — it's the one thing a streamer
+              genuinely reaches for constantly, mid-show, to paste the
+              code into chat/overlay. */}
           <SessionCodeBadge code={identity.sessionCode} />
           <ConnectionBadge status={status} />
           <Badge variant="neutral">
@@ -510,37 +770,47 @@ function HostGame({ identity }: { identity: Identity }) {
             </div>
           )}
           {/* A visually separate cluster from the status/score badges
-              above — these are the two ways to leave this screen, one
-              harmless (local-only) and one that ends the show for
-              everyone; keeping them physically apart from "what's
-              happening right now" info is itself the ergonomics fix,
-              not just which one gets the danger color. The danger color
-              belongs to the one that's actually irreversible and affects
-              everyone else watching — "End session" — not the local-only
-              one, which is the opposite of what this looked like before. */}
+              above — "···" (rare/administrative — Content Studio, Admin,
+              New code, Forget this session) plus the one action that
+              genuinely deserves to stay always visible and unmistakably
+              colored: "End session" — irreversible, and affects
+              everyone else watching, unlike anything folded into the
+              menu. Real, reported complaint this closes: this row used
+              to carry SIX secondary buttons at equal weight, the same
+              "ne mets pas 15 boutons visibles" problem Content Studio's
+              own card menus (ActionsMenu, src/app/_shared/) already
+              solved once — reused here rather than a second, drifting
+              copy of the same fix. */}
           <div className={styles.headerActions}>
-            <Link href="/host/content" className={styles.contentStudioLink}>
-              Content Studio
-            </Link>
-            {/* Local-only — clears THIS browser's identity, never touches
-                the session server-side. For "I'm testing and want a
-                completely new show" without kicking the players/display
-                still connected to the old one, which "End session" would.
-                The old session (and its roster) stays exactly as it was —
-                the saved recovery key gets back into it via the Reconnect
-                tab on this same page. Confirmed, not instant — losing the
-                only path back into a live show by a stray click is a real
-                cost, worth one extra step to avoid, even though the
-                action itself is harmless. */}
-            <Button variant="ghost" size="sm" onClick={() => setForgetOpen(true)}>
-              Forget this session
-            </Button>
+            <ActionsMenu
+              label="More session actions"
+              items={[
+                { label: "Content Studio", onSelect: () => router.push("/host/content") },
+                // Same gate as Content Studio itself (ContentHost token,
+                // checked server-side by adminRouter.ts) — a shortcut
+                // straight from the Control Room, not buried one extra
+                // click inside Content Studio's own breadcrumb, since
+                // this is exactly where the operator spends most of a
+                // live show.
+                { label: "Admin", onSelect: () => router.push("/host/content/admin") },
+                { label: "🔄 New code", onSelect: () => setRotateCodeOpen(true) },
+                // Local-only — clears THIS browser's identity, never
+                // touches the session server-side. For "I'm testing and
+                // want a completely new show" without kicking the
+                // players/display still connected to the old one, which
+                // "End session" would. The old session (and its roster)
+                // stays exactly as it was — the saved recovery key gets
+                // back into it via the Reconnect tab on this same page.
+                { label: "Forget this session", onSelect: () => setForgetOpen(true) },
+              ]}
+            />
             {/* Deletes the session for real (src/server/db/session.ts's
                 endSession) — every player and the display still watching
                 get kicked to "Session ended" in real time, and the
                 session code stops working for anyone. Genuinely
-                irreversible, hence danger + its own confirmation, unlike
-                "Forget" above. */}
+                irreversible, hence danger + its own confirmation, and
+                deliberately NOT folded into the menu above — this is the
+                one action that should stay impossible to miss. */}
             <Button variant="danger" size="sm" onClick={() => setEndSessionOpen(true)}>
               End session
             </Button>
@@ -571,6 +841,27 @@ function HostGame({ identity }: { identity: Identity }) {
         }}
       />
 
+      <ConfirmDialog
+        open={kickTarget !== null}
+        title={kickTarget ? `Disconnect ${kickTarget.displayName}?` : undefined}
+        description="They're removed from this session immediately, and the session code changes too — they can't just rejoin with the old one. Share the new code yourself if you want them back."
+        confirmLabel="Disconnect"
+        danger
+        confirming={kick.isPending}
+        onCancel={() => setKickTarget(null)}
+        onConfirm={handleKick}
+      />
+
+      <ConfirmDialog
+        open={rotateCodeOpen}
+        title="Generate a new session code?"
+        description="The current code stops working for new joins right away. Everyone already connected keeps playing — this only affects who can join from here on."
+        confirmLabel="New code"
+        confirming={rotateCode.isPending}
+        onCancel={() => setRotateCodeOpen(false)}
+        onConfirm={handleRotateCode}
+      />
+
       {showStartSequence ? (
         <Card variant="raised">
           <CardBody>
@@ -588,7 +879,30 @@ function HostGame({ identity }: { identity: Identity }) {
       {gameId && gameState && showResultsSplash && (
         <Card variant="raised" className={styles.resultsCard}>
           <CardBody>
+            {/* Beat 1, always present from the first render — "GAME OVER"
+                (item 4). Beats 2/3 below only ever ADD to the screen as
+                `resultStage` advances, never replace or contradict this
+                one. */}
             <WinnerReveal winner={gameState.winner ?? "TIE"} teamAScore={gameState.scores.TEAM_A} teamBScore={gameState.scores.TEAM_B} />
+
+            {/* Beat 2 — "+1 POINT", the SAME flat, per-win tally
+                `roster.matchScore` always was (MatchScore's own doc
+                comment) — every finished game counts, this one
+                included, no exceptions and nothing to distinguish a
+                "replay" from any other game. */}
+            {resultStage !== "winner" && roster && (
+              <motion.div className={styles.resultShowPoints} initial="hidden" animate="show" variants={popIn(reduced)}>
+                {gameState.winner === "TIE" ? (
+                  <Badge variant="neutral">Tied — no point awarded</Badge>
+                ) : (
+                  <>
+                    <p className={styles.resultShowPointsValue}>+1 POINT</p>
+                    <MatchScore teamA={roster.matchScore.TEAM_A} teamB={roster.matchScore.TEAM_B} />
+                  </>
+                )}
+              </motion.div>
+            )}
+
             <div className={styles.resultsActions}>
               <Button size="lg" onClick={handleStartGame}>
                 Play Again
@@ -616,8 +930,20 @@ function HostGame({ identity }: { identity: Identity }) {
                     <p className={styles.hint}>Host</p>
                     <PresenceDot connected={presence.some((p) => p.role === "HOST")} />
                   </div>
-                  <TeamRoster teamName="Team A" variant="teamA" seats={toRosterSeats(roster.teamA, presence)} />
-                  <TeamRoster teamName="Team B" variant="teamB" seats={toRosterSeats(roster.teamB, presence)} />
+                  <TeamRoster
+                    teamName="Team A"
+                    variant="teamA"
+                    seats={toRosterSeats(roster.teamA, presence, "TEAM_A")}
+                    onKick={(id, displayName) => setKickTarget({ id, displayName })}
+                    kickingId={kick.isPending ? kickTarget?.id : null}
+                  />
+                  <TeamRoster
+                    teamName="Team B"
+                    variant="teamB"
+                    seats={toRosterSeats(roster.teamB, presence, "TEAM_B")}
+                    onKick={(id, displayName) => setKickTarget({ id, displayName })}
+                    kickingId={kick.isPending ? kickTarget?.id : null}
+                  />
                   <div>
                     <p className={styles.hint}>Display</p>
                     <PresenceDot connected={presence.some((p) => p.role === "DISPLAY")} label={`${presence.filter((p) => p.role === "DISPLAY").length} connected`} />
@@ -829,26 +1155,26 @@ function HostGame({ identity }: { identity: Identity }) {
                     </p>
                   )}
                   {contentToken && geoPlaylists.isError && (
-                    <p className={styles.contentStudioCta}>Couldn&apos;t load your playlists — Default GeoGuessr is still available.</p>
+                    <p className={styles.contentStudioCta}>Couldn&apos;t load your map sets — Default GeoGuessr is still available.</p>
                   )}
                   {noGeoPlaylistsYet && (
                     <div className={styles.noPlaylistsYet}>
-                      <p className={styles.noPlaylistsYetTitle}>You haven&apos;t created a GeoGuessr playlist yet.</p>
+                      <p className={styles.noPlaylistsYetTitle}>No GeoGuessr map sets yet.</p>
                       <p className={styles.noPlaylistsYetHint}>Default GeoGuessr is ready to go, or build your own maps in the Content Studio.</p>
                       <Link href="/host/content/geoguessr">
                         <Button size="sm" variant="secondary">
-                          + Create a playlist
+                          + Create your first map set
                         </Button>
                       </Link>
                     </div>
                   )}
                   {selectedGeoPlaylist && !selectedGeoPlaylist.readiness.ready && (
                     <div className={styles.readinessWarning}>
-                      <p className={styles.readinessWarningTitle}>⚠ This playlist isn&apos;t ready</p>
+                      <p className={styles.readinessWarningTitle}>⚠ This map set isn&apos;t ready yet.</p>
                       <GeoReadinessLine readiness={selectedGeoPlaylist.readiness} />
                       <div className={styles.readinessWarningActions}>
                         <Link href={`/host/content/geoguessr/playlists/${selectedGeoPlaylist.id}`} className={styles.reviewBoardLink}>
-                          Review playlist →
+                          Review map set →
                         </Link>
                         <button
                           type="button"
@@ -899,13 +1225,65 @@ function HostGame({ identity }: { identity: Identity }) {
             )}
           </div>
           <div className={styles.sidebar}>
+            {/* "GAME SCORE vs MATCH SCORE, never confused" — the two
+                numbers sit in the SAME card, explicitly labeled. Reads
+                `roster.matchScore` exactly as computed server-side —
+                every finished game counts toward it, this one included,
+                no exceptions. */}
+            {roster && (
+              <Card variant="raised">
+                <CardBody>
+                  <div className={styles.showControlHeader}>
+                    <div>
+                      <p className={styles.showControlEyebrow}>Current game</p>
+                      <p className={styles.showControlGame}>{games.find((g) => g.id === gameKey)?.label ?? "Game"}</p>
+                    </div>
+                    <Badge variant="warning">+1 point on win</Badge>
+                  </div>
+                  {gameKey === "board-question" && selectedPlaylist && (
+                    <p className={styles.showControlContent}>Content: {selectedPlaylist.name}</p>
+                  )}
+                  {gameKey === "geoguessr" && selectedGeoPlaylist && (
+                    <p className={styles.showControlContent}>Content: {selectedGeoPlaylist.name}</p>
+                  )}
+                  <div className={styles.showControlScores}>
+                    <div className={styles.showControlScoreBlock}>
+                      <p className={styles.showControlScoreLabel}>Game score</p>
+                      <div className={styles.showControlScoreRow}>
+                        <span className={styles.showControlScoreA}>{gameState.scores.TEAM_A}</span>
+                        <span className={styles.showControlScoreB}>{gameState.scores.TEAM_B}</span>
+                      </div>
+                    </div>
+                    <div className={styles.showControlScoreBlock}>
+                      <p className={styles.showControlScoreLabel}>Match score</p>
+                      <div className={styles.showControlScoreRow}>
+                        <span className={styles.showControlScoreA}>{roster.matchScore.TEAM_A}</span>
+                        <span className={styles.showControlScoreB}>{roster.matchScore.TEAM_B}</span>
+                      </div>
+                    </div>
+                  </div>
+                </CardBody>
+              </Card>
+            )}
             {roster && (
               <Card>
                 <CardHeader title="Roster" />
                 <CardBody>
                   <div className={styles.rosterGrid}>
-                    <TeamRoster teamName="Team A" variant="teamA" seats={toRosterSeats(roster.teamA, presence)} />
-                    <TeamRoster teamName="Team B" variant="teamB" seats={toRosterSeats(roster.teamB, presence)} />
+                    <TeamRoster
+                      teamName="Team A"
+                      variant="teamA"
+                      seats={toRosterSeats(roster.teamA, presence, "TEAM_A")}
+                      onKick={(id, displayName) => setKickTarget({ id, displayName })}
+                      kickingId={kick.isPending ? kickTarget?.id : null}
+                    />
+                    <TeamRoster
+                      teamName="Team B"
+                      variant="teamB"
+                      seats={toRosterSeats(roster.teamB, presence, "TEAM_B")}
+                      onKick={(id, displayName) => setKickTarget({ id, displayName })}
+                      kickingId={kick.isPending ? kickTarget?.id : null}
+                    />
                   </div>
                 </CardBody>
               </Card>

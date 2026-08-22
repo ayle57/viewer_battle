@@ -16,6 +16,22 @@ interface IdentityState {
   identity: Identity | null;
   setIdentity: (identity: Identity) => void;
   clearIdentity: () => void;
+  /**
+   * A REAL, REPRODUCED bug this closes: Host rotating the session code
+   * (self-service, or automatically as part of a kick) only ever changed
+   * `Session.code` server-side — every OTHER already-connected client
+   * (both teams, Display, any other Host tab) kept polling
+   * `session.getState` with the STALE code it captured at join time,
+   * which started 404ing (`SESSION_NOT_FOUND`) forever, misread as the
+   * whole session having ended (sessionPhase.ts) even though it was
+   * completely alive. `useGameSocket.ts` listens for the new
+   * `session:code-rotated` broadcast (server/sockets/session.ts) and
+   * calls this — the ONE place `identity.sessionCode` gets corrected in
+   * place, everything downstream (this route's own `session.getState`
+   * query, the code shown in the header) just starts using the fresh
+   * value on its next read, with no special-casing anywhere else.
+   */
+  updateSessionCode: (sessionCode: string) => void;
 }
 
 /**
@@ -42,6 +58,12 @@ function createIdentityStore() {
         identity: null,
         setIdentity: (identity) => set({ identity }),
         clearIdentity: () => set({ identity: null }),
+        // A no-op if identity is already gone (e.g. the broadcast lands
+        // in the brief window after this tab already cleared its own
+        // identity) — nothing to correct for an identity that no longer
+        // exists.
+        updateSessionCode: (sessionCode) =>
+          set((state) => (state.identity ? { identity: { ...state.identity, sessionCode } } : state)),
       }),
       {
         name: "viewerbattle-identity",

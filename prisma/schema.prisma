@@ -76,9 +76,74 @@ model Participant {
   /// The plaintext token is never stored — see src/server/auth/token.ts.
   tokenHash   String          @unique
   createdAt   DateTime        @default(now())
+  /// The real, persistent User account (if any) this seat belongs to —
+  /// see User's own doc comment for why this is deliberately a THIRD,
+  /// separate identity system from ContentHost/Participant's own bearer
+  /// token, not a replacement for either. Optional: this app plays
+  /// perfectly well with zero accounts at all (the "compte provisoire"
+  /// join flow — a plain display name, no login) — this column only ever
+  /// gets set when the joining browser was ALSO signed into a real
+  /// account at that exact moment (src/server/db/participant.ts's
+  /// `joinSession`), stamped once at seat-creation time, never retroactively
+  /// rewritten by anything else. `onDelete: SetNull`, not Cascade —
+  /// deleting a User (an admin action) must never delete the historical
+  /// Session/Participant/SessionGame rows that already happened; it just
+  /// stops attributing them to anyone.
+  userId      String?
+  user        User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@unique([sessionId, role, seat])
   @@index([sessionId, role])
+  @@index([userId])
+}
+
+/// A real, persistent player account — username + password, deliberately
+/// its own THIRD identity system, alongside Participant (one seat, one
+/// live session, gone when the session's over) and ContentHost (the one
+/// operator's content-prep identity). Unlike both of those, this is
+/// meant to survive across every game a viewer ever plays, which is the
+/// entire point: `Participant.userId` (above) links a live seat back to
+/// this row so `getUserStats`/the admin dashboard (src/server/db/user.ts)
+/// can compute real, cross-session stats (games played/won/tied) from
+/// actually-finished SessionGame rows, not a denormalized counter that
+/// could drift.
+///
+/// Genuinely low-stakes on purpose (see /account's own copy telling
+/// people to use a throwaway password) — this app has no email, no
+/// password reset flow, no PII beyond a chosen username. `passwordHash`
+/// is a real one-way hash (scrypt, src/server/auth/password.ts — unlike
+/// HOST_PASSWORD's plain timingSafeEqual compare, a USER-chosen password
+/// is exactly the low-entropy secret a slow hash exists to protect), but
+/// this is still "an account for stats and bragging rights," never
+/// treated anywhere in this app as a security boundary worth more than
+/// that.
+model User {
+  id           String        @id @default(cuid())
+  username     String        @unique
+  passwordHash String
+  /// Same bearer-token scheme as Participant.tokenHash/ContentHost.tokenHash
+  /// (src/server/auth/token.ts) — issued at login/register, rotated (old
+  /// token stops working) on every subsequent login, same single-active-
+  /// credential posture as ContentHost.signInContentHost. Null means
+  /// "not currently logged in on any device" (a fresh account, or after
+  /// an explicit logout — src/server/db/user.ts's `logoutUser` clears
+  /// this server-side, not just the client's own localStorage).
+  tokenHash    String?       @unique
+  /// False for every ordinary viewer account (self-registered, no
+  /// special permission) — true for exactly the one real streamer
+  /// account ("erwin"). This is what actually authorizes `/host`'s own
+  /// session.create/reclaimHost now (src/server/trpc/router.ts) —
+  /// logging in as an `isAdmin` account is an ALTERNATIVE to typing
+  /// HOST_PASSWORD directly, not a replacement for it (see that
+  /// router's own doc comment): HOST_PASSWORD still works verbatim for
+  /// the /dev playground and anything else that already sends it, this
+  /// only ADDS a second, real-identity path for the actual product's
+  /// own /host page. Never settable through any user.* procedure a
+  /// plain viewer could reach — only ever flipped by hand (an admin
+  /// action, same "one real operator" posture as ContentHost itself).
+  isAdmin      Boolean       @default(false)
+  createdAt    DateTime      @default(now())
+  participants Participant[]
 }
 
 model ChatMessage {

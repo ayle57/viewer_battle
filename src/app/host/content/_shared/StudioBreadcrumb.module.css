@@ -71,3 +71,37 @@
   white-space: nowrap;
   max-width: 16rem;
 }
+
+.adminLink {
+  margin-left: auto;
+  padding: var(--vb-space-1) var(--vb-space-2);
+  color: var(--vb-text-muted);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.85rem;
+  border-radius: var(--vb-radius-sm);
+  transition: color var(--vb-transition-fast), background var(--vb-transition-fast);
+}
+
+.adminLink:hover {
+  color: var(--vb-accent);
+  background: var(--vb-surface-raised);
+}
+
+.signOut {
+  padding: var(--vb-space-1) var(--vb-space-2);
+  border: none;
+  background: none;
+  color: var(--vb-text-muted);
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  border-radius: var(--vb-radius-sm);
+  transition: color var(--vb-transition-fast), background var(--vb-transition-fast);
+}
+
+.signOut:hover {
+  color: var(--vb-danger);
+  background: var(--vb-surface-raised);
+}

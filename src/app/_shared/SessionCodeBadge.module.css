@@ -1,6 +1,7 @@
 .wrap {
   display: inline-flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: var(--vb-space-2);
 }
 

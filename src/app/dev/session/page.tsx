@@ -140,8 +140,8 @@ function Lobby({ identity, onClearIdentity }: { identity: DevIdentity; onClearId
     );
   }
 
-  const teamASeats = toRosterSeats(state.data.teamA, presence);
-  const teamBSeats = toRosterSeats(state.data.teamB, presence);
+  const teamASeats = toRosterSeats(state.data.teamA, presence, "TEAM_A");
+  const teamBSeats = toRosterSeats(state.data.teamB, presence, "TEAM_B");
   const hostConnected = state.data.host ? presence.some((p) => p.participantId === state.data.host!.id) : false;
   const displayConnectedCount = presence.filter((p) => p.role === "DISPLAY").length;
 

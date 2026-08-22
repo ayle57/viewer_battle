@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useContentIdentityStore } from "./contentIdentityStore";
 import styles from "./StudioBreadcrumb.module.css";
 
 export interface Crumb {
@@ -19,8 +20,27 @@ export interface Crumb {
  * "← Host Lobby" is a second, separate escape hatch back to `/host`
  * itself (the live-session Control Room), not part of the crumb trail —
  * distinct destinations, kept visually distinct.
+ *
+ * Also carries a persistent "Admin" link (/host/content/admin — real
+ * `User` accounts + platform stats, gated by this SAME ContentHost token,
+ * see adminRouter.ts's own doc comment) — reachable from every
+ * /host/content/* screen for the same reason "Sign out" is, rather than
+ * depending on `/host/content`'s own picker grid always being the one
+ * that's rendered (a future third content-capable game would make that
+ * grid stop being every Host's actual landing point — see that page's
+ * own `manageableGames.length === 1` redirect).
+ *
+ * Also the one place a Host can sign OUT of the Content Studio identity
+ * (contentIdentityStore.ts's own doc comment explains why signing IN
+ * persists across server restarts / browser reopens: a bearer token in
+ * localStorage, checked against Postgres, which a Node restart never
+ * touches — expected, not a bug). Rendered on every /host/content/*
+ * screen (see each page's own usage), so putting "Sign out" here rather
+ * than on any one page means it's reachable from anywhere, not just one
+ * screen — no new prop threading, no new chrome elsewhere.
  */
 export function StudioBreadcrumb({ crumbs }: { crumbs: Crumb[] }) {
+  const clearToken = useContentIdentityStore((s) => s.clearToken);
   return (
     <div className={styles.row}>
       <Link href="/host" className={styles.hostLobbyLink}>
@@ -50,6 +70,12 @@ export function StudioBreadcrumb({ crumbs }: { crumbs: Crumb[] }) {
           );
         })}
       </nav>
+      <Link href="/host/content/admin" className={styles.adminLink}>
+        Admin
+      </Link>
+      <button type="button" className={styles.signOut} onClick={() => clearToken()}>
+        Sign out
+      </button>
     </div>
   );
 }

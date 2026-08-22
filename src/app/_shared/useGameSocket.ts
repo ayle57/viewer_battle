@@ -7,6 +7,7 @@ import type { ChatMessageWire } from "@/server/sockets/chat";
 import { useGameStore, type GameError } from "./gameStore";
 import { usePresenceStore, type PresenceParticipant } from "./presenceStore";
 import { useChatStore } from "./chatStore";
+import { useIdentityStore } from "./identityStore";
 
 interface GameStatePayload {
   gameId: string;
@@ -36,13 +37,26 @@ export function useGameSocket(token: string | null) {
   const setStatus = useGameStore((state) => state.setStatus);
   const setError = useGameStore((state) => state.setError);
   const setSessionEnded = useGameStore((state) => state.setSessionEnded);
+  const setKicked = useGameStore((state) => state.setKicked);
+  const resetGameStore = useGameStore((state) => state.reset);
   const setParticipants = usePresenceStore((state) => state.setParticipants);
   const setChatHistory = useChatStore((state) => state.setHistory);
   const appendChatMessage = useChatStore((state) => state.appendMessage);
+  const updateSessionCode = useIdentityStore((state) => state.updateSessionCode);
   const socketRef = useRef<Socket | null>(null);
 
   useEffect(() => {
     if (!token) return;
+
+    // A new `token` means a genuinely new connection lifecycle — a fresh
+    // identity, possibly a fresh session entirely (see gameStore.ts's
+    // own doc comment on `reset()` for the real bug this closes: a stale
+    // `sessionEnded: true` from a PREVIOUS, actually-ended session was
+    // silently surviving this exact transition and pinning every new
+    // session right back to the same terminal screen). Reset before
+    // opening the socket, so nothing here ever renders a single stale
+    // frame of the old identity's state under the new one.
+    resetGameStore();
 
     const socket = io({ path: "/socket.io", auth: { token } });
     socketRef.current = socket;
@@ -64,6 +78,14 @@ export function useGameSocket(token: string | null) {
       appendChatMessage(message);
     });
     socket.on("session:ended", () => setSessionEnded());
+    socket.on("participant:kicked", () => setKicked());
+    // A REAL, REPRODUCED bug this closes — see identityStore.ts's own
+    // doc comment on `updateSessionCode`: without this, rotating the
+    // session code (self-service, or automatically as part of a kick)
+    // left every OTHER already-connected client's `session.getState`
+    // polling using a now-stale code, 404ing forever and misread as the
+    // whole session having ended.
+    socket.on("session:code-rotated", ({ code }: { code: string }) => updateSessionCode(code));
 
     return () => {
       socket.disconnect();

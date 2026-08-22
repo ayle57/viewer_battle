@@ -15,3 +15,5 @@ export { DEV_PLAYGROUND_HOST_PASSWORD } from "./devPassword";
 
 export { displayNameSchema, sessionCodeSchema, joinSessionInputSchema, reclaimHostInputSchema } from "./schemas";
 export type { JoinSessionInput, ReclaimHostInput } from "./schemas";
+
+export { participantRoomName } from "./rooms";

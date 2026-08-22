@@ -276,7 +276,7 @@ describe("Session vs. Game lifecycle (multi-game session)", () => {
     reconnected.close();
   });
 
-  it("the host explicitly ending the session deletes it — nothing else does", async () => {
+  it("the host explicitly ending the session marks it FINISHED — nothing else does", async () => {
     const { sessionId, sessionCode, host } = await setUpSessionWithRoster();
     await startAndBroadcast(sessionId);
 
@@ -286,13 +286,14 @@ describe("Session vs. Game lifecycle (multi-game session)", () => {
     const participant = await resolveParticipantByToken(host.token);
     await endSession(participant.sessionId);
 
-    // Not a soft `status: "FINISHED"` anymore — the row is genuinely
-    // gone, so getSessionState now fails outright (see
+    // A soft `status: "FINISHED"` update, not a delete — the row (and
+    // its history) survives, getSessionState keeps resolving it (see
     // src/server/db/session.ts's endSession).
-    await expect(getSessionState(sessionCode)).rejects.toMatchObject({ code: "SESSION_NOT_FOUND" });
+    const ended = await getSessionState(sessionCode);
+    expect(ended.status).toBe("FINISHED");
   });
 
-  it("no new game can be started once the session has been ended — the same guard game.start relies on (resolveParticipantByToken -> INVALID_TOKEN)", async () => {
+  it("no new game can be started once the session has been ended — the same guard game.start relies on (resolveParticipantByToken -> SESSION_CLOSED)", async () => {
     const { sessionId, host } = await setUpSessionWithRoster();
     await endSession((await resolveParticipantByToken(host.token)).sessionId);
 
@@ -300,14 +301,14 @@ describe("Session vs. Game lifecycle (multi-game session)", () => {
     // calling startGame: resolve the token first. startGame() itself has
     // no session-status awareness (see src/server/game/service.ts) — this
     // is the real, single place "session ended -> no new game" is
-    // actually enforced. The token fails with INVALID_TOKEN now (its
-    // Participant row is cascade-deleted along with the session), not
-    // the old soft-finish's SESSION_CLOSED.
-    await expect(resolveParticipantByToken(host.token)).rejects.toMatchObject({ code: "INVALID_TOKEN" });
+    // actually enforced. The token itself still resolves (the Participant
+    // row survives a soft finish) but resolveParticipantByToken refuses
+    // it with SESSION_CLOSED once the session's own status is FINISHED.
+    await expect(resolveParticipantByToken(host.token)).rejects.toMatchObject({ code: "SESSION_CLOSED" });
 
-    // Nothing about the underlying game table survives either — cascade
-    // deletes SessionGame along with everything else (confirms there's
-    // no game left running to confuse this guarantee with).
+    // No game keeps running against an ended session either — startGame
+    // never got a chance to run one, so there's nothing left "in
+    // progress" to confuse this guarantee with.
     const game = await getCurrentGame(sessionId);
     expect(game).toBeNull();
   });
@@ -318,8 +319,8 @@ describe("Session vs. Game lifecycle (multi-game session)", () => {
 
     const reconnected = connect(host.token);
     const error = await new Promise<Error & { data?: { code: string } }>((resolve) => reconnected.on("connect_error", resolve));
-    expect(error.message).toBe("INVALID_TOKEN");
-    expect(error.data?.code).toBe("INVALID_TOKEN");
+    expect(error.message).toBe("SESSION_CLOSED");
+    expect(error.data?.code).toBe("SESSION_CLOSED");
 
     reconnected.close();
   });

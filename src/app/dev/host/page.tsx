@@ -73,8 +73,8 @@ function HostGame({ identity }: { identity: DevIdentity }) {
                     <p className={styles.hint}>Host</p>
                     <PresenceDot connected={presence.some((p) => p.role === "HOST")} />
                   </div>
-                  <TeamRoster teamName="Team A" variant="teamA" seats={toRosterSeats(roster.teamA, presence)} />
-                  <TeamRoster teamName="Team B" variant="teamB" seats={toRosterSeats(roster.teamB, presence)} />
+                  <TeamRoster teamName="Team A" variant="teamA" seats={toRosterSeats(roster.teamA, presence, "TEAM_A")} />
+                  <TeamRoster teamName="Team B" variant="teamB" seats={toRosterSeats(roster.teamB, presence, "TEAM_B")} />
                   <div>
                     <p className={styles.hint}>Display</p>
                     <PresenceDot connected={presence.some((p) => p.role === "DISPLAY")} />
@@ -113,8 +113,8 @@ function HostGame({ identity }: { identity: DevIdentity }) {
                 <CardHeader title="Roster" />
                 <CardBody>
                   <div className={styles.rosterGrid}>
-                    <TeamRoster teamName="Team A" variant="teamA" seats={toRosterSeats(roster.teamA, presence)} />
-                    <TeamRoster teamName="Team B" variant="teamB" seats={toRosterSeats(roster.teamB, presence)} />
+                    <TeamRoster teamName="Team A" variant="teamA" seats={toRosterSeats(roster.teamA, presence, "TEAM_A")} />
+                    <TeamRoster teamName="Team B" variant="teamB" seats={toRosterSeats(roster.teamB, presence, "TEAM_B")} />
                   </div>
                 </CardBody>
               </Card>

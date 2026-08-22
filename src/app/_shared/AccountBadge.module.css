@@ -1,0 +1,65 @@
+/* Shared by the signed-out plain <Link> and the signed-in ActionsMenu
+   trigger <button> — the button needs its own font/cursor reset since
+   browsers don't inherit those onto <button> the way they do onto <a>. */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--vb-space-2);
+  /* Asymmetric on purpose — the avatar (below) fills the left rounded
+     cap almost flush, same "chip" shape as Slack/Discord's own account
+     pill. The signed-OUT state has no avatar to hug this padding, so it
+     gets its own symmetric rule (.badgeLoggedOut) instead of inheriting
+     a lopsided one meant for a circle that isn't there. */
+  padding: var(--vb-space-1) var(--vb-space-4) var(--vb-space-1) var(--vb-space-1);
+  border-radius: var(--vb-radius-full);
+  background: color-mix(in srgb, var(--vb-surface) 85%, transparent);
+  border: 1px solid var(--vb-border);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--vb-text);
+  text-decoration: none;
+  cursor: pointer;
+  max-width: min(12rem, 60vw);
+  transition: border-color var(--vb-transition-fast), box-shadow var(--vb-transition-fast);
+}
+
+.badge:hover,
+.badge:focus-visible {
+  border-color: var(--vb-primary);
+  box-shadow: var(--vb-shadow-sm);
+}
+
+.badgeLoggedOut {
+  padding: var(--vb-space-2) var(--vb-space-4);
+}
+
+.avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  flex: none;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--vb-primary) 18%, var(--vb-surface-raised));
+  color: var(--vb-primary);
+  font-size: 0.65rem;
+  font-weight: 800;
+}
+
+/* A small trailing "signed in" signal, not the identity marker itself
+   anymore — the avatar above took that job over. */
+.dot {
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: var(--vb-radius-full);
+  background: var(--vb-success);
+}
+
+.name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

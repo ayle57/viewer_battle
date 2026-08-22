@@ -1,0 +1,52 @@
+/* Top-left, deliberately opposite AccountCorner's top-right (homepage
+   only) — the one spot free of fixed chrome on every page this can
+   appear on (account/page.module.css's own ".brand" link sits in normal
+   flow, not fixed, so there's nothing to collide with here). */
+.corner {
+  position: fixed;
+  top: var(--vb-space-4);
+  left: var(--vb-space-4);
+  z-index: 160;
+}
+
+@media (max-width: 26rem) {
+  .corner {
+    top: var(--vb-space-3);
+    left: var(--vb-space-3);
+  }
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--vb-space-2);
+  padding: var(--vb-space-2) var(--vb-space-4);
+  border-radius: var(--vb-radius-full);
+  background: color-mix(in srgb, var(--vb-surface) 85%, transparent);
+  border: 1px solid var(--vb-border);
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--vb-text);
+  text-decoration: none;
+  max-width: min(16rem, 70vw);
+  transition: border-color var(--vb-transition-fast), box-shadow var(--vb-transition-fast);
+}
+
+.pill:hover,
+.pill:focus-visible {
+  border-color: var(--vb-primary);
+  box-shadow: var(--vb-shadow-sm);
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: var(--vb-radius-full);
+  background: var(--vb-success);
+}
+
+.code {
+  color: var(--vb-text-muted);
+  font-weight: 600;
+}

@@ -66,6 +66,18 @@ export function isHostConnected(sessionId: string): boolean {
   return false;
 }
 
+/**
+ * Same live-presence posture as `isHostConnected`, one participant at a
+ * time — used by joinSession's reclaim-by-name path (src/server/db/
+ * participant.ts): a seat is only safe to hand back to a "returning"
+ * player if the ORIGINAL holder genuinely isn't sitting on it right now
+ * (a stale DB row with no live socket), never based on a DB flag that
+ * could be lagging a crashed tab's actual disconnect.
+ */
+export function isParticipantConnected(sessionId: string, participantId: string): boolean {
+  return Boolean(sessionPresence.get(sessionId)?.has(participantId));
+}
+
 function broadcast(io: SocketIOServer, sessionId: string) {
   const participants = snapshot(sessionId);
   io.to(gameRoomName(sessionId, "host")).emit("presence:update", { participants });

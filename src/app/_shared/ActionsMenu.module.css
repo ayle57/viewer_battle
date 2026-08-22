@@ -30,9 +30,11 @@
 }
 
 .menu {
-  position: absolute;
-  top: calc(100% + var(--vb-space-1));
-  right: 0;
+  /* top/right are set inline per-open from the trigger's own
+     getBoundingClientRect() — see ActionsMenu.tsx's own doc comment for
+     why this is `position: fixed` via a document.body portal rather than
+     `position: absolute` nested in the card. */
+  position: fixed;
   z-index: 20;
   min-width: 10rem;
   padding: var(--vb-space-1);

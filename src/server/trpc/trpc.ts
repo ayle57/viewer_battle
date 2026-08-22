@@ -1,6 +1,7 @@
 import { initTRPC } from "@trpc/server";
 import { SessionError } from "@/domain/session";
 import { ContentError } from "@/domain/content";
+import { UserError } from "@/domain/user";
 
 /**
  * tRPC is used for request/response CRUD and admin operations only
@@ -24,6 +25,12 @@ import { ContentError } from "@/domain/content";
  *     field from sessionErrorCode/gameErrorCode on purpose: Content Studio
  *     is a deliberately separate identity system (ContentHost, not
  *     Participant) — see prisma/schema.prisma's "Content Studio" comment.
+ *   - error.data.userErrorCode — cause is a UserError
+ *     (src/domain/user/errors.ts), thrown via
+ *     src/server/trpc/userErrors.ts's toUserTRPCError. Also its own
+ *     field, same reasoning as contentErrorCode: a real `User` account is
+ *     a THIRD identity system, separate from both Participant and
+ *     ContentHost (see prisma/schema.prisma's User doc comment).
  */
 function hasStringCode(value: unknown): value is { code: string } {
   return typeof value === "object" && value !== null && typeof (value as { code?: unknown }).code === "string";
@@ -38,8 +45,9 @@ const t = initTRPC.create({
         ...shape.data,
         sessionErrorCode: cause instanceof SessionError ? cause.code : undefined,
         contentErrorCode: cause instanceof ContentError ? cause.code : undefined,
+        userErrorCode: cause instanceof UserError ? cause.code : undefined,
         gameErrorCode:
-          !(cause instanceof SessionError) && !(cause instanceof ContentError) && hasStringCode(cause)
+          !(cause instanceof SessionError) && !(cause instanceof ContentError) && !(cause instanceof UserError) && hasStringCode(cause)
             ? cause.code
             : undefined,
       },

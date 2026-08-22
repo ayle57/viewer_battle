@@ -98,6 +98,17 @@
   color: var(--vb-text-muted);
 }
 
+/* "Start next game" — the one button this page has (see DisplayGame's
+   own doc comment on the deliberate exception). Centered, its own row,
+   so it reads as a real call to action on an otherwise read-only OBS
+   screen rather than an easy-to-miss inline link. */
+.startNextRow {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--vb-space-2);
+}
+
 /* Chat runs the full capture width, streamer-overlay style — a stream's
    chat is meant to be read at a glance, not squeezed into a centered box. */
 .chatCard {

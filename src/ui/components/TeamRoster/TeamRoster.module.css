@@ -39,7 +39,42 @@
   font-size: 0.9rem;
 }
 
+/* Team-tinted (not neutral like PlayerCard's own showcase avatar) — the
+   same left-border color already marking this whole roster as teamA/
+   teamB (`.wrap`, above) repeated here per-seat, so a long session spent
+   glancing at "who's who" has a real color anchor per name instead of a
+   wall of identical plain text — the concrete gap a real UX pass found:
+   this component had NO visual identity marker beyond a tiny presence
+   dot, the one place in the app that's on screen for an entire show's
+   duration never got the avatar treatment PlayerCard already had. */
+.seatAvatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  flex: none;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--vb-team-color) 22%, var(--vb-surface-raised));
+  color: var(--vb-team-color);
+  font-size: 0.65rem;
+  font-weight: 800;
+}
+
+.teamA .seatAvatar {
+  --vb-team-color: var(--vb-team-a);
+}
+
+.teamB .seatAvatar {
+  --vb-team-color: var(--vb-team-b);
+}
+
 .seatName {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-weight: 600;
 }
 
@@ -50,4 +85,44 @@
 .empty {
   color: var(--vb-text-muted);
   font-style: italic;
+}
+
+/* Groups the presence dot + kick button on the seat's trailing edge —
+   `.seat`'s own `justify-content: space-between` already pushes this
+   whole group away from the name, this just keeps the two items inside
+   it close together instead of also spreading them apart. */
+.seatEnd {
+  display: flex;
+  align-items: center;
+  gap: var(--vb-space-2);
+}
+
+/* Host-only (TeamRosterProps.onKick) — quiet by default, real (danger)
+   color only on hover/focus so a roster full of connected players
+   doesn't read as a row of warnings at rest. */
+.kickButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  padding: 0;
+  border: none;
+  border-radius: var(--vb-radius-full);
+  background: none;
+  color: var(--vb-text-muted);
+  font-size: 0.7rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.kickButton:hover:not(:disabled),
+.kickButton:focus-visible:not(:disabled) {
+  color: var(--vb-danger);
+  background: var(--vb-danger-bg);
+}
+
+.kickButton:disabled {
+  opacity: 0.5;
+  cursor: default;
 }

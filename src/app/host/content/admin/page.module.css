@@ -1,0 +1,128 @@
+.header {
+  margin-bottom: var(--vb-space-5);
+}
+
+.title {
+  margin: 0;
+  font-size: 1.6rem;
+  font-weight: 800;
+}
+
+.subtitle {
+  margin: var(--vb-space-1) 0 0;
+  color: var(--vb-text-muted);
+}
+
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: var(--vb-space-3);
+  margin-bottom: var(--vb-space-6);
+}
+
+.statTile {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-1);
+  padding: var(--vb-space-4);
+  background: var(--vb-surface);
+  border: 1px solid var(--vb-border);
+  border-radius: var(--vb-radius-md);
+}
+
+.statValue {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: var(--vb-primary);
+}
+
+.statLabel {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--vb-text-muted);
+}
+
+.tableWrap {
+  overflow-x: auto;
+  background: var(--vb-surface);
+  border: 1px solid var(--vb-border);
+  border-radius: var(--vb-radius-md);
+}
+
+.empty {
+  padding: var(--vb-space-6);
+  text-align: center;
+  color: var(--vb-text-muted);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.table th {
+  text-align: left;
+  padding: var(--vb-space-3) var(--vb-space-4);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--vb-text-muted);
+  border-bottom: 1px solid var(--vb-border);
+  white-space: nowrap;
+}
+
+.table td {
+  padding: var(--vb-space-3) var(--vb-space-4);
+  border-bottom: 1px solid var(--vb-border);
+  white-space: nowrap;
+}
+
+.table tr:last-child td {
+  border-bottom: none;
+}
+
+.username {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--vb-space-2);
+  font-weight: 700;
+}
+
+.avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  flex: none;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--vb-primary) 16%, var(--vb-surface-raised));
+  color: var(--vb-primary);
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.adminBadge {
+  padding: 0.1rem var(--vb-space-2);
+  border-radius: var(--vb-radius-full);
+  background: color-mix(in srgb, var(--vb-primary) 16%, transparent);
+  color: var(--vb-primary);
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.protected {
+  color: var(--vb-text-muted);
+  font-size: 0.8rem;
+  font-style: italic;
+}
+
+.muted {
+  color: var(--vb-text-muted);
+}

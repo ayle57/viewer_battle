@@ -1,3 +1,4 @@
+import { getInitials } from "../../initials";
 import styles from "./PlayerCard.module.css";
 
 export interface PlayerCardData {
@@ -7,12 +8,7 @@ export interface PlayerCardData {
 }
 
 export function PlayerCard({ name, connected = true, detail }: PlayerCardData) {
-  const initials = name
-    .split(" ")
-    .map((part) => part[0])
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
+  const initials = getInitials(name);
 
   return (
     <div className={[styles.row, !connected && styles.disconnected].filter(Boolean).join(" ")}>

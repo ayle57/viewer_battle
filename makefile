@@ -51,6 +51,9 @@ check: lint typecheck test ## Run lint + typecheck + tests together
 db-generate: ## Regenerate the Prisma client after a schema change
 	pnpm db:generate
 
+db-reset:
+	pnpm exec prisma migrate reset --force
+
 db-migrate: ## Create and apply a local dev migration
 	pnpm db:migrate
 

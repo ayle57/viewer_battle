@@ -22,6 +22,18 @@ export const joinSessionInputSchema = z.object({
   displayName: displayNameSchema,
   /** An existing token for THIS session, if reconnecting (e.g. page reload) — makes join idempotent instead of claiming a second seat. */
   token: z.string().min(1).optional(),
+  /**
+   * A real `User` account's own bearer token (src/domain/user), entirely
+   * separate from `token` above — purely additive, purely optional. When
+   * present and it resolves to a real account, `joinSession`
+   * (src/server/db/participant.ts) stamps `Participant.userId` so this
+   * seat's games count toward that account's real stats
+   * (src/server/db/user.ts's getUserStats). An invalid/expired one is
+   * silently ignored (join still succeeds as a plain, account-less seat)
+   * — a stale account login should never be able to block joining a game
+   * the way an invalid session `token` legitimately would.
+   */
+  accountToken: z.string().min(1).optional(),
 });
 export type JoinSessionInput = z.infer<typeof joinSessionInputSchema>;
 

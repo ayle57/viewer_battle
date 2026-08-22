@@ -50,8 +50,8 @@ function DisplayGame({ identity }: { identity: DevIdentity }) {
 
           {roster && (
             <div className={styles.rosterRow}>
-              <TeamRoster teamName="Team A" variant="teamA" seats={toRosterSeats(roster.teamA, presence)} />
-              <TeamRoster teamName="Team B" variant="teamB" seats={toRosterSeats(roster.teamB, presence)} />
+              <TeamRoster teamName="Team A" variant="teamA" seats={toRosterSeats(roster.teamA, presence, "TEAM_A")} />
+              <TeamRoster teamName="Team B" variant="teamB" seats={toRosterSeats(roster.teamB, presence, "TEAM_B")} />
             </div>
           )}
 

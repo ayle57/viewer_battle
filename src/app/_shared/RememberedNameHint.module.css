@@ -1,0 +1,21 @@
+.hint {
+  margin: calc(var(--vb-space-2) * -1) 0 0;
+  font-size: 0.85rem;
+  color: var(--vb-text-muted);
+}
+
+.logout {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  font-weight: 700;
+  color: var(--vb-accent);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.logout:hover {
+  color: var(--vb-primary);
+}

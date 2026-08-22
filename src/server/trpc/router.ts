@@ -3,8 +3,8 @@ import { TRPCError } from "@trpc/server";
 import { router, publicProcedure } from "@/server/trpc/trpc";
 import { toTRPCError } from "@/server/trpc/errors";
 import { prisma } from "@/server/db/client";
-import { createSession, endSession, getSessionState } from "@/server/db/session";
-import { joinSession, reclaimHost, resolveParticipantByToken } from "@/server/db/participant";
+import { createSession, endSession, getSessionState, rotateSessionCode } from "@/server/db/session";
+import { joinSession, kickParticipant, reclaimHost, resolveParticipantByToken, findActiveHostSessionForAccount, reclaimHostByAccount } from "@/server/db/participant";
 import { joinSessionInputSchema, reclaimHostInputSchema, sessionCodeSchema, SessionError } from "@/domain/session";
 import { verifyHostPassword } from "@/server/auth/hostPassword";
 import { sampleBoard } from "@/domain/game/boardQuestion";
@@ -13,13 +13,17 @@ import { gameKeySchema } from "@/domain/game";
 import { ContentError, getGeoPlaylistReadiness, getPlaylistReadiness, playlistToBoardQuestionConfig, playlistToGeoGuessrConfig } from "@/domain/content";
 import { startGame } from "@/server/game";
 import { broadcastGameSnapshot } from "@/server/sockets/game";
-import { broadcastSessionEnded } from "@/server/sockets/session";
+import { broadcastParticipantKicked, broadcastSessionCodeRotated, broadcastSessionEnded } from "@/server/sockets/session";
 import { getSocketServer } from "@/server/sockets/instance";
 import { getOwnedPlaylist } from "@/server/db/content";
 import { getOwnedGeoPlaylist } from "@/server/db/contentGeo";
 import { resolveContentHost } from "@/server/db/contentHost";
 import { toContentTRPCError } from "@/server/trpc/contentErrors";
 import { contentRouter } from "@/server/trpc/contentRouter";
+import { userRouter } from "@/server/trpc/userRouter";
+import { adminRouter } from "@/server/trpc/adminRouter";
+import { resolveAdminUserByToken } from "@/server/db/user";
+import { toUserTRPCError } from "@/server/trpc/userErrors";
 
 /**
  * system.health: a real DB reachability check, consumed by the /dev
@@ -45,24 +49,42 @@ const systemRouter = router({
  */
 const sessionRouter = router({
   /**
-   * Gated behind HOST_PASSWORD (src/server/auth/hostPassword.ts) — this
+   * Gated behind HOST_PASSWORD (src/server/auth/hostPassword.ts) OR a
+   * real `isAdmin` account (`accountToken` — src/server/db/user.ts's
+   * `resolveAdminUserByToken`, see that file's own doc comment) — this
    * app runs one specific streamer's show, so creating a new game at all
-   * requires the one shared secret the operator configured, checked
-   * before anything is written to the DB. Separate concern from the
-   * per-session host recovery key returned below: this proves "I'm
+   * requires proving you're that operator, checked before anything is
+   * written to the DB. Two ways to prove the SAME thing, not two
+   * separate permissions: `accountToken` is purely additive (the real
+   * product's own /host page now uses it exclusively, having already
+   * gated the whole page behind an account login — see host/page.tsx's
+   * own doc comment), while `hostPassword` keeps working byte-for-byte
+   * unchanged for the /dev playground and anything else that already
+   * sends it. At least one is required; `accountToken` is checked first
+   * since a real, resolved identity is a stronger signal than a shared
+   * secret, but either one alone is sufficient. Separate concern from
+   * the per-session host recovery key returned below: this proves "I'm
    * allowed to start a show," the recovery key proves "I'm the same host
    * who already started THIS one."
    */
-  create: publicProcedure.input(z.object({ hostPassword: z.string().min(1) })).mutation(async ({ input }) => {
-    if (!verifyHostPassword(input.hostPassword)) {
-      throw toTRPCError(new SessionError("INVALID_HOST_PASSWORD"));
-    }
-    const session = await createSession();
-    // hostKey is plaintext and one-time — the client shows it to the host
-    // exactly once (see /host's SaveHostKey step) and never receives it
-    // again; only its hash is ever persisted (Session.hostKeyHash).
-    return { code: session.code, status: session.status, hostKey: session.hostKey };
-  }),
+  create: publicProcedure
+    .input(z.object({ hostPassword: z.string().min(1).optional(), accountToken: z.string().min(1).optional() }))
+    .mutation(async ({ input }) => {
+      if (input.accountToken) {
+        try {
+          await resolveAdminUserByToken(input.accountToken);
+        } catch (error) {
+          throw toUserTRPCError(error);
+        }
+      } else if (!input.hostPassword || !verifyHostPassword(input.hostPassword)) {
+        throw toTRPCError(new SessionError("INVALID_HOST_PASSWORD"));
+      }
+      const session = await createSession();
+      // hostKey is plaintext and one-time — the client shows it to the host
+      // exactly once (see /host's SaveHostKey step) and never receives it
+      // again; only its hash is ever persisted (Session.hostKeyHash).
+      return { code: session.code, status: session.status, hostKey: session.hostKey };
+    }),
 
   join: publicProcedure.input(joinSessionInputSchema).mutation(async ({ input }) => {
     try {
@@ -76,6 +98,20 @@ const sessionRouter = router({
   reclaimHost: publicProcedure.input(reclaimHostInputSchema).mutation(async ({ input }) => {
     try {
       return await reclaimHost(input);
+    } catch (error) {
+      throw toTRPCError(error);
+    }
+  }),
+
+  /** Powers /host's "Resume your show" shortcut — see findActiveHostSessionForAccount's own doc comment. `null`, never an error, when there's nothing to resume. */
+  resumeByAccount: publicProcedure.input(z.object({ accountToken: z.string().min(1) })).query(async ({ input }) => {
+    return findActiveHostSessionForAccount(input.accountToken);
+  }),
+
+  /** The mutation half — see reclaimHostByAccount's own doc comment. */
+  reclaimByAccount: publicProcedure.input(z.object({ accountToken: z.string().min(1) })).mutation(async ({ input }) => {
+    try {
+      return await reclaimHostByAccount(input.accountToken);
     } catch (error) {
       throw toTRPCError(error);
     }
@@ -105,13 +141,13 @@ const sessionRouter = router({
   }),
 
   /**
-   * Host-only: ends the session for real — deletes it (see `endSession`
-   * in src/server/db/session.ts for why this isn't a soft
-   * `status: FINISHED` update anymore). Rejects anyone whose token
-   * doesn't resolve to HOST in that session. Broadcasts `session:ended`
-   * to every currently-connected client BEFORE deleting, so Player/
-   * Display/other Host tabs get a real-time notice instead of their next
-   * poll just 404ing.
+   * Host-only: ends the session — a soft `status: FINISHED` update (see
+   * `endSession` in src/server/db/session.ts), not a delete. Rejects
+   * anyone whose token doesn't resolve to HOST in that session.
+   * Broadcasts `session:ended` to every currently-connected client
+   * BEFORE persisting the status flip, so Player/Display/other Host tabs
+   * get a real-time notice instead of waiting on their next poll to see
+   * `status: "FINISHED"`.
    */
   finish: publicProcedure.input(z.object({ token: z.string().min(1) })).mutation(async ({ input }) => {
     try {
@@ -123,6 +159,79 @@ const sessionRouter = router({
 
       await endSession(participant.sessionId);
       return { ok: true as const };
+    } catch (error) {
+      throw toTRPCError(error);
+    }
+  }),
+
+  /**
+   * Host-only: forcibly frees one seat (kickParticipant,
+   * src/server/db/participant.ts — a real delete, unlike `finish` above;
+   * see that function's own doc comment on why) AND rotates the
+   * session's own join code in the same breath (rotateSessionCode,
+   * src/server/db/session.ts) — a kick is meant to actually remove
+   * someone, not just inconvenience them into rejoining under a new
+   * name a second later with the same code they already know. Every
+   * already-connected participant (including the Host's own other
+   * tabs) keeps working through the rotation — they authenticate by
+   * token, never by code (see rotateSessionCode's own doc comment) — so
+   * `newSessionCode` is returned purely for the CALLING Host's own UI to
+   * show/copy, not because anyone else needs to be told. Broadcasts
+   * `participant:kicked` to exactly the kicked participant's own
+   * socket(s) BEFORE disconnecting them (broadcastParticipantKicked,
+   * src/server/sockets/session.ts) — everyone else in the session just
+   * sees the seat go empty on the next `presence:update`, the same as
+   * any other disconnect.
+   */
+  kick: publicProcedure
+    .input(z.object({ token: z.string().min(1), participantId: z.string().min(1) }))
+    .mutation(async ({ input }) => {
+      try {
+        const participant = await resolveParticipantByToken(input.token);
+        if (participant.role !== "HOST") throw new SessionError("FORBIDDEN");
+
+        const kicked = await kickParticipant(participant.sessionId, input.participantId);
+        const newSessionCode = await rotateSessionCode(participant.sessionId);
+
+        const io = getSocketServer();
+        if (io) {
+          broadcastParticipantKicked(io, input.participantId);
+          // Real bug this closes — see broadcastSessionCodeRotated's own
+          // doc comment: without this, every OTHER already-connected
+          // participant (both teams, Display, any other Host tab) had
+          // their own `session.getState` polling start 404ing the
+          // instant this rotation happened, misread as "session ended."
+          broadcastSessionCodeRotated(io, participant.sessionId, newSessionCode);
+        }
+
+        return { ok: true as const, ...kicked, newSessionCode };
+      } catch (error) {
+        throw toTRPCError(error);
+      }
+    }),
+
+  /**
+   * Host-only, self-service version of the same rotation `kick` does
+   * automatically — "I think this code leaked, or I just want fewer
+   * randoms able to join" without needing to kick anyone first. See
+   * rotateSessionCode's own doc comment for why every already-connected
+   * participant's SOCKET is unaffected, and broadcastSessionCodeRotated's
+   * own doc comment for the real bug closed here: without that broadcast,
+   * every OTHER already-connected client's own `session.getState`
+   * POLLING (a separate thing from the socket) silently broke the
+   * instant this ran.
+   */
+  rotateCode: publicProcedure.input(z.object({ token: z.string().min(1) })).mutation(async ({ input }) => {
+    try {
+      const participant = await resolveParticipantByToken(input.token);
+      if (participant.role !== "HOST") throw new SessionError("FORBIDDEN");
+
+      const newSessionCode = await rotateSessionCode(participant.sessionId);
+
+      const io = getSocketServer();
+      if (io) broadcastSessionCodeRotated(io, participant.sessionId, newSessionCode);
+
+      return { ok: true as const, newSessionCode };
     } catch (error) {
       throw toTRPCError(error);
     }
@@ -190,6 +299,17 @@ function sampleConfigFor(gameKey: string): unknown {
 }
 
 const gameRouter = router({
+  /**
+   * HOST always; DISPLAY too, but sample content only — the one
+   * deliberate exception to "Display never acts" (see display/page.tsx's
+   * own doc comment), scoped to exactly one button: "start the next
+   * game" once the current one has finished, with no content-picker UI
+   * of its own to send a real Playlist selection through even if it
+   * wanted to. `content` is force-ignored below for a DISPLAY caller
+   * regardless of what the request actually carries — a tampered
+   * request still can't start a Host's own prepared Playlist through
+   * this door, only ever the built-in sample.
+   */
   start: publicProcedure
     .input(z.object({ token: z.string().min(1), gameKey: gameKeySchema, content: gameStartContentSchema }))
     .mutation(async ({ input }) => {
@@ -199,15 +319,16 @@ const gameRouter = router({
       } catch (error) {
         throw toTRPCError(error);
       }
-      if (participant.role !== "HOST") {
+      if (participant.role !== "HOST" && participant.role !== "DISPLAY") {
         throw toTRPCError(new SessionError("FORBIDDEN"));
       }
+      const content = participant.role === "DISPLAY" ? undefined : input.content;
 
       let config: unknown = sampleConfigFor(input.gameKey);
       let playlistId: string | null = null;
-      if (input.content?.type === "playlist") {
+      if (content?.type === "playlist") {
         try {
-          const resolved = await resolveGameConfig(input.gameKey, input.content);
+          const resolved = await resolveGameConfig(input.gameKey, content);
           config = resolved.config;
           playlistId = resolved.playlistId;
         } catch (error) {
@@ -232,6 +353,8 @@ export const appRouter = router({
   session: sessionRouter,
   game: gameRouter,
   content: contentRouter,
+  user: userRouter,
+  admin: adminRouter,
 });
 
 export type AppRouter = typeof appRouter;

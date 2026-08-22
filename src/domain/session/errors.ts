@@ -18,7 +18,9 @@ export type SessionErrorCode =
   | "INVALID_TOKEN"
   | "INVALID_HOST_KEY"
   | "INVALID_HOST_PASSWORD"
-  | "FORBIDDEN";
+  | "FORBIDDEN"
+  | "PARTICIPANT_NOT_FOUND"
+  | "DISPLAY_NAME_MATCHES_ACCOUNT";
 
 const MESSAGES: Record<SessionErrorCode, string> = {
   SESSION_NOT_FOUND: "No session with that code exists.",
@@ -30,6 +32,15 @@ const MESSAGES: Record<SessionErrorCode, string> = {
   INVALID_HOST_KEY: "That recovery key doesn't match this session.",
   INVALID_HOST_PASSWORD: "That password isn't correct.",
   FORBIDDEN: "You don't have permission to do that.",
+  PARTICIPANT_NOT_FOUND: "That participant isn't in this session.",
+  // The "compte provisoire" join (a plain display name, no login) can
+  // freely pick any name — EXCEPT one that's actually a real account's
+  // username, which would let anyone impersonate a specific streamer or
+  // viewer just by typing their exact name. Only fires when the joiner
+  // ISN'T signed into that account themselves (see joinSession's own
+  // check) — the real account holder typing their own username as their
+  // display name is exactly who they say they are.
+  DISPLAY_NAME_MATCHES_ACCOUNT: "That name belongs to a real account — pick a different one, or log in to that account instead.",
 };
 
 export class SessionError extends Error {

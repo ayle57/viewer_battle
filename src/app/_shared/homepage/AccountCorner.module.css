@@ -1,0 +1,13 @@
+.corner {
+  position: fixed;
+  top: var(--vb-space-4);
+  right: var(--vb-space-4);
+  z-index: 160;
+}
+
+@media (max-width: 26rem) {
+  .corner {
+    top: var(--vb-space-3);
+    right: var(--vb-space-3);
+  }
+}
