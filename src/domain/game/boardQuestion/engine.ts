@@ -2,6 +2,8 @@ import { isTeamRole, TEAM_ROLES, type ParticipantRole, type TeamRole } from "@/d
 import { err, ok, type EngineResult, type GameEngine } from "../kernel";
 import { addScore, leadingTeam, type Scoreboard } from "../scoring";
 import { gameFinishedEvent, scoreChangedEvent } from "../events";
+import { computeDeadline, isExpired } from "../timer";
+import type { CountdownDurationMs } from "../countdown";
 import {
   boardQuestionActionSchema,
   boardQuestionConfigSchema,
@@ -27,6 +29,7 @@ export function createInitialState(config: BoardQuestionConfig): BoardQuestionSt
     scores: { TEAM_A: 0, TEAM_B: 0 },
     winner: null,
     history: [],
+    countdownDeadline: null,
   };
 }
 
@@ -60,6 +63,14 @@ export function apply(
       return applyCloseQuestion(state, validated.by);
     case "END_GAME":
       return applyEndGame(state, validated.by);
+    case "START_COUNTDOWN":
+      return applyStartCountdown(state, validated.by, validated.durationMs, validated.nowMs);
+    case "CANCEL_COUNTDOWN":
+      return applyCancelCountdown(state, validated.by);
+    case "COUNTDOWN_EXPIRED": {
+      const winner = leadingTeam(state.scores) ?? "TIE";
+      return ok(finishGameNow(state), [gameFinishedEvent(winner, state.scores)]);
+    }
   }
 }
 
@@ -198,19 +209,22 @@ function closeQuestion(
 }
 
 /**
- * The host stopping a game early — from any phase, whether or not a
- * question is mid-play. Same winner rule as running out the board
- * (`finishIfBoardComplete`): highest current score, "TIE" if equal.
- * Whatever question was active is simply abandoned — no `history`/
- * `playedQuestionIds` entry, as if it never happened — rather than
- * forced through `closeQuestion`'s bookkeeping for a question nobody
- * actually finished playing.
+ * The one real "stop now" transition — highest current score wins, "TIE"
+ * if level, whatever question was active is simply abandoned (no
+ * `history`/`playedQuestionIds` entry, as if it never happened), any
+ * countdown is cleared (a finished game never shows a stale one). Shared
+ * by THREE callers that all mean exactly this, byte-identically: the
+ * Host's own END_GAME action, a countdown expiring (this engine has no
+ * smaller "round" unit to force-close instead — one continuous board IS
+ * the whole game, unlike GeoGuessr's own per-round semantics — see
+ * BoardQuestionState.countdownDeadline's own doc comment), and —
+ * indirectly — the server's real-time countdown timer
+ * (src/server/sockets/game.ts), which just re-dispatches a plain
+ * COUNTDOWN_EXPIRED action rather than inventing a fourth code path.
  */
-function applyEndGame(state: BoardQuestionState, by: ParticipantRole): EngineResult<BoardQuestionState, BoardQuestionEvent> {
-  if (by !== "HOST") return err("FORBIDDEN_ROLE", "Only the host can end the game.");
-
+function finishGameNow(state: BoardQuestionState): BoardQuestionState {
   const winner = leadingTeam(state.scores) ?? "TIE";
-  const nextState: BoardQuestionState = {
+  return {
     ...state,
     status: "finished",
     phase: "selecting",
@@ -219,8 +233,58 @@ function applyEndGame(state: BoardQuestionState, by: ParticipantRole): EngineRes
     submittedAnswer: null,
     attemptedTeams: [],
     winner,
+    countdownDeadline: null,
   };
-  return ok(nextState, [gameFinishedEvent(winner, state.scores)]);
+}
+
+/**
+ * The host stopping a game early — from any phase, whether or not a
+ * question is mid-play. Same winner rule as running out the board
+ * (`finishIfBoardComplete`): highest current score, "TIE" if equal.
+ */
+function applyEndGame(state: BoardQuestionState, by: ParticipantRole): EngineResult<BoardQuestionState, BoardQuestionEvent> {
+  if (by !== "HOST") return err("FORBIDDEN_ROLE", "Only the host can end the game.");
+  const winner = leadingTeam(state.scores) ?? "TIE";
+  return ok(finishGameNow(state), [gameFinishedEvent(winner, state.scores)]);
+}
+
+/**
+ * Starts (or RETARGETS, if one's already running — a Host who clicks
+ * 30s then decides 10s just gets the new deadline, no separate cancel
+ * step required) a countdown to an automatic END_GAME. Any phase, same
+ * posture as END_GAME itself (the thing this ultimately schedules) —
+ * only gated on the top-level "not already finished" check in `apply`.
+ * `nowMs` is server-injected, never client-controlled (this action's own
+ * schema doc comment) — a client can't shorten/extend its own deadline
+ * by lying about the current time.
+ */
+function applyStartCountdown(state: BoardQuestionState, by: ParticipantRole, durationMs: CountdownDurationMs, nowMs: number): EngineResult<BoardQuestionState, BoardQuestionEvent> {
+  if (by !== "HOST") return err("FORBIDDEN_ROLE", "Only the host can start a countdown.");
+  const deadlineMs = computeDeadline(nowMs, durationMs);
+  return ok({ ...state, countdownDeadline: deadlineMs }, [{ type: "COUNTDOWN_STARTED", deadlineMs }]);
+}
+
+/** Cancels a running countdown outright — no replacement, the game just keeps going with no deadline. */
+function applyCancelCountdown(state: BoardQuestionState, by: ParticipantRole): EngineResult<BoardQuestionState, BoardQuestionEvent> {
+  if (by !== "HOST") return err("FORBIDDEN_ROLE", "Only the host can cancel a countdown.");
+  if (state.countdownDeadline === null) return err("NO_COUNTDOWN_ACTIVE", "There's no countdown running to cancel.");
+  return ok({ ...state, countdownDeadline: null }, [{ type: "COUNTDOWN_CANCELLED" }]);
+}
+
+/**
+ * The pure "did the countdown run out?" resolution — kernel.ts's
+ * `checkExpiry` hook, same SAFETY-NET role as GeoGuessrEngine's own (see
+ * that engine's identical doc comment for the full reasoning: this is
+ * the self-heal path for when the real-time timer was lost — a server
+ * restart, or `pnpm dev`'s `tsx watch` hot-reloading mid-countdown — not
+ * the primary one). No "acting role" to check (nothing a participant
+ * did triggered this), so this reuses `finishGameNow` directly.
+ */
+export function checkExpiry(state: BoardQuestionState, nowMs: number): BoardQuestionState | null {
+  if (state.status === "finished") return null;
+  if (state.countdownDeadline === null) return null;
+  if (!isExpired(state.countdownDeadline, nowMs)) return null;
+  return finishGameNow(state);
 }
 
 /** Every question played -> game over. Called after every closeQuestion. */
@@ -232,14 +296,21 @@ function finishIfBoardComplete(
     return ok(state, events);
   }
   const winner = leadingTeam(state.scores) ?? "TIE";
-  return ok({ ...state, status: "finished", winner }, [...events, gameFinishedEvent(winner, state.scores)]);
+  // countdownDeadline cleared too — a natural finish (running out the
+  // board) is still a finish; a Host-started countdown that never got
+  // the chance to expire shouldn't linger in state.
+  return ok({ ...state, status: "finished", winner, countdownDeadline: null }, [...events, gameFinishedEvent(winner, state.scores)]);
 }
 
 export function availableActions(state: BoardQuestionState, role: ParticipantRole): string[] {
   if (state.status === "finished") return [];
   // The host can end the game from any phase — appended, not a
   // replacement for whatever else the phase already permits.
-  const hostCanAlwaysEnd = role === "HOST" ? ["END_GAME"] : [];
+  // START_COUNTDOWN is offered any time END_GAME is (same "any phase"
+  // posture, since it's just a delayed END_GAME) — CANCEL_COUNTDOWN only
+  // once one is actually running, same "nothing to do otherwise" shape
+  // GeoGuessrEngine's own availableActions already uses.
+  const hostCanAlwaysEnd = role === "HOST" ? ["END_GAME", "START_COUNTDOWN", ...(state.countdownDeadline !== null ? ["CANCEL_COUNTDOWN"] : [])] : [];
   switch (state.phase) {
     case "selecting":
       return role === "HOST" ? ["SELECT_QUESTION", ...hostCanAlwaysEnd] : [];
@@ -266,5 +337,6 @@ export const boardQuestionEngine: GameEngine<BoardQuestionState, BoardQuestionAc
     apply,
     availableActions,
     toPublicView,
+    checkExpiry,
     getWinner: (state) => (state.status === "finished" ? state.winner : null),
   };

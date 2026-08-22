@@ -16,6 +16,7 @@ const GAME_ERROR_MESSAGES: Record<string, string> = {
   TEAM_ALREADY_ATTEMPTED: "Your team already tried this question.",
   ANSWER_ALREADY_SUBMITTED: "Your team already submitted an answer for this buzz.",
   ANSWER_NOT_SUBMITTED: "Waiting for the team's answer before you can judge it.",
+  NO_COUNTDOWN_ACTIVE: "There's no countdown running to cancel.",
   GAME_NOT_FOUND: "No game is running yet.",
   GAME_IN_PROGRESS: "A game is already in progress.",
   UNKNOWN_GAME: "Unknown game type.",

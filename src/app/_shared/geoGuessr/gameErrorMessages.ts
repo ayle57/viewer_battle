@@ -15,6 +15,7 @@ const GEO_ERROR_MESSAGES: Record<string, string> = {
   TEAM_ALREADY_LOCKED: "Your team has already locked in this round.",
   NO_GUESS_SET: "Place a guess on the map before locking it in.",
   NO_ROUNDS_REMAINING: "There are no more rounds to play.",
+  NO_COUNTDOWN_ACTIVE: "There's no countdown running to cancel.",
   GAME_NOT_FOUND: "No game is running yet.",
   GAME_IN_PROGRESS: "A game is already in progress.",
   UNKNOWN_GAME: "Unknown game type.",

@@ -119,6 +119,28 @@ export interface GameEngine<TState, TAction, TEvent, TConfig = unknown> {
    */
   toPublicView?(state: TState, viewerRole: ParticipantRole): TState;
   /**
+   * Pure "has a deadline this engine is tracking passed?" check — the
+   * other half of src/domain/game/timer.ts's own pattern
+   * (computeDeadline/isExpired/remainingMs): an engine that stores a
+   * deadline in its own state (e.g. GeoGuessrState.countdownDeadline)
+   * can't read the wall clock inside `apply()` (kernel.ts's own top
+   * rule), so it has nothing that can resolve that deadline on its own
+   * once no further ACTION happens to trigger it. This is the one place
+   * the SERVER is allowed to hand an engine the wall clock — always as
+   * plain `nowMs` arithmetic input, never a live Date/timer object — so
+   * `src/server/game/service.ts`'s `getCurrentGame` can self-heal a
+   * game whose deadline already passed before serving/persisting it,
+   * as a pure function, same testability guarantee as `apply()` itself.
+   * Optional: only an engine with an actual deadline field implements
+   * it (GeoGuessrEngine, for its host-triggered end-game countdown).
+   * Returns the new state if something's deadline just passed and needs
+   * auto-resolving, or `null` if there's nothing to do — a null keeps
+   * the caller's persistence write a no-op, so a game with no active
+   * deadline (the overwhelming common case, and every engine that never
+   * implements this at all) costs nothing extra.
+   */
+  checkExpiry?(state: TState, nowMs: number): TState | null;
+  /**
    * Who won THIS instance of the game, once it's finished — `null` while
    * still in progress or if the engine has no such concept. Optional and
    * deliberately tiny: this is the one hook that lets a session-level

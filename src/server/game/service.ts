@@ -36,9 +36,58 @@ function isFinishedStatus(state: unknown): boolean {
   return typeof state === "object" && state !== null && (state as { status?: GameStatus }).status === "finished";
 }
 
-/** "The current game" for a session is just the most recently started one — see prisma/schema.prisma's SessionGame comment on why there's no separate "active game" pointer. */
-export async function getCurrentGame(sessionId: string) {
+/** The plain, no-side-effects read — "the current game" for a session is just the most recently started one, see prisma/schema.prisma's SessionGame comment on why there's no separate "active game" pointer. */
+function findLatestGameRow(sessionId: string) {
   return prisma.sessionGame.findFirst({ where: { sessionId }, orderBy: { startedAt: "desc" } });
+}
+
+/**
+ * The self-healing read — every caller EXCEPT `applyGameAction` itself
+ * (see that function's own doc comment on why it deliberately reads
+ * `findLatestGameRow` directly instead) gets a game whose `checkExpiry`
+ * (kernel.ts) has already been resolved if needed, with nothing extra to
+ * remember at each call site: `sendCurrentSnapshot`/`session.getState`'s
+ * reads (a reconnect, a poll) always see a genuinely current game, never
+ * a permanently stuck expired deadline nobody ever acted on.
+ *
+ * This is the SAFETY-NET path (`checkExpiry`'s own doc comment in
+ * geoGuessr/engine.ts explains the primary, real-time one: the server's
+ * own scheduled countdown timer, src/server/sockets/game.ts) — cheap
+ * when there's nothing to check (an engine with no `checkExpiry` at all,
+ * or one that returns `null`, costs one extra pure-function call and
+ * nothing else), and self-correcting even if the primary timer was lost
+ * (a process restart, or — very real for this project's own `pnpm dev`,
+ * running `tsx watch` — a hot reload mid-countdown): the game's session
+ * is polled every 2s by the Host's own `session.getState` regardless
+ * (src/app/host/page.tsx), so even in that degraded case the game
+ * self-heals within a couple of seconds of the primary timer being
+ * lost, not never.
+ */
+export async function getCurrentGame(sessionId: string) {
+  const game = await findLatestGameRow(sessionId);
+  if (!game || game.status === "FINISHED") return game;
+
+  const engine = getGameEngine(game.gameKey);
+  const expired = engine?.checkExpiry?.(game.internalState, Date.now());
+  if (!expired) return game;
+
+  const finished = isFinishedStatus(expired);
+  const updated = await prisma.sessionGame.updateMany({
+    where: { id: game.id, version: game.version },
+    data: {
+      internalState: expired as Prisma.InputJsonValue,
+      version: { increment: 1 },
+      status: finished ? "FINISHED" : "IN_PROGRESS",
+      finishedAt: finished ? new Date() : null,
+    },
+  });
+  // Lost the race (someone else's real action, or another concurrent
+  // expiry check, already wrote first) — the DB row is now more current
+  // than anything we could construct locally, so just re-read it rather
+  // than guessing at a merged shape.
+  if (updated.count === 0) return prisma.sessionGame.findUnique({ where: { id: game.id } });
+
+  return { ...game, internalState: expired, version: game.version + 1, status: finished ? ("FINISHED" as const) : ("IN_PROGRESS" as const), finishedAt: finished ? new Date() : null };
 }
 
 /**
@@ -91,10 +140,32 @@ export async function startGame(
  * the SAME action from the top, bounded — so a losing caller gets a real
  * rejection reason from the engine (e.g. TEAM_ALREADY_ATTEMPTED,
  * WRONG_PHASE) instead of a generic "conflict, try again."
+ *
+ * Deliberately `findLatestGameRow`, NOT the self-healing `getCurrentGame`
+ * — a REAL, REPRODUCED bug the other way around: the server's own
+ * real-time countdown timer (src/server/sockets/game.ts) fires and calls
+ * THIS function with a plain END_GAME action once a deadline passes.
+ * With `getCurrentGame` here, that load would self-heal the SAME
+ * expiry the instant it read the row — finishing the game as a
+ * side-effect of the read — and the very next line's own
+ * `GAME_ALREADY_FINISHED` check would then reject the END_GAME action
+ * THAT SAME TIMER dispatched, one line later, on the exact deadline
+ * it was scheduled for. The game still ends correctly either way (the
+ * self-heal and the ordinary END_GAME transition produce the same
+ * result), but the timer's own caller only broadcasts `if (result.ok)`
+ * — so every connected client would silently miss the real-time
+ * broadcast and only find out on their next unrelated poll/reconnect,
+ * defeating the entire point of a real-time timer. Confirmed via a real
+ * countdown end-to-end, not reasoned about: the timer fired, called
+ * this function, and got back `GAME_ALREADY_FINISHED` even though
+ * nothing else had touched the game. `findLatestGameRow` — a plain
+ * read, no side effects — is what a REAL action dispatch needs; only
+ * pure READ paths (`sendCurrentSnapshot`/`session.getState`, this
+ * file's own `getCurrentGame`) should ever self-heal.
  */
 export async function applyGameAction(sessionId: string, rawAction: unknown): Promise<GameActionResult> {
   for (let attempt = 0; attempt < MAX_APPLY_ATTEMPTS; attempt++) {
-    const game = await getCurrentGame(sessionId);
+    const game = await findLatestGameRow(sessionId);
     if (!game) {
       return { ok: false, error: { code: "GAME_NOT_FOUND", message: "No game is running for this session." } };
     }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { apply, availableActions, createInitialState } from "./engine";
+import { apply, availableActions, checkExpiry, createInitialState } from "./engine";
 import { sampleBoard } from "./fixtures";
 import type { BoardQuestionAction, BoardQuestionState } from "./types";
 
@@ -374,33 +374,33 @@ describe("game completion", () => {
 });
 
 describe("availableActions", () => {
-  it("selecting phase: only HOST can SELECT_QUESTION (and, always, END_GAME)", () => {
+  it("selecting phase: only HOST can SELECT_QUESTION (and, always, END_GAME/START_COUNTDOWN)", () => {
     const state = freshState();
-    expect(availableActions(state, "HOST")).toEqual(["SELECT_QUESTION", "END_GAME"]);
+    expect(availableActions(state, "HOST")).toEqual(["SELECT_QUESTION", "END_GAME", "START_COUNTDOWN"]);
     expect(availableActions(state, "TEAM_A")).toEqual([]);
     expect(availableActions(state, "DISPLAY")).toEqual([]);
   });
 
-  it("revealed phase: teams that haven't attempted can BUZZ, host can CLOSE_QUESTION (and END_GAME)", () => {
+  it("revealed phase: teams that haven't attempted can BUZZ, host can CLOSE_QUESTION (and END_GAME/START_COUNTDOWN)", () => {
     const revealed = mustOk(apply(freshState(), { type: "SELECT_QUESTION", by: "HOST", questionId: "q-geo-100" }));
     expect(availableActions(revealed, "TEAM_A")).toEqual(["BUZZ"]);
     expect(availableActions(revealed, "TEAM_B")).toEqual(["BUZZ"]);
-    expect(availableActions(revealed, "HOST")).toEqual(["CLOSE_QUESTION", "END_GAME"]);
+    expect(availableActions(revealed, "HOST")).toEqual(["CLOSE_QUESTION", "END_GAME", "START_COUNTDOWN"]);
   });
 
-  it("answering phase, before a submission: the buzzed team can SUBMIT_ANSWER, host can CLOSE_QUESTION/END_GAME", () => {
+  it("answering phase, before a submission: the buzzed team can SUBMIT_ANSWER, host can CLOSE_QUESTION/END_GAME/START_COUNTDOWN", () => {
     let state = mustOk(apply(freshState(), { type: "SELECT_QUESTION", by: "HOST", questionId: "q-geo-100" }));
     state = mustOk(apply(state, { type: "BUZZ", by: "TEAM_A" }));
-    expect(availableActions(state, "HOST")).toEqual(["CLOSE_QUESTION", "END_GAME"]);
+    expect(availableActions(state, "HOST")).toEqual(["CLOSE_QUESTION", "END_GAME", "START_COUNTDOWN"]);
     expect(availableActions(state, "TEAM_A")).toEqual(["SUBMIT_ANSWER"]);
     expect(availableActions(state, "TEAM_B")).toEqual([]);
   });
 
-  it("answering phase, after a submission: only HOST can act (JUDGE_ANSWER, CLOSE_QUESTION, or END_GAME)", () => {
+  it("answering phase, after a submission: only HOST can act (JUDGE_ANSWER, CLOSE_QUESTION, END_GAME, or START_COUNTDOWN)", () => {
     let state = mustOk(apply(freshState(), { type: "SELECT_QUESTION", by: "HOST", questionId: "q-geo-100" }));
     state = mustOk(apply(state, { type: "BUZZ", by: "TEAM_A" }));
     state = mustOk(apply(state, { type: "SUBMIT_ANSWER", by: "TEAM_A", text: "answer" }));
-    expect(availableActions(state, "HOST")).toEqual(["JUDGE_ANSWER", "CLOSE_QUESTION", "END_GAME"]);
+    expect(availableActions(state, "HOST")).toEqual(["JUDGE_ANSWER", "CLOSE_QUESTION", "END_GAME", "START_COUNTDOWN"]);
     expect(availableActions(state, "TEAM_A")).toEqual([]);
     expect(availableActions(state, "TEAM_B")).toEqual([]);
   });
@@ -414,5 +414,101 @@ describe("availableActions", () => {
       state = mustOk(apply(state, { type: "JUDGE_ANSWER", by: "HOST", correct: true }));
     }
     expect(availableActions(state, "HOST")).toEqual([]);
+  });
+});
+
+/**
+ * The countdown feature, generalized here from GeoGuessr (the original,
+ * only implementation — see src/domain/game/countdown.ts's own doc
+ * comment). Unlike GeoGuessr, BoardQuestion has no smaller "round" unit
+ * to force-close early — one continuous board IS the whole game — so
+ * expiring always just ends the game outright, the identical rule
+ * END_GAME already uses. Mirrors GeoGuessr's own engine.test.ts
+ * countdown coverage, adapted to that one real difference.
+ */
+describe("START_COUNTDOWN / CANCEL_COUNTDOWN / checkExpiry / COUNTDOWN_EXPIRED — the Host countdown-to-end feature", () => {
+  it("host-only; sets countdownDeadline to nowMs + durationMs, a plain deterministic sum", () => {
+    const wrongRole = apply(freshState(), { type: "START_COUNTDOWN", by: "TEAM_A", durationMs: 10_000, nowMs: 1_000 });
+    expect(!wrongRole.ok && wrongRole.error.code).toBe("FORBIDDEN_ROLE");
+
+    const state = mustOk(apply(freshState(), { type: "START_COUNTDOWN", by: "HOST", durationMs: 10_000, nowMs: 1_000 }));
+    expect(state.countdownDeadline).toBe(11_000);
+  });
+
+  it("rejects a duration outside the fixed 10s/30s/60s set (INVALID_ACTION) — not an arbitrary number", () => {
+    const result = apply(freshState(), { type: "START_COUNTDOWN", by: "HOST", durationMs: 45_000, nowMs: 0 } as unknown as BoardQuestionAction);
+    expect(!result.ok && result.error.code).toBe("INVALID_ACTION");
+  });
+
+  it("starting a SECOND countdown retargets (replaces) the deadline — no need to cancel first", () => {
+    let state = mustOk(apply(freshState(), { type: "START_COUNTDOWN", by: "HOST", durationMs: 60_000, nowMs: 0 }));
+    expect(state.countdownDeadline).toBe(60_000);
+    state = mustOk(apply(state, { type: "START_COUNTDOWN", by: "HOST", durationMs: 10_000, nowMs: 5_000 }));
+    expect(state.countdownDeadline).toBe(15_000); // the NEW deadline, not a sum/extension of the old one
+  });
+
+  it("CANCEL_COUNTDOWN clears the deadline; errors NO_COUNTDOWN_ACTIVE if none is running", () => {
+    const noCountdown = apply(freshState(), { type: "CANCEL_COUNTDOWN", by: "HOST" });
+    expect(!noCountdown.ok && noCountdown.error.code).toBe("NO_COUNTDOWN_ACTIVE");
+
+    const wrongRole = apply(freshState(), { type: "CANCEL_COUNTDOWN", by: "TEAM_A" });
+    expect(!wrongRole.ok && wrongRole.error.code).toBe("FORBIDDEN_ROLE");
+
+    const started = mustOk(apply(freshState(), { type: "START_COUNTDOWN", by: "HOST", durationMs: 10_000, nowMs: 0 }));
+    const cancelled = mustOk(apply(started, { type: "CANCEL_COUNTDOWN", by: "HOST" }));
+    expect(cancelled.countdownDeadline).toBeNull();
+  });
+
+  it("checkExpiry: null with no countdown running, before the deadline, or once the game's already finished", () => {
+    expect(checkExpiry(freshState(), 999_999)).toBeNull();
+    const started = mustOk(apply(freshState(), { type: "START_COUNTDOWN", by: "HOST", durationMs: 10_000, nowMs: 0 }));
+    expect(checkExpiry(started, 9_999)).toBeNull(); // one ms early
+    const ended = mustOk(apply(freshState(), { type: "END_GAME", by: "HOST" }));
+    expect(checkExpiry(ended, 999_999_999)).toBeNull(); // already finished — never a second finish
+  });
+
+  it("checkExpiry, once actually expired, ends the game — same winner rule as END_GAME, whatever question was active simply abandoned", () => {
+    let state = mustOk(apply(freshState(), { type: "SELECT_QUESTION", by: "HOST", questionId: sampleBoard.questions[0]!.id }));
+    state = mustOk(apply(state, { type: "BUZZ", by: "TEAM_A" })); // mid-question, nobody's answered yet
+    state = mustOk(apply(state, { type: "START_COUNTDOWN", by: "HOST", durationMs: 10_000, nowMs: 0 }));
+
+    const expired = checkExpiry(state, 10_000)!;
+    expect(expired.status).toBe("finished");
+    expect(expired.winner).toBe("TIE"); // 0-0, nothing scored
+    expect(expired.phase).toBe("selecting"); // abandoned mid-question, not force-answered
+    expect(expired.activeQuestionId).toBeNull();
+    expect(expired.countdownDeadline).toBeNull();
+    expect(expired.history).toEqual([]); // the abandoned question never gets a history entry, same as END_GAME
+  });
+
+  it("COUNTDOWN_EXPIRED (the real action the server dispatches) produces the identical resolution as checkExpiry's pure read", () => {
+    const state = mustOk(apply(freshState(), { type: "START_COUNTDOWN", by: "HOST", durationMs: 10_000, nowMs: 0 }));
+    const viaAction = mustOk(apply(state, { type: "COUNTDOWN_EXPIRED", by: "HOST" }));
+    expect(viaAction.status).toBe("finished");
+    expect(viaAction.countdownDeadline).toBeNull();
+  });
+
+  it("COUNTDOWN_EXPIRED is rejected once the game has already finished, same as every other action", () => {
+    const ended = mustOk(apply(freshState(), { type: "END_GAME", by: "HOST" }));
+    const result = apply(ended, { type: "COUNTDOWN_EXPIRED", by: "HOST" });
+    expect(!result.ok && result.error.code).toBe("GAME_ALREADY_FINISHED");
+  });
+
+  it("END_GAME (the ordinary Host action) clears any running countdown too", () => {
+    const started = mustOk(apply(freshState(), { type: "START_COUNTDOWN", by: "HOST", durationMs: 60_000, nowMs: 0 }));
+    const ended = mustOk(apply(started, { type: "END_GAME", by: "HOST" }));
+    expect(ended.countdownDeadline).toBeNull();
+  });
+
+  it("a natural finish (the board runs out) clears a running countdown too", () => {
+    let state = mustOk(apply(freshState(), { type: "START_COUNTDOWN", by: "HOST", durationMs: 60_000, nowMs: 0 }));
+    for (const question of sampleBoard.questions) {
+      state = mustOk(apply(state, { type: "SELECT_QUESTION", by: "HOST", questionId: question.id }));
+      state = mustOk(apply(state, { type: "BUZZ", by: "TEAM_A" }));
+      state = mustOk(apply(state, { type: "SUBMIT_ANSWER", by: "TEAM_A", text: "answer" }));
+      state = mustOk(apply(state, { type: "JUDGE_ANSWER", by: "HOST", correct: true }));
+    }
+    expect(state.status).toBe("finished");
+    expect(state.countdownDeadline).toBeNull();
   });
 });

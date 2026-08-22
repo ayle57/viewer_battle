@@ -1,0 +1,27 @@
+.idle,
+.active {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--vb-space-2);
+  min-width: 0;
+}
+
+.label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--vb-text-muted);
+  white-space: nowrap;
+}
+
+.buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--vb-space-1);
+}
+
+.error {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--vb-danger);
+}

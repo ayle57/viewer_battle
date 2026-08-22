@@ -9,6 +9,9 @@ export { scoreChangedEvent, gameFinishedEvent } from "./events";
 
 export { computeDeadline, isExpired, remainingMs } from "./timer";
 
+export { COUNTDOWN_DURATIONS_MS, startCountdownActionSchema, cancelCountdownActionSchema, countdownExpiredActionSchema } from "./countdown";
+export type { CountdownDurationMs, CountdownStartedEvent, CountdownCancelledEvent } from "./countdown";
+
 export { gameEngines, getGameEngine, listGameDefinitions, gameKeySchema } from "./registry";
 export type { GameKey, GameDefinition } from "./registry";
 

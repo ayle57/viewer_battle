@@ -2,7 +2,8 @@ import { z } from "zod";
 import { participantRoleSchema } from "@/domain/session";
 import type { ParticipantRole, TeamRole } from "@/domain/session";
 import type { GameError, GameStatus, KernelErrorCode } from "../kernel";
-import type { GameFinishedEvent, ScoreChangedEvent, Scoreboard } from "..";
+import type { GameFinishedEvent, ScoreChangedEvent, Scoreboard, CountdownStartedEvent, CountdownCancelledEvent } from "..";
+import { startCountdownActionSchema, cancelCountdownActionSchema, countdownExpiredActionSchema } from "../countdown";
 
 /**
  * Gameplay decisions locked for this vertical slice — see AGENTS.md
@@ -83,6 +84,19 @@ export interface BoardQuestionState {
   scores: Scoreboard;
   winner: TeamRole | "TIE" | null;
   history: PlayedQuestion[];
+  /**
+   * A Host-triggered "end the game in N seconds" countdown — same
+   * mechanic as GeoGuessr's own (src/domain/game/countdown.ts's own doc
+   * comment on why this is shared plumbing now, generalized from a
+   * GeoGuessr-only feature). Unlike GeoGuessr, this engine has no
+   * smaller "round" unit to force-close early — one continuous board is
+   * the whole game — so expiring here always just ends the game
+   * outright, the identical rule END_GAME already uses (highest current
+   * score wins, "TIE" if equal, whatever question was active simply
+   * abandoned). Genuinely public, never redacted by `toPublicView`
+   * (view.ts) — every role sees the exact same number.
+   */
+  countdownDeadline: number | null;
 }
 
 // `by` is the full participantRoleSchema on every action here, not a
@@ -125,6 +139,12 @@ export const endGameActionSchema = z.object({
   by: participantRoleSchema,
 });
 
+// startCountdownActionSchema / cancelCountdownActionSchema /
+// countdownExpiredActionSchema are the shared ../countdown ones
+// (imported above) — see that module's own doc comment. `nowMs` on
+// START_COUNTDOWN is server-injected, same trust posture as `by` itself
+// (src/server/sockets/game.ts) — never taken from client input.
+
 export const boardQuestionActionSchema = z.discriminatedUnion("type", [
   selectQuestionActionSchema,
   buzzActionSchema,
@@ -132,6 +152,9 @@ export const boardQuestionActionSchema = z.discriminatedUnion("type", [
   judgeAnswerActionSchema,
   closeQuestionActionSchema,
   endGameActionSchema,
+  startCountdownActionSchema,
+  cancelCountdownActionSchema,
+  countdownExpiredActionSchema,
 ]);
 export type BoardQuestionAction = z.infer<typeof boardQuestionActionSchema>;
 
@@ -162,12 +185,17 @@ export interface QuestionClosedEvent {
   wonBy: TeamRole | null;
 }
 
+// CountdownStartedEvent / CountdownCancelledEvent are the shared
+// ../countdown ones (imported above).
+
 export type BoardQuestionEvent =
   | QuestionSelectedEvent
   | TeamBuzzedEvent
   | AnswerSubmittedEvent
   | AnswerJudgedEvent
   | QuestionClosedEvent
+  | CountdownStartedEvent
+  | CountdownCancelledEvent
   | ScoreChangedEvent
   | GameFinishedEvent;
 
@@ -177,7 +205,8 @@ export type BoardQuestionErrorCode =
   | "QUESTION_ALREADY_PLAYED"
   | "TEAM_ALREADY_ATTEMPTED"
   | "ANSWER_ALREADY_SUBMITTED"
-  | "ANSWER_NOT_SUBMITTED";
+  | "ANSWER_NOT_SUBMITTED"
+  | "NO_COUNTDOWN_ACTIVE";
 
 export type BoardQuestionError = GameError<BoardQuestionErrorCode>;
 
