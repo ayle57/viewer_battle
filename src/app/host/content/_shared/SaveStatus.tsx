@@ -1,6 +1,7 @@
 "use client";
 
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
+import { useReducedMotionSafe } from "@/app/_shared/motion/useReducedMotionSafe";
 import styles from "./SaveStatus.module.css";
 
 export type SaveState = "idle" | "saving" | "saved" | "error";
@@ -21,7 +22,7 @@ const LABEL: Record<Exclude<SaveState, "idle">, string> = {
  * only ever appears once a save has actually been attempted.
  */
 export function SaveStatus({ state, className }: { state: SaveState; className?: string }) {
-  const reduced = useReducedMotion() ?? false;
+  const reduced = useReducedMotionSafe(); // hydration-safe — see that hook's own doc comment
 
   return (
     <span className={[styles.wrap, className].filter(Boolean).join(" ")} aria-live="polite" aria-atomic="true">

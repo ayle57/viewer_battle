@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
+import { useReducedMotionSafe } from "@/app/_shared/motion/useReducedMotionSafe";
 import { ScoreDisplay, type ScoreDisplayProps } from "@/ui";
 import styles from "./AnimatedScoreDisplay.module.css";
 
@@ -23,7 +24,7 @@ import styles from "./AnimatedScoreDisplay.module.css";
  * whether/how the real score renders.
  */
 export function AnimatedScoreDisplay(props: ScoreDisplayProps) {
-  const reduced = useReducedMotion() ?? false;
+  const reduced = useReducedMotionSafe(); // hydration-safe — see that hook's own doc comment
   const prevA = useRef(props.teamAScore);
   const prevB = useRef(props.teamBScore);
   const [deltaA, setDeltaA] = useState<{ amount: number; key: number } | null>(null);

@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { motion, useReducedMotion } from "motion/react";
+import { motion } from "motion/react";
+import { useReducedMotionSafe } from "@/app/_shared/motion/useReducedMotionSafe";
 import styles from "./GameStartingSequence.module.css";
 
 const STAGES = ["READY", "3", "2", "1", "LIVE"] as const;
@@ -36,7 +37,7 @@ export interface GameStartingSequenceProps {
  * calls back.
  */
 export function GameStartingSequence({ live, onDone }: GameStartingSequenceProps) {
-  const reduced = useReducedMotion() ?? false;
+  const reduced = useReducedMotionSafe(); // hydration-safe — see that hook's own doc comment
   // Reduced motion skips straight to the terminal hold as the initial
   // state itself (no timed beats to play) rather than via an effect that
   // immediately calls setState on mount.

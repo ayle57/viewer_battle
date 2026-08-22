@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { motion, useReducedMotion } from "motion/react";
+import { motion } from "motion/react";
+import { useReducedMotionSafe } from "@/app/_shared/motion/useReducedMotionSafe";
 import { Badge, Button } from "@/ui";
 import { listGameDefinitions } from "@/domain/game";
 import { fadeUp, staggerContainer } from "@/app/_shared/motion/variants";
@@ -40,7 +41,7 @@ const CONTENT_ROUTES: Record<string, string> = {
 
 export default function ContentStudioHome() {
   const games = listGameDefinitions();
-  const reduced = useReducedMotion() ?? false;
+  const reduced = useReducedMotionSafe(); // hydration-safe — see that hook's own doc comment
 
   // Skip the "pick a game" grid entirely when there's only one real
   // choice to make — today that's every real Host, since Jeopardy is

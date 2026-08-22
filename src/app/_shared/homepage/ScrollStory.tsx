@@ -1,6 +1,7 @@
 "use client";
 
-import { motion, useReducedMotion } from "motion/react";
+import { motion } from "motion/react";
+import { useReducedMotionSafe } from "@/app/_shared/motion/useReducedMotionSafe";
 import { Badge } from "@/ui";
 import { fadeUp, popIn, slideFrom, staggerContainer, withStagger } from "@/app/_shared/motion/variants";
 import { useScrollReveal } from "@/app/_shared/motion/useScrollReveal";
@@ -36,7 +37,7 @@ import styles from "./ScrollStory.module.css";
  * this page commits to.
  */
 export function ScrollStory({ games }: { games: GameDefinition[] }) {
-  const reduced = useReducedMotion() ?? false;
+  const reduced = useReducedMotionSafe(); // hydration-safe — see that hook's own doc comment
 
   return (
     <div className={styles.story}>

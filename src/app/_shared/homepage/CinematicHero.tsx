@@ -2,7 +2,8 @@
 
 import { useEffect, useRef } from "react";
 import Link from "next/link";
-import { motion, useReducedMotion } from "motion/react";
+import { motion } from "motion/react";
+import { useReducedMotionSafe } from "@/app/_shared/motion/useReducedMotionSafe";
 import { Badge, BuzzButton, ScoreDisplay } from "@/ui";
 import { fadeUp, popIn, slideFrom, withStagger } from "@/app/_shared/motion/variants";
 import { LetterReveal } from "@/app/_shared/motion/LetterReveal";
@@ -53,7 +54,7 @@ import styles from "./CinematicHero.module.css";
  * used for real, everything else about the scene being staged).
  */
 export function CinematicHero() {
-  const reduced = useReducedMotion() ?? false;
+  const reduced = useReducedMotionSafe(); // hydration-safe — see that hook's own doc comment
   const atmosphereRef = useRef<HTMLDivElement>(null);
   // 0.4, per this page's convention of picking one threshold per section
   // rather than reusing `useScrollReveal`'s own 0.3 default everywhere —

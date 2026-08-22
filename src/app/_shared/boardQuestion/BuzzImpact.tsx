@@ -1,7 +1,8 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { motion, useReducedMotion } from "motion/react";
+import { motion } from "motion/react";
+import { useReducedMotionSafe } from "@/app/_shared/motion/useReducedMotionSafe";
 import type { TeamRole } from "@/domain/session";
 import styles from "./BuzzImpact.module.css";
 
@@ -23,7 +24,7 @@ export interface BuzzImpactProps {
  * in this app already use (see AGENTS.md "Session vs. Game phases").
  */
 export function BuzzImpact({ team, children }: BuzzImpactProps) {
-  const reduced = useReducedMotion() ?? false;
+  const reduced = useReducedMotionSafe(); // hydration-safe — see that hook's own doc comment
   const flashClass = team === "TEAM_A" ? styles.flashA : styles.flashB;
   const ringClass = team === "TEAM_A" ? styles.ringA : styles.ringB;
 

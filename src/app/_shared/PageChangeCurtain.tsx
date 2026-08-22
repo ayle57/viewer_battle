@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
+import { useReducedMotionSafe } from "@/app/_shared/motion/useReducedMotionSafe";
 import { LetterReveal } from "@/app/_shared/motion/LetterReveal";
 import { EASE_OUT_EXPO } from "@/app/_shared/motion/variants";
 import { CURTAIN_HOLD_MS, CURTAIN_IRIS_SECONDS } from "@/app/_shared/motion/curtainTiming";
@@ -62,7 +63,7 @@ const IRIS_DURATION = CURTAIN_IRIS_SECONDS;
  */
 export function PageChangeCurtain() {
   const pathname = usePathname();
-  const reduced = useReducedMotion() ?? false;
+  const reduced = useReducedMotionSafe(); // hydration-safe — see that hook's own doc comment
   // Compared against the PREVIOUS RENDER's own committed value, during
   // render — React's documented "adjusting state when a prop changes"
   // pattern, not an effect (so there's nothing here for

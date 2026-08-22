@@ -2,7 +2,8 @@
 
 import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
+import { useReducedMotionSafe } from "@/app/_shared/motion/useReducedMotionSafe";
 
 /**
  * The real fix for "there are no page transitions": the native browser
@@ -26,7 +27,10 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
  */
 export function PageTransition({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const reduced = useReducedMotion() ?? false;
+  // Hydration-safe on purpose — see useReducedMotionSafe.ts's doc
+  // comment for the real, confirmed mismatch a raw `useReducedMotion()`
+  // caused here (branching between two entirely different tree shapes).
+  const reduced = useReducedMotionSafe();
 
   if (reduced) return <>{children}</>;
 

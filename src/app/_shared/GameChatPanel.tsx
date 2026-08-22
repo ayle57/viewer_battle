@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
+import { useReducedMotionSafe } from "@/app/_shared/motion/useReducedMotionSafe";
 import { canPostToChannel, channelsForRole, type ChatChannel } from "@/domain/chat";
 import type { ParticipantRole } from "@/domain/session";
 import { ChatPanel, Tabs } from "@/ui";
@@ -39,7 +40,7 @@ export interface GameChatPanelProps {
  * bubble on that tab — cleared the instant the Host/team switches to it.
  */
 export function GameChatPanel({ role, displayName, sendChatMessage }: GameChatPanelProps) {
-  const reduced = useReducedMotion() ?? false;
+  const reduced = useReducedMotionSafe(); // hydration-safe — see that hook's own doc comment
   const messagesByChannel = useChatStore((state) => state.messagesByChannel);
   const unreadByChannel = useChatStore((state) => state.unreadByChannel);
   const activeChannel = useChatStore((state) => state.activeChannel);

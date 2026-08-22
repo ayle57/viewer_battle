@@ -1,6 +1,7 @@
 "use client";
 
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
+import { useReducedMotionSafe } from "@/app/_shared/motion/useReducedMotionSafe";
 import { Badge, type BadgeSize } from "@/ui";
 import { popIn } from "@/app/_shared/motion/variants";
 import type { PlaylistReadinessStatus } from "@/domain/content";
@@ -28,7 +29,7 @@ export interface ReadinessLike {
  * "readiness change" is real feedback here, not everywhere-motion.
  */
 export function ReadinessBadge({ readiness, size = "md" }: { readiness: Pick<ReadinessLike, "status">; size?: BadgeSize }) {
-  const reduced = useReducedMotion() ?? false;
+  const reduced = useReducedMotionSafe(); // hydration-safe — see that hook's own doc comment
   const [variant, label] =
     readiness.status === "ready"
       ? (["success", "Ready"] as const)
