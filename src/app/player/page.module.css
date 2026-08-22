@@ -1,16 +1,85 @@
+/*
+ * Player route — dark, premium "gameshow" shell. `.page` carries the
+ * global `vb-dark-scope` class (tokens.css) in the JSX, not here — every
+ * token this whole file (and every shared component it renders: Card,
+ * Badge, Button, TeamRoster, SessionEndedNotice, KickedNotice, chat…)
+ * reads resolves to the dark palette for free, with zero changes needed
+ * to any of those shared components. Host/Display stay completely
+ * untouched; this is the one route that's always dark, not OS-linked,
+ * same spirit as `--vb-obs-bg` (a broadcast output stays dark
+ * regardless of the visitor's OS theme).
+ *
+ * The old shell was a flat stack of white-bordered `Card`s inside a
+ * cream page (a badge strip for a header, a card for the score, a card
+ * for the round, a card for chat…) — technically correct, but it read as
+ * an admin dashboard, not a gameshow. This rewrite removes nested-card
+ * borders/shadows wherever the CONTENT itself can carry visual weight
+ * instead (team color, size, contrast), and keeps exactly one thing
+ * visually dominant per screen.
+ */
 .page {
-  max-width: 40rem;
+  min-height: 100dvh;
+  background: var(--vb-bg);
+  color: var(--vb-text);
+}
+
+.shell {
+  max-width: 34rem;
   margin: 0 auto;
-  padding: var(--vb-space-6) var(--vb-space-4);
+  padding: 0 var(--vb-space-4) var(--vb-space-6);
   display: flex;
   flex-direction: column;
   gap: var(--vb-space-4);
 }
 
 .join {
-  max-width: 26rem;
-  margin: var(--vb-space-8) auto;
-  width: 100%;
+  max-width: 24rem;
+  margin: 0 auto;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: var(--vb-space-6) var(--vb-space-4);
+  gap: var(--vb-space-6);
+}
+
+.joinBrand {
+  text-align: center;
+}
+
+.joinWordmark {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  color: var(--vb-primary);
+  text-decoration: none;
+}
+
+.joinTagline {
+  margin: var(--vb-space-1) 0 0;
+  font-size: 0.85rem;
+  color: var(--vb-text-muted);
+}
+
+.accountRow {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--vb-space-3);
+}
+
+.accountStatsLink {
+  display: block;
+  margin: var(--vb-space-2) auto 0;
+  text-align: center;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--vb-accent);
+  text-decoration: none;
+}
+
+.accountStatsLink:hover {
+  text-decoration: underline;
 }
 
 .joinForm {
@@ -22,13 +91,15 @@
 .teamChoice {
   display: flex;
   flex-direction: column;
-  gap: var(--vb-space-1);
+  gap: var(--vb-space-2);
 }
 
 .teamChoiceLabel {
   margin: 0;
-  font-size: 0.8125rem;
-  font-weight: 600;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
   color: var(--vb-text-muted);
 }
 
@@ -39,93 +110,217 @@
 }
 
 .teamButton {
-  min-height: var(--vb-tap-target);
+  min-height: 3rem;
   padding: var(--vb-space-3);
   border-radius: var(--vb-radius-md);
   border: 2px solid var(--vb-border);
   background: var(--vb-surface);
-  font-weight: 700;
+  color: var(--vb-text-muted);
+  font-weight: 800;
+  letter-spacing: 0.02em;
   cursor: pointer;
-  transition: border-color var(--vb-transition-fast), background-color var(--vb-transition-fast);
+  transition: border-color var(--vb-transition-fast), background-color var(--vb-transition-fast), color var(--vb-transition-fast);
 }
 
 .teamButton:focus-visible {
-  outline: 2px solid var(--vb-primary);
+  outline: 2px solid var(--vb-accent);
   outline-offset: 2px;
-}
-
-.teamA {
-  color: var(--vb-team-a);
-}
-
-.teamB {
-  color: var(--vb-team-b);
 }
 
 .teamButtonActive.teamA {
   border-color: var(--vb-team-a);
   background: var(--vb-team-a-bg);
+  color: var(--vb-team-a);
 }
 
 .teamButtonActive.teamB {
   border-color: var(--vb-team-b);
   background: var(--vb-team-b-bg);
+  color: var(--vb-team-b);
 }
 
 .errorBanner {
-  padding: var(--vb-space-2) var(--vb-space-3);
+  padding: var(--vb-space-3);
   background: var(--vb-danger-bg);
   color: var(--vb-danger);
-  border-radius: var(--vb-radius-sm);
+  border-radius: var(--vb-radius-md);
   font-size: 0.85rem;
   font-weight: 600;
 }
 
-.header {
+/* ---------------------------------------------------------------------
+ * Top bar — replaces the old flat row of five equal-weight badges. Two
+ * compact lines instead of a stack: brand/session on top, identity/show
+ * score below. A player never needs to STUDY this, just glance at it —
+ * so it stays small and quiet, leaving the vertical space it used to
+ * take (a good ~50px on a 375px phone) to the actual game below.
+ * ------------------------------------------------------------------- */
+/* ONE row now, not two (`.identityBar` merged in — see player/page.tsx's
+   own comment on why: ~50-60px of pure chrome, on a screen whose whole
+   point is the map dominating, for two rows that both carry real but
+   low-priority-during-gameplay information). Tighter vertical padding
+   too — this never needs to be a comfortable "header," just a glance. */
+.topBar {
   display: flex;
-  gap: var(--vb-space-2);
   align-items: center;
-  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--vb-space-2);
+  padding: var(--vb-space-3) 0 var(--vb-space-2);
+  border-bottom: 1px solid var(--vb-border);
 }
 
-/* The "control room" end of the shared HOME -> PLAYER transition — see
-   the .vb-wordmark-transition rule in src/ui/tokens.css. */
-/* Now a real <Link href="/">, not decoration — the only way back to the
-   homepage from this screen (see the brief: no DevNav, no Dashboard,
-   just this). */
+.brandCluster {
+  display: flex;
+  align-items: center;
+  gap: var(--vb-space-2);
+  min-width: 0;
+  flex-wrap: wrap;
+  row-gap: var(--vb-space-1);
+}
+
 .brandMark {
   font-size: 0.8rem;
   font-weight: 800;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.12em;
   color: var(--vb-primary);
   text-decoration: none;
-  transition: opacity var(--vb-transition-fast);
-}
-
-.brandMark:hover {
-  opacity: 0.75;
+  flex-shrink: 0;
 }
 
 .brandMark:focus-visible {
-  outline: 2px solid var(--vb-primary);
+  outline: 2px solid var(--vb-accent);
   outline-offset: 2px;
   border-radius: var(--vb-radius-sm);
 }
 
+.sessionCode {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--vb-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.topBarEnd {
+  display: flex;
+  align-items: center;
+  gap: var(--vb-space-3);
+  flex-shrink: 0;
+}
+
+.menuButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--vb-radius-full);
+  border: none;
+  background: transparent;
+  color: var(--vb-text-muted);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.menuButton:hover,
+.menuButton:focus-visible {
+  background: var(--vb-surface-raised);
+  color: var(--vb-text);
+}
+
+.identityChip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--vb-space-2);
+  font-size: 0.75rem;
+  font-weight: 800;
+  padding: 0.15rem var(--vb-space-2);
+  border-radius: var(--vb-radius-full);
+  flex-shrink: 0;
+}
+
+.identityChip.teamA {
+  background: var(--vb-team-a-bg);
+  color: var(--vb-team-a);
+}
+
+.identityChip.teamB {
+  background: var(--vb-team-b-bg);
+  color: var(--vb-team-b);
+}
+
+/* A pure text label ("MATCH"), not another Badge pill — this needs to
+   read as unmistakably DIFFERENT from the game's own score, not just a
+   same-shaped badge in a different color that a glance could still
+   confuse for a second score row. */
+.showScoreLabel {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--vb-text-muted);
+}
+
+.showScoreLabel strong {
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: var(--vb-accent);
+  letter-spacing: 0.02em;
+}
+
+/* ---------------------------------------------------------------------
+ * Lobby / waiting states
+ * ------------------------------------------------------------------- */
+.centerStatus {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--vb-space-2);
+  text-align: center;
+  padding: var(--vb-space-6) 0 var(--vb-space-2);
+}
+
+.centerStatusPulse {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  background: var(--vb-warning);
+}
+
+.centerStatusPulse.ready {
+  background: var(--vb-success);
+  animation: vb-live-pulse 2s ease-in-out infinite;
+}
+
+.centerStatusLabel {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--vb-text-muted);
+}
+
+.centerStatusHeadline {
+  margin: 0;
+  font-size: 1.3rem;
+  font-weight: 800;
+}
+
 .rosterRow {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
   gap: var(--vb-space-3);
 }
 
 .startRow {
   display: flex;
   justify-content: center;
-}
-
-.statusRow {
-  display: flex;
-  justify-content: center;
+  padding-top: var(--vb-space-2);
 }
 
 .phaseIn {
@@ -135,13 +330,99 @@
   animation: vb-fade-in-up 280ms ease both;
 }
 
+/* The READY -> 3 -> 2 -> 1 -> LIVE moment — GameStartingSequence.tsx
+   itself is shared with Host/Display (both keep their own plain
+   presentation, untouched), so this only dresses up the PLAYER's own
+   wrapper around it: a soft radial glow (never edited before now,
+   since it used to sit inside a plain white Card) and a scaled-up
+   number so this reads as a real gameshow countdown taking over the
+   whole screen, not a small centered text block in the middle of a
+   page. `transform: scale()` on the wrapper, not a GameStartingSequence
+   prop — the number itself never changes size for Host/Display. */
+.startingWrap {
+  position: relative;
+  min-height: 70vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--vb-primary) 22%, transparent), transparent 65%);
+}
+
+.startingWrap > * {
+  transform: scale(1.4);
+}
+
+/* ---------------------------------------------------------------------
+ * Chat — a `<details>` drawer, collapsed by default EVERYWHERE (Lobby
+ * included — ChatDrawer's own doc comment, player/page.tsx, on why even
+ * the Lobby needed this: `GameChatPanel`'s fixed ~22rem box was real
+ * visual weight, "surcharge," regardless of whether anything else was
+ * competing with it). Never loses an unread message while collapsed —
+ * `.chatUnreadBubble` mirrors the same count `GameChatPanel`'s own tabs
+ * already show per-channel, just summed for the summary that represents
+ * all of them at once.
+ * ------------------------------------------------------------------- */
+.chatDrawer {
+  border-top: 1px solid var(--vb-border);
+  padding-top: var(--vb-space-1);
+}
+
+.chatDrawer > summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--vb-space-3) 0;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--vb-text-muted);
+}
+
+.chatDrawer > summary::-webkit-details-marker {
+  display: none;
+}
+
+.chatDrawerLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--vb-space-2);
+}
+
+.chatUnreadBubble {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  padding: 0 0.35em;
+  border-radius: var(--vb-radius-full);
+  background: var(--vb-danger);
+  color: var(--vb-primary-text);
+  font-size: 0.7rem;
+  font-weight: 800;
+  line-height: 1;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.chatDrawerChevron {
+  transition: transform var(--vb-transition-fast);
+}
+
+.chatDrawer[open] .chatDrawerChevron {
+  transform: rotate(180deg);
+}
+
 @media (max-width: 30rem) {
-  .page {
-    padding: var(--vb-space-4) var(--vb-space-3);
+  .shell {
+    padding: 0 var(--vb-space-3) var(--vb-space-5);
     gap: var(--vb-space-3);
   }
 
   .join {
-    margin: var(--vb-space-5) auto;
+    padding: var(--vb-space-5) var(--vb-space-3);
   }
 }

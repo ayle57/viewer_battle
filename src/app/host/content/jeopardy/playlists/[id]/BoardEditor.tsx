@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
+import { useReducedMotionSafe } from "@/app/_shared/motion/useReducedMotionSafe";
 import { trpc } from "@/app/_trpc/client";
 import { ConfirmDialog } from "@/ui";
 import { popIn } from "@/app/_shared/motion/variants";
@@ -34,7 +35,7 @@ export function BoardEditor({
 }) {
   const utils = trpc.useUtils();
   const invalidate = () => void utils.content.playlist.get.invalidate({ token, playlistId: detail.id });
-  const reduced = useReducedMotion() ?? false;
+  const reduced = useReducedMotionSafe(); // hydration-safe — see that hook's own doc comment
 
   const createCategory = trpc.content.category.create.useMutation({ onSuccess: invalidate });
   const renameCategory = trpc.content.category.rename.useMutation({ onSuccess: invalidate });
@@ -48,6 +49,20 @@ export function BoardEditor({
 
   const categories = detail.categories;
   const categoryToDelete = categories.find((c) => c.id === pendingDeleteCategoryId) ?? null;
+
+  // Shared by the form's `onSubmit` (Enter) and the input's own `onBlur`
+  // (clicking away) — one real action, two ways to trigger it, same as
+  // `CategoryNameField`'s rename input already commits on blur. Guarded
+  // by `createCategory.isPending` so a fast Enter-then-tab-away (or any
+  // other double-trigger) can't fire two creates for one typed name.
+  function commitNewCategory() {
+    const name = newCategoryName.trim();
+    if (!name || createCategory.isPending) return;
+    createCategory.mutate(
+      { token, playlistId: detail.id, name },
+      { onSuccess: () => setNewCategoryOpen(false), onSettled: () => setNewCategoryName("") },
+    );
+  }
 
   function moveCategory(index: number, direction: -1 | 1) {
     const target = index + direction;
@@ -174,12 +189,7 @@ export function BoardEditor({
           <form
             onSubmit={(event) => {
               event.preventDefault();
-              const name = newCategoryName.trim();
-              if (!name) return;
-              createCategory.mutate(
-                { token, playlistId: detail.id, name },
-                { onSuccess: () => setNewCategoryOpen(false), onSettled: () => setNewCategoryName("") },
-              );
+              commitNewCategory();
             }}
           >
             <input
@@ -187,7 +197,17 @@ export function BoardEditor({
               autoFocus
               value={newCategoryName}
               onChange={(event) => setNewCategoryName(event.target.value)}
-              onBlur={() => !newCategoryName.trim() && setNewCategoryOpen(false)}
+              // A real, reproduced bug (found via a real browser, not a
+              // code read): clicking away used to just leave the typed
+              // name sitting there un-submitted — worse than silently
+              // discarding it, since the plain, chrome-less text still
+              // LOOKED exactly like a real saved category header (no
+              // border once blurred), while the DB genuinely had nothing.
+              // Blurring with a real name now commits it — same mental
+              // model as `CategoryNameField`'s own rename input just
+              // above, which already commits on blur; only a genuinely
+              // empty draft closes without saving.
+              onBlur={() => (newCategoryName.trim() ? commitNewCategory() : setNewCategoryOpen(false))}
               onKeyDown={(event) => {
                 if (event.key === "Escape") {
                   setNewCategoryName("");
@@ -283,6 +303,17 @@ function CategoryNameField({ name, onCommit }: { name: string; onCommit: (name: 
     <input
       className={styles.categoryNameInput}
       value={value}
+      // A real, reproduced bug (found via a real browser, not a code
+      // read): the input has no `text-overflow` handling at all, so a
+      // category name even slightly wider than the column (confirmed via
+      // `scrollWidth > clientWidth`, not just a screenshot guess) got
+      // silently clipped mid-word with zero affordance that anything was
+      // cut — worse right next to the always-visible DISABLED ‹/› arrow
+      // at a board edge, which visually fused with the clipped text into
+      // something unreadable. `title` is the cheap, always-accurate
+      // native-tooltip fallback for the full name (CSS below adds the
+      // ellipsis itself).
+      title={value}
       onChange={(event) => setValue(event.target.value)}
       onBlur={() => {
         const trimmed = value.trim();

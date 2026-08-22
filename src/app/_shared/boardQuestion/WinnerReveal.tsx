@@ -1,9 +1,11 @@
 "use client";
 
-import { motion, useReducedMotion } from "motion/react";
+import { motion } from "motion/react";
+import { useReducedMotionSafe } from "@/app/_shared/motion/useReducedMotionSafe";
 import { ScoreDisplay } from "@/ui";
 import { fadeUp, EASE_OUT_EXPO, EASE_SPRING_SNAPPY } from "@/app/_shared/motion/variants";
 import { LetterReveal } from "@/app/_shared/motion/LetterReveal";
+import { VictoryGlow } from "@/app/_shared/VictoryGlow";
 import styles from "./WinnerReveal.module.css";
 
 /**
@@ -33,6 +35,8 @@ export interface WinnerRevealProps {
   teamBScore: number;
   /** "md" fits Host's card; "lg" is the Display's OBS-scale treatment — this IS the moment a streamer is most likely to have on screen when their audience is watching, so it gets real weight there. */
   size?: "md" | "lg";
+  /** Defaults to "Game Over" (unchanged for both existing callers — Host's results splash, Display's finished state). The Show layer reuses this exact same choreography for its OWN final result (`winner`/scores already generic — see this component's own doc comment) with `eyebrow="Show Over"`, rather than a second, duplicated reveal component. */
+  eyebrow?: string;
 }
 
 /**
@@ -54,32 +58,22 @@ export interface WinnerRevealProps {
  * sequence is a one-shot consequence of real state, not a loop
  * pretending to be gameplay.
  *
- * The spotlight is a `clip-path: circle()` iris (PageChangeCurtain's own
- * technique), not a blurred div — the previous version blurred a circle
- * against `overflow: hidden`, which hard-clips a soft blur into a
- * visible rectangular seam right where it should fade out; clip-path
- * has no such edge to clip.
+ * The background wash behind the reveal is `VictoryGlow` (src/app/
+ * _shared/) — a full-viewport, portaled spotlight, not a div scoped to
+ * this component's own small box (see that component's own doc comment
+ * for the real "coupée pas correctement" complaint this used to have).
  */
-export function WinnerReveal({ winner, teamAScore, teamBScore, size = "md" }: WinnerRevealProps) {
-  const reduced = useReducedMotion() ?? false;
-  const glowClass = winner === "TEAM_A" ? styles.glowA : winner === "TEAM_B" ? styles.glowB : undefined;
+export function WinnerReveal({ winner, teamAScore, teamBScore, size = "md", eyebrow = "Game Over" }: WinnerRevealProps) {
+  const reduced = useReducedMotionSafe(); // hydration-safe — see that hook's own doc comment
   const winnerClass = winner === "TEAM_A" ? styles.winnerA : winner === "TEAM_B" ? styles.winnerB : undefined;
   const winnerText = winner === "TIE" ? "IT'S A TIE" : winner === "TEAM_A" ? "TEAM A WINS" : "TEAM B WINS";
 
   return (
     <div className={[styles.wrap, size === "lg" && styles.wrapLg].filter(Boolean).join(" ")}>
-      {glowClass && (
-        <motion.div
-          className={[styles.glow, glowClass].join(" ")}
-          aria-hidden="true"
-          initial={{ clipPath: "circle(0% at 50% 55%)" }}
-          animate={{ clipPath: "circle(75% at 50% 55%)" }}
-          transition={reduced ? { duration: 0.15 } : { delay: 0.5, duration: 0.7, ease: EASE_OUT_EXPO }}
-        />
-      )}
+      {winner !== "TIE" && <VictoryGlow team={winner} />}
 
       <motion.p className={styles.eyebrow} initial="hidden" animate="show" variants={fadeUp(reduced)}>
-        Game Over
+        {eyebrow}
       </motion.p>
 
       <motion.div className={styles.scoreLayer} initial="hidden" animate="show" variants={fadeUp(reduced, { delay: 0.15 })}>

@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 import type { BoardQuestionState } from "@/domain/game/boardQuestion";
-import { AnswerInput, BuzzButton, Card, CardBody, QuestionPrompt } from "@/ui";
+import { AnswerInput, BuzzButton, QuestionPrompt } from "@/ui";
 import { AnimatedScoreDisplay } from "./AnimatedScoreDisplay";
 import { BuzzImpact } from "./BuzzImpact";
 import { BoardGrid } from "./BoardGrid";
 import { describeLastResult, lastJudgment } from "./events";
 import { readableGameError } from "./gameErrorMessages";
+import { CountdownBadge } from "@/app/_shared/CountdownBadge";
 import styles from "./PlayerBoardPanel.module.css";
 
 export interface PlayerBoardPanelProps {
@@ -30,6 +31,14 @@ const TEAM_LABEL: Record<"TEAM_A" | "TEAM_B", string> = { TEAM_A: "TEAM A", TEAM
  * redacted the same way — it's visible to every role once sent (the
  * broadcast equivalent of saying it out loud on stream), so both teams
  * see exactly what was answered while the host is judging it.
+ *
+ * Aligned with PlayerGeoPanel's own visual family (same UX/UI pass —
+ * see todos.md): no more nested Cards stacking the score, the board,
+ * and the question on top of each other — a compact score line, the
+ * board itself as the one persistent reference, and the active
+ * question/buzz/answer moment as the actual hero of the screen. Same
+ * mechanics throughout, nothing about BUZZ/SUBMIT_ANSWER/judging
+ * changed, only how it's laid out.
  */
 export function PlayerBoardPanel({ state, role, lastEvents, sendAction }: PlayerBoardPanelProps) {
   const [buzzing, setBuzzing] = useState(false);
@@ -68,11 +77,14 @@ export function PlayerBoardPanel({ state, role, lastEvents, sendAction }: Player
 
   return (
     <div className={styles.wrap}>
-      <Card variant="raised">
-        <CardBody>
-          <AnimatedScoreDisplay teamAName="Team A" teamAScore={state.scores.TEAM_A} teamBName="Team B" teamBScore={state.scores.TEAM_B} />
-        </CardBody>
-      </Card>
+      <div className={styles.scoreLine}>
+        <AnimatedScoreDisplay teamAName="Team A" teamAScore={state.scores.TEAM_A} teamBName="Team B" teamBScore={state.scores.TEAM_B} />
+      </div>
+
+      {/* Read-only — same shared badge GeoGuessr's own PlayerGeoPanel
+          uses (src/domain/game/countdown.ts's own doc comment), no
+          `sendAction` anywhere near it. */}
+      <CountdownBadge deadlineMs={state.countdownDeadline} label="Game ends in" />
 
       {error && <p className={styles.errorBanner}>{readableGameError(error.code, error.message)}</p>}
       {!error && judgment && (
@@ -82,68 +94,51 @@ export function PlayerBoardPanel({ state, role, lastEvents, sendAction }: Player
       )}
       {!error && !judgment && otherResult && <p className={styles.resultBanner}>{otherResult}</p>}
 
-      <Card>
-        <CardBody>
-          <BoardGrid state={state} />
-        </CardBody>
-      </Card>
+      <BoardGrid state={state} />
 
       {activeQuestion ? (
-        <Card variant="raised">
-          <CardBody>
-            <QuestionPrompt category={category?.name} points={activeQuestion.points} prompt={activeQuestion.prompt} />
-            <div className={styles.buzzArea}>
-              {itsMyTurn && (
-                <BuzzImpact team={role}>
-                  <>
-                    {!iSubmitted && (
-                      <>
-                        <p className={[styles.statusLine, styles.myTurn].join(" ")}>YOU BUZZED</p>
-                        <p className={styles.answerLabel}>Your answer</p>
-                      </>
-                    )}
-                    <AnswerInput
-                      onSubmit={(text) => void submitAnswer(text)}
-                      pending={answering}
-                      submitted={iSubmitted}
-                      submitLabel="SEND ANSWER"
-                    />
-                    {iSubmitted && <p className={styles.statusLine}>ANSWER SENT</p>}
-                  </>
-                </BuzzImpact>
-              )}
-
-              {state.buzzedTeam && !itsMyTurn && (
-                <BuzzImpact team={state.buzzedTeam}>
-                  <div className={styles.otherTeamAnswering}>
-                    <p className={styles.statusLine}>{TEAM_LABEL[state.buzzedTeam]} IS ANSWERING</p>
-                    {state.submittedAnswer !== null && (
-                      <p className={styles.theirAnswer}>&ldquo;{state.submittedAnswer}&rdquo;</p>
-                    )}
-                  </div>
-                </BuzzImpact>
-              )}
-
-              {!state.buzzedTeam && canBuzz && (
+        <div className={styles.questionArea}>
+          <QuestionPrompt category={category?.name} points={activeQuestion.points} prompt={activeQuestion.prompt} />
+          <div className={styles.buzzArea}>
+            {itsMyTurn && (
+              <BuzzImpact team={role}>
                 <>
-                  <p className={styles.statusLine}>{isSteal ? "YOU CAN STEAL" : "Gotta be quick!"}</p>
-                  <BuzzButton variant={variant} pending={buzzing} onClick={() => void buzz()} />
+                  {!iSubmitted && (
+                    <>
+                      <p className={[styles.statusLine, styles.myTurn].join(" ")}>YOU BUZZED</p>
+                      <p className={styles.answerLabel}>Your answer</p>
+                    </>
+                  )}
+                  <AnswerInput onSubmit={(text) => void submitAnswer(text)} pending={answering} submitted={iSubmitted} submitLabel="SEND ANSWER" />
+                  {iSubmitted && <p className={styles.statusLine}>ANSWER SENT</p>}
                 </>
-              )}
+              </BuzzImpact>
+            )}
 
-              {!state.buzzedTeam && !canBuzz && myTeamAlreadyOut && !otherTeamAlreadyOut && (
-                <p className={styles.statusLine}>You already buzzed — {TEAM_LABEL[otherTeam]} can steal now.</p>
-              )}
-              {!state.buzzedTeam && !canBuzz && myTeamAlreadyOut && otherTeamAlreadyOut && (
-                <p className={styles.statusLine}>Both teams have tried this question.</p>
-              )}
-            </div>
-          </CardBody>
-        </Card>
+            {state.buzzedTeam && !itsMyTurn && (
+              <BuzzImpact team={state.buzzedTeam}>
+                <div className={styles.otherTeamAnswering}>
+                  <p className={styles.statusLine}>{TEAM_LABEL[state.buzzedTeam]} IS ANSWERING</p>
+                  {state.submittedAnswer !== null && <p className={styles.theirAnswer}>&ldquo;{state.submittedAnswer}&rdquo;</p>}
+                </div>
+              </BuzzImpact>
+            )}
+
+            {!state.buzzedTeam && canBuzz && (
+              <>
+                <p className={styles.statusLine}>{isSteal ? "YOU CAN STEAL" : "Gotta be quick!"}</p>
+                <BuzzButton variant={variant} pending={buzzing} onClick={() => void buzz()} />
+              </>
+            )}
+
+            {!state.buzzedTeam && !canBuzz && myTeamAlreadyOut && !otherTeamAlreadyOut && (
+              <p className={styles.statusLine}>You already buzzed — {TEAM_LABEL[otherTeam]} can steal now.</p>
+            )}
+            {!state.buzzedTeam && !canBuzz && myTeamAlreadyOut && otherTeamAlreadyOut && <p className={styles.statusLine}>Both teams have tried this question.</p>}
+          </div>
+        </div>
       ) : (
-        <p className={styles.statusLine}>
-          {state.status === "finished" ? "Game finished." : "Waiting for Host to select a question."}
-        </p>
+        <p className={styles.statusLine}>{state.status === "finished" ? "Game finished." : "Waiting for Host to select a question."}</p>
       )}
     </div>
   );

@@ -68,6 +68,14 @@
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--vb-text);
+  /* A category name wider than the column used to clip mid-word with no
+     affordance anything was cut off (confirmed via `scrollWidth >
+     clientWidth`, a real reproduced bug) — an ellipsis at least signals
+     "there's more," and the `title` attribute on the element itself
+     (BoardEditor.tsx) gives the full name on hover. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .categoryNameInput:hover,

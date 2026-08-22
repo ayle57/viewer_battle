@@ -157,7 +157,22 @@
   }
 }
 
-:root[data-theme="dark"] {
+/* `.vb-dark-scope` — the SAME dark palette as `:root[data-theme="dark"]`
+   below (one shared selector list, one source of truth for the values),
+   but usable on any wrapping element, not just the document root. Built
+   for the Player route's own "always dark, premium gameshow" identity
+   (src/app/player/page.module.css's `.page`) — deliberately NOT tied to
+   `prefers-color-scheme` (that's an OS preference the REST of the app
+   still follows) and not a real theme TOGGLE either, same spirit as
+   `--vb-obs-bg`/`--vb-obs-text` above ("a broadcast output stays dark
+   regardless of the visitor's OS theme"). Since every existing
+   component already reads `var(--vb-*)` and never hardcodes a color,
+   nesting anything — including shared components also used by Host/
+   Display (SessionEndedNotice, KickedNotice, Card, Badge, Button, …) —
+   under this class re-themes it correctly for free, with zero changes
+   to those components themselves. */
+:root[data-theme="dark"],
+.vb-dark-scope {
   --vb-bg: #17110f;
   --vb-surface: #211917;
   --vb-surface-raised: #2b211e;
@@ -173,17 +188,57 @@
   --vb-accent-text: #201a19;
 
   --vb-success: #4cbf5c;
+  --vb-success-bg: color-mix(in srgb, var(--vb-success) 14%, transparent);
   --vb-warning: #e0a936;
+  --vb-warning-bg: color-mix(in srgb, var(--vb-accent) 18%, transparent);
   --vb-danger: #e2554e;
   --vb-danger-hover: #ec726c;
+  --vb-danger-bg: color-mix(in srgb, var(--vb-danger) 12%, transparent);
   --vb-info: #6f93c9;
+  --vb-info-bg: color-mix(in srgb, var(--vb-info) 12%, transparent);
 
+  /* A REAL, REPRODUCED bug this block used to have: every token ABOVE
+     this comment is a literal color, so redeclaring it here correctly
+     overrides the light `:root` value for anything nested under
+     `.vb-dark-scope`. But `--vb-host`/`--vb-team-b`/every `-bg` tint
+     token is instead a REFERENCE to another token (`--vb-team-b: var(
+     --vb-primary)`, `--vb-team-a-bg: color-mix(in srgb, var(--vb-team-a)
+     ..., transparent)`, ...) — and CSS custom properties resolve a
+     nested `var()` using the referenced property's cascaded value ON
+     THE ELEMENT WHERE THE REFERENCING PROPERTY ITSELF WAS DECLARED, not
+     on whatever element later reads it. Every one of these only had ONE
+     declaration anywhere in this file: on the bare `:root` block, above.
+     For the `data-theme="dark"` TOGGLE this was harmless — that
+     override and `:root`'s own reference live on the literal same
+     element (`<html>`), so the reference still resolved against the
+     override correctly. `.vb-dark-scope` broke that: it sits on a
+     NESTED element (`/player`'s own `<main>`), so `--vb-team-b`'s only
+     declaration (on `:root`/`<html>`) resolved its `var(--vb-primary)`
+     using `:root`'s own LIGHT `--vb-primary`, computed once and then
+     just inherited, unaffected by `.vb-dark-scope`'s override further
+     down the tree. Confirmed directly: `getComputedStyle(mainEl).
+     getPropertyValue('--vb-team-b')` returned the LIGHT value
+     (`#741212`) on an element that was correctly dark for every
+     literal token (`--vb-bg`, `--vb-primary` itself, etc.) — silently
+     wrong team-B color, danger/warning/success backgrounds, and the
+     host color anywhere nested under `.vb-dark-scope` used them.
+     Redeclaring the identical formula here (harmless, not a behavior
+     change, for `:root[data-theme="dark"]`, which already resolved
+     these correctly) is what makes `.vb-dark-scope` (or ANY future
+     non-root scoped theme) actually correct for real. */
+  --vb-host: var(--vb-accent);
+  --vb-host-bg: color-mix(in srgb, var(--vb-host) 16%, transparent);
   --vb-team-a: #5c9bdb;
+  --vb-team-a-bg: color-mix(in srgb, var(--vb-team-a) 14%, transparent);
+  --vb-team-b: var(--vb-primary);
+  --vb-team-b-bg: color-mix(in srgb, var(--vb-team-b) 12%, transparent);
   --vb-display: #a7a7a7;
+  --vb-display-bg: color-mix(in srgb, var(--vb-display) 14%, transparent);
 
   --vb-overlay: rgba(0, 0, 0, 0.7);
   --vb-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
   --vb-shadow-md: 0 8px 24px rgba(0, 0, 0, 0.45);
+  --vb-shadow-glow: 0 0 0 1px var(--vb-primary), 0 8px 28px -6px color-mix(in srgb, var(--vb-primary) 45%, transparent);
 }
 
 /* A fine, near-subliminal grain over the flat background — the
@@ -219,6 +274,44 @@ body {
 *::before,
 *::after {
   box-sizing: border-box;
+}
+
+/* The browser's own default scrollbar — thick, light-gray-on-white in
+   every engine — reads as a rendering glitch against this app's dark
+   surfaces (confirmed: the Content Studio's own page scrollbar, at
+   minimum). Set globally, once, rather than repeating the same rule
+   per scrollable container (BoardEditor.module.css/QuestionEditorDialog.
+   module.css already did exactly that locally, before this existed) —
+   this covers the page-level scrollbar those two never touched, AND
+   every future scrollable element for free. `var(--vb-border)`/
+   `var(--vb-surface)` mean it already tracks light/dark theme with zero
+   extra rules here. Firefox via `scrollbar-color`; Chromium/Safari via
+   the `::-webkit-scrollbar*` pseudo-elements — both engines, same
+   thin/theme-matched result. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--vb-border) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: var(--vb-border);
+  border-radius: var(--vb-radius-full);
+  border: 2px solid var(--vb-bg);
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--vb-text-muted);
+  background-clip: padding-box;
 }
 
 /* Shared phase-transition keyframe — one definition, reused wherever a

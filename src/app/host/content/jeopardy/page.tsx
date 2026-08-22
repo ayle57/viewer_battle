@@ -3,14 +3,15 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
+import { useReducedMotionSafe } from "@/app/_shared/motion/useReducedMotionSafe";
 import { trpc } from "@/app/_trpc/client";
 import { Button, ConfirmDialog, Dialog, Input } from "@/ui";
 import { fadeUp, staggerContainer, EASE_OUT_EXPO } from "@/app/_shared/motion/variants";
 import { useContentIdentityStore } from "../_shared/contentIdentityStore";
 import { formatRelativeTime } from "../_shared/relativeTime";
 import { StudioBreadcrumb } from "../_shared/StudioBreadcrumb";
-import { ActionsMenu } from "../_shared/ActionsMenu";
+import { ActionsMenu } from "@/app/_shared/ActionsMenu";
 import { ReadinessBadge } from "../_shared/ReadinessBadge";
 import styles from "./page.module.css";
 
@@ -20,7 +21,7 @@ export default function JeopardyContentPage() {
   const token = useContentIdentityStore((s) => s.token) ?? "";
   const utils = trpc.useUtils();
   const router = useRouter();
-  const reduced = useReducedMotion() ?? false;
+  const reduced = useReducedMotionSafe(); // hydration-safe — see that hook's own doc comment
 
   const playlists = trpc.content.playlist.list.useQuery({ token, gameKey: GAME_KEY }, { enabled: Boolean(token) });
   const createPlaylist = trpc.content.playlist.create.useMutation({

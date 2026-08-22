@@ -205,6 +205,14 @@
   gap: var(--vb-space-2);
   padding-top: var(--vb-space-3);
   border-top: 1px solid var(--vb-border);
+  /* A real, reproduced bug (found via a real browser, not a code read):
+     "← Previous question" + the counter + "Next question →" never fit
+     one row at 320/375px, and with no wrap they forced THIS row (and
+     everything above it, up through the dialog itself) wider instead of
+     just flowing onto two lines — the same missing-`flex-wrap` failure
+     mode already fixed for GeoGuessr's own header rows earlier this
+     session. */
+  flex-wrap: wrap;
 }
 
 .navCounter {
@@ -221,6 +229,24 @@
   border-radius: var(--vb-radius-sm);
   font-size: 0.85rem;
   font-weight: 600;
+}
+
+/* The escape hatch for a blocked close/navigate attempt (see
+   `blockedAction`'s own doc comment in QuestionEditorDialog.tsx) — a
+   plain underlined link, not a second button competing with the error
+   text's own weight, since this is a deliberately secondary, "only if
+   you really mean it" action sitting right where the trap itself shows. */
+.discardLink {
+  display: block;
+  margin-top: var(--vb-space-1);
+  border: none;
+  background: none;
+  padding: 0;
+  color: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
 }
 
 /* --- Live preview column --- */
@@ -281,7 +307,22 @@
 
 @media (max-width: 46rem) {
   .layout {
-    grid-template-columns: 1fr;
+    /* A real, reproduced bug (found via a real browser, not a code
+       read): a bare `1fr` track never shrinks below its content's own
+       intrinsic width (a grid item's default `min-width` is `auto`, not
+       0) — `.boardMap` right below turns into a horizontal-scrolling
+       flex ROW at this same breakpoint, whose un-scrolled content wants
+       to be ~444px wide, so the single `1fr` track (and the whole
+       dialog around it) was forced to that width too, creating a hidden
+       horizontal scrollbar ON THE DIALOG ITSELF at 320/375px — same
+       failure mode already fixed once this session in GeoGuessr's own
+       mobile grid (ClickableImageMap's viewport). `minmax(0, 1fr)` is
+       the actual fix: the track can now shrink to the dialog's real
+       available width, and `.boardMap`'s own `overflow-x: auto` (below)
+       does what it was already meant to — scroll INSIDE its own strip,
+       not force the whole layout wider.
+    */
+    grid-template-columns: minmax(0, 1fr);
   }
 
   /* On a narrow viewport the map becomes a horizontal scroll strip

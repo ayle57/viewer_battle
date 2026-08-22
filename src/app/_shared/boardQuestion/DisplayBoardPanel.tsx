@@ -6,6 +6,7 @@ import { AnimatedScoreDisplay } from "./AnimatedScoreDisplay";
 import { BuzzImpact } from "./BuzzImpact";
 import { BoardGrid } from "./BoardGrid";
 import { describeLastResult, lastJudgment } from "./events";
+import { CountdownBadge } from "@/app/_shared/CountdownBadge";
 import styles from "./DisplayBoardPanel.module.css";
 
 export interface DisplayBoardPanelProps {
@@ -45,6 +46,11 @@ export function DisplayBoardPanel({ state, lastEvents }: DisplayBoardPanelProps)
           <AnimatedScoreDisplay teamAName="Team A" teamAScore={state.scores.TEAM_A} teamBName="Team B" teamBScore={state.scores.TEAM_B} size="lg" />
         </CardBody>
       </Card>
+
+      {/* Read-only, OBS-scale — same shared badge GeoGuessr's own
+          DisplayGeoPanel uses (src/domain/game/countdown.ts's own doc
+          comment), no `sendAction` anywhere near it. */}
+      <CountdownBadge deadlineMs={state.countdownDeadline} label="Game ends in" className={styles.countdownBadge} />
 
       {state.status === "finished" && (
         <p className={[styles.finishedBanner, finishedClass].filter(Boolean).join(" ")}>

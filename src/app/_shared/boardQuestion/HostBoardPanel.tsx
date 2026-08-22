@@ -7,6 +7,7 @@ import { AnimatedScoreDisplay } from "./AnimatedScoreDisplay";
 import { BoardGrid } from "./BoardGrid";
 import { describeLastResult } from "./events";
 import { readableGameError } from "./gameErrorMessages";
+import { CountdownControl } from "@/app/_shared/CountdownControl";
 import styles from "./HostBoardPanel.module.css";
 
 export interface HostBoardPanelProps {
@@ -70,6 +71,20 @@ export function HostBoardPanel({ state, lastEvents, sendAction }: HostBoardPanel
 
       {state.status !== "finished" && (
         <div className={styles.endGameRow}>
+          {/* Same shared control GeoGuessr's own HostGeoPanel uses (see
+              src/domain/game/countdown.ts's own doc comment on why this
+              is generalized, not GeoGuessr-only) — this engine has no
+              smaller "round" unit to force-close, so expiring always
+              just ends the game outright, the same rule "End game"
+              itself uses. */}
+          <CountdownControl
+            deadlineMs={state.countdownDeadline}
+            idleLabel="End game in"
+            activeLabel="Game ends in"
+            onStart={(durationMs) => sendAction({ type: "START_COUNTDOWN", durationMs })}
+            onCancel={() => sendAction({ type: "CANCEL_COUNTDOWN" })}
+            readError={readableGameError}
+          />
           <Button variant="danger" size="sm" disabled={pending !== null} onClick={() => setEndGameOpen(true)}>
             End game
           </Button>

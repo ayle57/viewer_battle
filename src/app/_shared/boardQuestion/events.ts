@@ -5,11 +5,21 @@
  * invents anything. Board-question-specific shape, so it lives next to
  * the rest of this game's view code, not in src/ui.
  */
+// A REAL, REPRODUCED bug this closes: `event.team` is the server's own
+// raw enum value ("TEAM_A"/"TEAM_B"), never meant for display — every
+// OTHER team-facing label in this app reads "Team A"/"Team B". Confirmed
+// directly, Player screen: judging an answer correct showed "TEAM_A got
+// it — +100," a technical string leaking straight onto a player-facing
+// screen. Falls back to the raw value for any future team-shaped role
+// this map doesn't know about, rather than showing nothing.
+const TEAM_DISPLAY_LABEL: Record<string, string> = { TEAM_A: "Team A", TEAM_B: "Team B" };
+
 export function describeLastResult(events: unknown[]): string | null {
   for (let i = events.length - 1; i >= 0; i--) {
     const event = events[i] as { type?: string; team?: string; correct?: boolean; pointsAwarded?: number };
     if (event.type === "ANSWER_JUDGED") {
-      return event.correct ? `${event.team} got it — +${event.pointsAwarded}` : `${event.team} got it wrong.`;
+      const team = TEAM_DISPLAY_LABEL[event.team ?? ""] ?? event.team;
+      return event.correct ? `${team} got it — +${event.pointsAwarded}` : `${team} got it wrong.`;
     }
     if (event.type === "QUESTION_CLOSED") {
       return "Question closed — nobody got it.";

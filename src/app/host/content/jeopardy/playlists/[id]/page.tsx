@@ -3,13 +3,14 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { motion, useReducedMotion } from "motion/react";
+import { motion } from "motion/react";
+import { useReducedMotionSafe } from "@/app/_shared/motion/useReducedMotionSafe";
 import { trpc } from "@/app/_trpc/client";
 import { Badge, Button, ConfirmDialog } from "@/ui";
 import { EASE_OUT_EXPO } from "@/app/_shared/motion/variants";
 import { useContentIdentityStore } from "../../../_shared/contentIdentityStore";
 import { StudioBreadcrumb } from "../../../_shared/StudioBreadcrumb";
-import { ActionsMenu } from "../../../_shared/ActionsMenu";
+import { ActionsMenu } from "@/app/_shared/ActionsMenu";
 import { SaveStatus, type SaveState } from "../../../_shared/SaveStatus";
 import { ReadinessLine } from "../../../_shared/ReadinessBadge";
 import { parseIssueQueryParam, problemToTarget } from "../../../_shared/readinessNav";
@@ -24,7 +25,7 @@ export default function PlaylistEditorPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const utils = trpc.useUtils();
-  const reduced = useReducedMotion() ?? false;
+  const reduced = useReducedMotionSafe(); // hydration-safe — see that hook's own doc comment
 
   const playlist = trpc.content.playlist.get.useQuery({ token, playlistId }, { enabled: Boolean(token && playlistId), retry: false });
   const updatePlaylist = trpc.content.playlist.update.useMutation({

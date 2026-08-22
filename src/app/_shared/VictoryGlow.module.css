@@ -1,0 +1,19 @@
+/* Fixed to the real viewport (not whatever small Card/panel renders the
+   win) — this IS the "prend tout l'écran" ask. Sits above ordinary page
+   content but well below anything actually interactive-and-modal
+   (Dialog's 100, PageChangeCurtain's 200, the fullscreen map's 250 —
+   ClickableImageMap.module.css) and never intercepts a click itself. */
+.glow {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.teamA {
+  background: radial-gradient(circle, color-mix(in srgb, var(--vb-team-a) 32%, transparent), transparent 68%);
+}
+
+.teamB {
+  background: radial-gradient(circle, color-mix(in srgb, var(--vb-team-b) 32%, transparent), transparent 68%);
+}

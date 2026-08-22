@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { motion, useReducedMotion } from "motion/react";
+import { motion } from "motion/react";
+import { useReducedMotionSafe } from "@/app/_shared/motion/useReducedMotionSafe";
 import { trpc } from "@/app/_trpc/client";
 import { Button, Card, CardBody, ConfirmDialog, Dialog, Input, QuestionPrompt } from "@/ui";
 import { EASE_OUT_EXPO } from "@/app/_shared/motion/variants";
@@ -57,7 +58,7 @@ export function QuestionEditorDialog({
   onNavigate: (mode: QuestionEditorMode) => void;
 }) {
   const utils = trpc.useUtils();
-  const reduced = useReducedMotion() ?? false;
+  const reduced = useReducedMotionSafe(); // hydration-safe — see that hook's own doc comment
   const invalidate = () => void utils.content.playlist.get.invalidate({ token, playlistId: detail.id });
 
   const flattened = useMemo(
@@ -87,6 +88,18 @@ export function QuestionEditorDialog({
   const promptRef = useRef<HTMLTextAreaElement>(null);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // Set the instant a close/navigate attempt's auto-save-first (below)
+  // fails validation or the mutation itself — a real, reproduced trap
+  // (found via a real browser, not a code read): a Host who typed a
+  // PARTIAL, invalid edit (e.g. a question with no answer yet) and then
+  // tried to leave (×, Escape, overlay, Prev/Next) got stuck with only
+  // the error showing — no affordance to actually leave short of either
+  // finishing it validly or manually retyping every field back to empty/
+  // its last-saved value themselves. Holds the exact action that was
+  // blocked, so the discard link below can just run it directly, still
+  // bypassing another save attempt. Cleared the instant the Host edits
+  // any field again — that's them choosing to fix it instead.
+  const [blockedAction, setBlockedAction] = useState<{ run: () => void; label: string } | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [justDuplicated, setJustDuplicated] = useState(false);
   const [showAnswer, setShowAnswer] = useState(true);
@@ -102,6 +115,7 @@ export function QuestionEditorDialog({
     setPrevIdentityKey(identityKey);
     setSaveState("idle");
     setErrorMessage(null);
+    setBlockedAction(null);
     setJustDuplicated(false);
     if (activeQuestion) {
       setFields({ value: String(activeQuestion.value), prompt: activeQuestion.prompt, answer: activeQuestion.answer });
@@ -118,6 +132,17 @@ export function QuestionEditorDialog({
   const isDirty = activeQuestion
     ? fields.value !== String(activeQuestion.value) || fields.prompt !== activeQuestion.prompt || fields.answer !== activeQuestion.answer
     : fields.prompt.trim() !== "" || fields.answer.trim() !== "";
+
+  // The one place every field's onChange goes through — clears a pending
+  // `blockedAction` (see its own doc comment above) the instant the Host
+  // types again, since that's them choosing to fix the edit rather than
+  // discard it. A stale "Discard and leave anyway" link sitting next to
+  // fields the Host has since changed would be its own confusing,
+  // inconsistent state.
+  function updateField(patch: Partial<FieldsState>) {
+    setFields((f) => ({ ...f, ...patch }));
+    setBlockedAction(null);
+  }
 
   async function save(): Promise<string | null> {
     const parsedValue = Number(fields.value);
@@ -195,7 +220,13 @@ export function QuestionEditorDialog({
   async function goToQuestion(questionId: string) {
     if (isDirty) {
       const savedId = await save();
-      if (!savedId) return; // validation/save failed — stay put, don't lose the edit
+      if (!savedId) {
+        // Stay put, don't lose the edit — but leave a real way out
+        // (below) instead of trapping the Host until they either finish
+        // it validly or manually undo every field themselves.
+        setBlockedAction({ run: () => onNavigate({ type: "edit", questionId }), label: "Discard changes and leave anyway" });
+        return;
+      }
     }
     onNavigate({ type: "edit", questionId });
   }
@@ -209,7 +240,10 @@ export function QuestionEditorDialog({
   async function goToCreate(categoryId: string) {
     if (isDirty) {
       const savedId = await save();
-      if (!savedId) return;
+      if (!savedId) {
+        setBlockedAction({ run: () => onNavigate({ type: "create", categoryId }), label: "Discard changes and leave anyway" });
+        return;
+      }
     }
     onNavigate({ type: "create", categoryId });
   }
@@ -221,12 +255,16 @@ export function QuestionEditorDialog({
    * change to the shared primitive). A dirty, unsaved edit gets one
    * best-effort save first: "no silent loss" wins over "closing is
    * instant" — if the save itself fails, the dialog stays open with the
-   * real error showing instead of discarding the edit.
+   * real error showing AND a "Discard and close anyway" way out
+   * (`blockedAction` below), instead of trapping the Host.
    */
   async function handleClose() {
     if (isDirty) {
       const savedId = await save();
-      if (!savedId) return;
+      if (!savedId) {
+        setBlockedAction({ run: onClose, label: "Discard changes and close anyway" });
+        return;
+      }
     }
     onClose();
   }
@@ -249,6 +287,17 @@ export function QuestionEditorDialog({
 
   async function handleDuplicate() {
     if (mode.type !== "edit") return;
+    // A real, reproduced bug (found via a real browser, not a code
+    // read): the button had no pending-state guard at all, and a real
+    // double-click created TWO duplicates from one click — masked from a
+    // naive "count the HTTP requests" check because tRPC's httpBatchLink
+    // merges concurrent calls into a single request, so the SERVER still
+    // received (and executed) both. `isPending` is checked here
+    // synchronously (react-query flips it the instant `mutateAsync` is
+    // called, before anything actually resolves) as the real guard; the
+    // Button's own `loading` prop below is just the matching visual/
+    // disabled state.
+    if (duplicateQuestion.isPending) return;
     const copy = await duplicateQuestion.mutateAsync({ token, questionId: mode.questionId });
     invalidate();
     setJustDuplicated(true);
@@ -335,7 +384,7 @@ export function QuestionEditorDialog({
               type="number"
               min={1}
               value={fields.value}
-              onChange={(event) => setFields((f) => ({ ...f, value: event.target.value }))}
+              onChange={(event) => updateField({ value: event.target.value })}
             />
           </div>
 
@@ -345,7 +394,7 @@ export function QuestionEditorDialog({
               ref={promptRef}
               className={styles.textarea}
               value={fields.prompt}
-              onChange={(event) => setFields((f) => ({ ...f, prompt: event.target.value }))}
+              onChange={(event) => updateField({ prompt: event.target.value })}
               placeholder="What is the longest river in South America?"
               // Logical initial focus for the fast-entry case (product
               // brief "Show Preparation" section 6) — a fresh "create" slot
@@ -363,12 +412,25 @@ export function QuestionEditorDialog({
             <textarea
               className={styles.textarea}
               value={fields.answer}
-              onChange={(event) => setFields((f) => ({ ...f, answer: event.target.value }))}
+              onChange={(event) => updateField({ answer: event.target.value })}
               placeholder="The Amazon"
             />
           </label>
 
-          {errorMessage && <p className={styles.errorBanner}>{errorMessage}</p>}
+          {errorMessage && (
+            <p className={styles.errorBanner}>
+              {errorMessage}
+              {/* Only appears when a close/navigate attempt was actually
+                  blocked by this exact error (not for a plain Save click
+                  that failed) — the escape hatch for the trap described
+                  on `blockedAction`'s own doc comment above. */}
+              {blockedAction && (
+                <button type="button" className={styles.discardLink} onClick={() => blockedAction.run()}>
+                  {blockedAction.label}
+                </button>
+              )}
+            </p>
+          )}
 
           <div className={styles.footer}>
             <div className={styles.footerLeft}>
@@ -377,7 +439,7 @@ export function QuestionEditorDialog({
                   <Button variant="danger" size="sm" onClick={() => setDeleteOpen(true)}>
                     Delete
                   </Button>
-                  <Button variant="ghost" size="sm" onClick={() => void handleDuplicate()}>
+                  <Button variant="ghost" size="sm" loading={duplicateQuestion.isPending} onClick={() => void handleDuplicate()}>
                     Duplicate
                   </Button>
                   {justDuplicated && (

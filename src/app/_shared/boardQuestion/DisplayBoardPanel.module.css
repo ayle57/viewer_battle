@@ -11,6 +11,11 @@
   padding: var(--vb-space-4) 0;
 }
 
+.countdownBadge {
+  font-size: 1.1rem;
+  padding: var(--vb-space-2) var(--vb-space-4);
+}
+
 .questionEnter {
   animation: vb-fade-in-up 380ms ease both;
 }

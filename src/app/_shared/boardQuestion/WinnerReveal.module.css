@@ -24,27 +24,9 @@
   font-size: clamp(1rem, 2vw, 1.5rem);
 }
 
-/* The "the winner is taking over the frame" moment — a soft, team-colored
-   spotlight growing in behind the reveal, not a hard-edged gradient
-   plastered on the whole page. Restrained on purpose: low peak opacity,
-   settles down rather than staying at full intensity (see the brief's
-   explicit "no gratuitous gradients / no neon" constraint). */
-.glow {
-  position: absolute;
-  inset: -20%;
-  z-index: 0;
-  pointer-events: none;
-  border-radius: 50%;
-  filter: blur(28px);
-}
-
-.glowA {
-  background: radial-gradient(circle, color-mix(in srgb, var(--vb-team-a) 22%, transparent), transparent 70%);
-}
-
-.glowB {
-  background: radial-gradient(circle, color-mix(in srgb, var(--vb-team-b) 22%, transparent), transparent 70%);
-}
+/* The team-colored background wash itself now lives in VictoryGlow.tsx —
+   a full-viewport portaled overlay, not scoped to this small box (see
+   that component's own doc comment). */
 
 .scoreLayer {
   position: relative;

@@ -77,7 +77,15 @@
 
 .endGameRow {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
+  /* `flex-wrap`, same real, reproduced 320px overflow lesson GeoGuessr's
+     own HostGeoPanel already learned — this row now holds TWO groups
+     (the countdown control + End game), not one, since the countdown
+     feature generalized here from GeoGuessr (src/domain/game/countdown.ts's
+     own doc comment). */
+  flex-wrap: wrap;
+  gap: var(--vb-space-2);
 }
 
 @media (max-width: 26rem) {
