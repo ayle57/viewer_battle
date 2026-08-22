@@ -2,7 +2,7 @@ import { readFile, rm } from "node:fs/promises";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { ContentError } from "@/domain/content";
-import { listGeoMapAssets, MAX_UPLOAD_BYTES, saveUploadedGeoAsset } from "./geoAssets";
+import { deleteGeoMapAsset, listGeoMapAssets, MAX_UPLOAD_BYTES, saveUploadedGeoAsset } from "./geoAssets";
 
 const MAPS_DIR = path.join(process.cwd(), "public", "images", "maps");
 
@@ -89,5 +89,45 @@ describe("saveUploadedGeoAsset", () => {
     } catch (error) {
       expect(error).toBeInstanceOf(ContentError);
     }
+  });
+});
+
+describe("deleteGeoMapAsset", () => {
+  const writtenUrls: string[] = [];
+
+  afterEach(async () => {
+    await Promise.all(
+      writtenUrls.splice(0).map((url) => rm(path.join(MAPS_DIR, path.basename(url)), { force: true })),
+    );
+  });
+
+  function fakeFile(name: string, type: string, bytes: number): File {
+    return new File([new Uint8Array(bytes)], name, { type });
+  }
+
+  it("removes a real uploaded asset from disk and from listGeoMapAssets", async () => {
+    const asset = await saveUploadedGeoAsset(fakeFile("to-delete.jpg", "image/jpeg", 10));
+    writtenUrls.push(asset.url);
+
+    await deleteGeoMapAsset(asset.url);
+
+    const list = await listGeoMapAssets();
+    expect(list.some((a) => a.url === asset.url)).toBe(false);
+    await expect(readFile(path.join(MAPS_DIR, path.basename(asset.url)))).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
+  it("is idempotent — deleting a URL that's already gone is a silent success", async () => {
+    await expect(deleteGeoMapAsset("/images/maps/already-gone-abc123.jpg")).resolves.toBeUndefined();
+  });
+
+  it("rejects a URL outside the maps directory without touching the filesystem", async () => {
+    await expect(deleteGeoMapAsset("/images/sample/img.png")).rejects.toMatchObject({ code: "VALIDATION" });
+  });
+
+  it("can't be tricked into escaping the maps directory via a path-traversal URL", async () => {
+    // path.basename strips any directory component, so this resolves to
+    // deleting "public/images/maps/evil.png" (which doesn't exist —
+    // idempotent success), never anything above MAPS_DIR.
+    await expect(deleteGeoMapAsset("/images/maps/../../../etc/evil.png")).resolves.toBeUndefined();
   });
 });

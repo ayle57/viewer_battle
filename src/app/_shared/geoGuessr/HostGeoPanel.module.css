@@ -6,7 +6,51 @@
 
 .endGameRow {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
+  /* `flex-wrap`, same lesson as `.teamStatus`'s own comment above (a
+     real, reproduced 320px overflow bug this session) — this row now
+     holds TWO groups (the countdown control + End game), not one, so
+     it needs the same guard from day one instead of waiting to hit the
+     same bug again. */
+  flex-wrap: wrap;
+  gap: var(--vb-space-2);
+}
+
+.countdownIdle,
+.countdownActive {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--vb-space-2);
+  min-width: 0;
+}
+
+.countdownLabel {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--vb-text-muted);
+  white-space: nowrap;
+}
+
+.countdownButtons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--vb-space-1);
+}
+
+.countdownError {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--vb-danger);
+}
+
+.roundLabel {
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--vb-text-muted);
+  margin: 0;
 }
 
 .errorBanner {
@@ -20,14 +64,34 @@
 
 .teamStatusRow {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  /* `minmax(0, 1fr)`, not bare `1fr` — a real, reproduced bug at 320px:
+     a bare `1fr` track never shrinks below its CONTENT's own minimum
+     width, so once "Team B" badge + "Guessing" text together needed
+     more than half a narrow viewport, the whole grid grew wider than
+     the page instead of the column shrinking — silently clipped by
+     tokens.css's global `overflow-x: hidden` (same root-cause shape as
+     .headerActions' own fix in host/page.module.css). `minmax(0, 1fr)`
+     lets the track shrink to the AVAILABLE space and wrap/ellipsize its
+     own content instead. */
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: var(--vb-space-3);
 }
 
 .teamStatus {
   display: flex;
   align-items: center;
+  /* `flex-wrap: wrap` too, not just the grid track's own `minmax(0, 1fr)`
+     above — that fix alone let the COLUMN shrink, but flex ITEMS default
+     to `min-width: auto` (their own intrinsic content size), so the
+     Badge + status text inside still refused to shrink below their
+     combined natural width and kept overflowing this card specifically,
+     re-confirmed with a real screenshot after the first fix landed.
+     Wrapping lets the status text drop to its own line in a narrow
+     card instead of forcing horizontal overflow. */
+  flex-wrap: wrap;
   justify-content: space-between;
+  gap: var(--vb-space-2);
+  min-width: 0;
   padding: var(--vb-space-3);
   background: var(--vb-surface-raised);
   border-radius: var(--vb-radius-md);
@@ -57,6 +121,17 @@
   font-size: 1.3rem;
   font-weight: 800;
   margin: 0;
+}
+
+/* Same team-color-on-the-headline pattern PlayerGeoPanel/DisplayGeoPanel
+   already use — see HostGeoPanel.tsx's own doc comment on why the Host
+   needed this too, not just the audience-facing roles. */
+.resultTeamA {
+  color: var(--vb-team-a);
+}
+
+.resultTeamB {
+  color: var(--vb-team-b);
 }
 
 .distanceRow {

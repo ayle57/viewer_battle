@@ -1,0 +1,44 @@
+.stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--vb-space-3);
+  text-align: center;
+}
+
+/* Same relative scale as the real DisplayGeoPanel
+   (src/app/_shared/geoGuessr/DisplayGeoPanel.module.css) — smaller in
+   absolute terms only because this dialog is a fraction of a real
+   1920px OBS canvas, not because the Content Studio is guessing at a
+   different look. This IS what "voilà ce que mes viewers vont voir"
+   requires: the same typographic weight/hierarchy, not a Content-
+   Studio-flavored reinterpretation of it. */
+.roundLabel {
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: var(--vb-text-muted);
+  margin: 0;
+}
+
+.question {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: var(--vb-accent);
+  margin: 0;
+  max-width: 40rem;
+}
+
+.questionMissing {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--vb-text-muted);
+  font-style: italic;
+  margin: 0;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  gap: var(--vb-space-3);
+}

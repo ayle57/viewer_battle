@@ -1,14 +1,39 @@
-/* The fixed-size box — never grows with zoom. `overflow: auto` is what
-   turns a zoomed-in `.frame` (wider/taller than this) into something
-   pannable via the browser's own scrollbars/trackpad/touch-drag, no
-   custom pan-tracking code. Owns the visual chrome (border/radius/bg)
-   that used to live on `.frame` itself, since `.frame` can now be
-   larger than its visible box and `overflow: auto` clips to THIS
-   element's rounded corners. */
+/* The INLINE instance's own box — this component's top doc comment on
+   why it never zooms at all any more: `.frame` inside it only ever
+   renders at its own natural `width: 100%; height: auto` size, so
+   `overflow: auto` here has nothing to actually clip/scroll for that
+   case (harmless, not load-bearing). `.overlayViewport` below is the
+   one that actually needs real overflow/panning, once `.frame` can
+   genuinely grow past it via zoom — same chrome (border/radius),
+   different sizing strategy entirely (see its own comment). Owns the
+   visual chrome (border/radius/bg) that used to live on `.frame`
+   itself, since `.frame` inside `.overlayViewport` can be larger than
+   its visible box and `overflow: auto` clips to THIS element's rounded
+   corners. */
+/* NO `border-radius` here — a REAL, REPRODUCED bug this closes:
+   `border-radius` + `overflow: auto` on this element doesn't just
+   round the VISUAL corner, it clips `.frame` (its child, the actual
+   clickable/tappable surface) to that rounded shape at the browser's
+   own hit-testing level too — confirmed directly via
+   `elementFromPoint()` at each of `.frame`'s own four corners: with
+   the radius in place, a point 1px inside any corner resolved to the
+   PARENT Card (or nothing at all, for the two corners with no element
+   behind them), never `.frame` itself; forcing `border-radius: 0`
+   with nothing else changed made every corner resolve to `.frame`
+   immediately. Reported as "je ne peux pas sélectionner les bords...
+   comme une marge" — a small rounded dead zone at all four corners
+   read exactly like an invisible margin, because it visually IS one:
+   the image's own corner pixels were being rounded away, not just
+   this box's decorative chrome. A guess placed at an actual map
+   corner (a perfectly legitimate, sometimes strategic, spot) could
+   never land there. Same tradeoff this component's own overlayViewport
+   fix already made for the identical reason (see below): a small
+   cosmetic loss — square corners instead of rounded ones on the one
+   box that directly clips the real, scored image content — for every
+   pixel of the map staying genuinely clickable, always. */
 .viewport {
   position: relative;
   width: 100%;
-  border-radius: var(--vb-radius-lg);
   overflow: auto;
   border: 1px solid var(--vb-border);
 }
@@ -18,22 +43,39 @@
   width: 100%;
   line-height: 0; /* no baseline gap under the <img> */
   background: var(--vb-surface-raised);
-  touch-action: none; /* a tap here is placing a guess, never a page scroll gesture — see .frameZoomed below for the one case that changes this */
+  touch-action: none; /* a tap here is placing a guess, never a page scroll gesture — see .frameZoomInteractive below for the one case that changes this */
   user-select: none;
-}
-
-/* Once zoomed, `.frame` genuinely overflows `.viewport` and panning it
-   is a real drag/scroll gesture — touch-action has to allow that (the
-   browser's native pan, same one `.viewport`'s `overflow: auto` already
-   supports for mouse/trackpad). `onClick` (not `onPointerDown` — see
-   the component's own doc comment) is what keeps a genuine tap from
-   being confused with a pan once this is active. */
-.frameZoomed {
-  touch-action: pan-x pan-y;
 }
 
 .interactive {
   cursor: crosshair;
+}
+
+/* The fullscreen instance's OWN pointer handler drives BOTH zoom
+   (wheel, no modifier needed — this component's own top doc comment)
+   and pan (drag) manually — touch-action stays fully OFF here (`.frame`
+   already defaults to `none`, this is just explicit at the point that
+   actually matters), or a real finger-drag would get panned TWICE —
+   once by the browser's own native touch-scroll, once by this
+   component's own scrollLeft/scrollTop assignment — fighting each
+   other into a janky, laggy mess. `cursor: grab` hints the drag-to-pan
+   gesture is available, same convention as any pannable canvas — comes
+   AFTER `.interactive` above on purpose, so its `grab` correctly wins
+   over the plain crosshair for the fullscreen case, where both classes
+   are always present together (`zoomInteractive` implies `onPick &&
+   !disabled`, `.interactive`'s own gate). */
+.frameZoomInteractive {
+  touch-action: none;
+  cursor: grab;
+}
+
+/* Active for the duration of a real drag — overrides the idle
+   crosshair/grab cursor with the standard "I'm grabbing this" one,
+   same convention as any pannable canvas. */
+.framePanning,
+.framePanning.interactive,
+.framePanning.frameZoomInteractive {
+  cursor: grabbing;
 }
 
 .image {
@@ -89,22 +131,116 @@
   stroke: var(--vb-text-muted);
 }
 
+/* A REAL, REPRODUCED bug this used to have: the marker's own `left`/
+   `top` came from a coordinate CLAMPED to [10%, 90%] (`renderPercent`,
+   `ClickableImageMap.tsx`'s own former helper), meant to keep the
+   LABEL below from overflowing past the image's edge — but that clamp
+   moved the DOT too, since both lived in the same flex box centered
+   by this rule's own `transform`. Measured directly: a click on the
+   literal top-left corner rendered its pin ~55px (~9.6% of the map's
+   own width) away from where it was actually clicked — nowhere near
+   the "imperceptible" nudge the old clamp's own doc comment claimed.
+   That's backwards for a marker whose position IS the real, scored
+   guess: the dot lying about where a click landed reads exactly like
+   "clicking the edge doesn't work," which is what got reported, twice.
+   Fixed the honest way: `left`/`top` (set inline, `ClickableImageMap.
+   tsx`) are now the TRUE unclamped coordinate, always — no flex
+   layout here any more either, since the label needing independent
+   positioning (see `.markerLabel`'s own edge-flip classes below) means
+   it can't be a same-box flex sibling the dot's own centering also
+   moves. This rule now does nothing but anchor+animate the dot itself. */
 .marker {
   position: absolute;
   transform: translate(-50%, -50%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
   pointer-events: none;
+  /* A one-shot "arrival" pop, not a loop — CSS only replays `animation`
+     when the element is genuinely (re)created, not on every React
+     re-render of the same DOM node (same `key`), so moving an existing
+     marker (dragging the target to a new spot, a guess updated in
+     place) never retriggers this — only a marker that's newly showing
+     up at all does (a target just placed, a guess just set). Exactly
+     item 6/17's "petit impact sur le pin" without it lying about
+     something happening on every unrelated re-render. */
+  animation: vb-marker-pop-in 0.28s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes vb-marker-pop-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.4);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marker {
+    animation: none;
+  }
 }
 
 .markerDot {
+  /* `.marker` is no longer a flex container (see its own doc comment
+     above) — a plain `<span>` is inline by default and ignores
+     width/height entirely, so this needs an explicit block-level
+     display to actually render at its own set size. `position:
+     relative` anchors `.markerDotSelectable::before`'s own expanded
+     tap target below — harmless when this renders as a plain `<span>`
+     (no selectable pseudo-element to anchor). */
+  display: block;
+  position: relative;
   width: 22px;
   height: 22px;
   border-radius: var(--vb-radius-full);
   border: 3px solid var(--vb-surface);
   box-shadow: var(--vb-shadow-md);
+}
+
+/* Only present when this specific `<button>` element is real (`Dot =
+   "button"`, ClickableImageMap.tsx — `onMarkerClick` provided) — resets
+   the browser's own default button chrome (padding/border/background/
+   font) back to exactly nothing extra, so the visual circle stays
+   identical to the plain-`<span>` version. `::before` is the REAL tap
+   target: invisibly larger than the 22px dot (WCAG's ~44px minimum
+   comfortable target), without changing what's actually drawn. */
+.markerDotSelectable {
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.markerDotSelectable::before {
+  content: "";
+  position: absolute;
+  inset: -11px;
+}
+
+/* A persistent ring — "this is the one that's currently selected,"
+   legible even in a still frame (MapMarker.selected's own doc comment
+   on why this is separate from `.markerPulse`, which only reads
+   clearly while it's actively animating). Gold — the same accent used
+   for "armed" everywhere else in the GeoGuessr UI (the chip selector's
+   own outline), one consistent "this is the chosen one" color across
+   the whole screen.
+   A REAL, REPRODUCED bug this closes: an earlier version of this rule
+   used `box-shadow` for the ring — but `.markerPulse` ALSO animates
+   `box-shadow` on this exact same element (`vb-geo-marker-pulse`,
+   below), and a marker is normally BOTH `pulse` and `selected`
+   together (PlayerGeoPanel.tsx sets them in lockstep). A CSS animation
+   on a property completely overrides any static value for that SAME
+   property for its whole duration — the pulse's own keyframes silently
+   ate the ring for the entire time it would have mattered. Confirmed
+   directly via screenshot: no visible ring on the map, only on the
+   chip below it. `border-color` doesn't have this conflict — `.markerDot`
+   already has its own 3px border (the white ring framing the colored
+   dot), untouched by the pulse animation, so recoloring IT survives
+   the pulse instead of losing a fight with it. */
+.markerSelected .markerDot {
+  border-color: var(--vb-accent);
 }
 
 .marker_teamA {
@@ -161,7 +297,44 @@
   animation: vb-geo-marker-pulse 1.8s ease-in-out infinite;
 }
 
+/* `position: absolute`, independent of `.markerDot` — the DOT above
+   now always sits at the TRUE click coordinate (`.marker`'s own doc
+   comment on why), so the label can no longer share its parent's
+   single centered anchor without dragging the dot along with it. This
+   is the "pixel-perfect... tracking which edge each marker is near and
+   flipping its anchor per-marker" fix an earlier version of this file
+   explicitly called out as the honest version of the old clamp-based
+   compromise. Default: centered below the dot, same visual spot the
+   old flex layout put it in for every ordinary (not-near-an-edge)
+   marker — `.markerLabelLeft`/`Right`/`Top` below override ONLY the
+   axis that actually needs to flip (`ClickableImageMap.tsx` computes
+   which, from the marker's real, unclamped x/y), leaving the other
+   axis's default untouched. */
 .markerLabel {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 4px;
+  /* A REAL, REPRODUCED bug this closes: `.frame` sets `line-height: 0`
+     (no baseline gap under the map `<img>`) — an INHERITED property,
+     so without its own override here `.markerLabel` inherited that
+     same `0` too. Under the OLD flex-column layout this was masked by
+     flex's own default `min-height: auto` on flex items, which floors
+     an item's box at its content's intrinsic size regardless of
+     `line-height` — but pulling the label out to `position: absolute`
+     (this file's own doc comment above on why) removes that
+     protection entirely: an absolutely positioned box's height comes
+     purely from its content's line boxes plus padding, and a 0
+     line-height collapses those line boxes to nothing. Measured
+     directly: the label's own rendered height was 4px — exactly its
+     `padding` (2px top + 2px bottom) and NOTHING for the actual text,
+     which `overflow: hidden` (below, needed for the ellipsis) then
+     sliced down to a thin illegible strip of each glyph — read as "le
+     nom sous le pin ne fonctionne pas." `line-height: normal` restores
+     the text's own real line-box height, independent of whatever
+     `.frame` up the tree is doing for the image beneath it. */
+  line-height: normal;
   font-size: 0.7rem;
   font-weight: 800;
   letter-spacing: 0.04em;
@@ -170,6 +343,42 @@
   padding: 2px 6px;
   border-radius: var(--vb-radius-sm);
   white-space: nowrap;
+  /* Labels moved from a fixed 2-letter abbreviation to a proposer's own
+     full display name (a real collision bug: two teammates with
+     different names but the same first two letters read as identical,
+     indistinguishable pins) — a name has no length cap, so this clamps
+     any pathologically long one with an ellipsis instead of overflowing
+     past the map's own edge. */
+  max-width: 12ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* A dot near the map's own left/right edge would otherwise center a
+   label that overflows straight past it — anchor the label's own
+   left/right edge to the dot instead of its center, so it grows
+   INWARD, toward the image, rather than off the edge. */
+.markerLabelLeft {
+  left: 0;
+  transform: none;
+}
+
+.markerLabelRight {
+  left: auto;
+  right: 0;
+  transform: translateX(0);
+}
+
+/* A dot near the map's own BOTTOM edge would otherwise render its
+   label (which sits below the dot by default) past the image entirely
+   — flip it to sit ABOVE the dot instead. Independent of the left/
+   right classes above (this only touches the vertical axis), so a
+   marker near a true corner gets both at once correctly. */
+.markerLabelTop {
+  top: auto;
+  bottom: 100%;
+  margin-top: 0;
+  margin-bottom: 4px;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -178,16 +387,23 @@
   }
 }
 
-/* Pinned to `.viewport`'s own padding box (not `.frame`'s — `.frame`
-   scrolls around under it once zoomed, the controls must not). An
-   `overflow: auto` container's `position: relative` establishes exactly
-   that containing block for an absolutely-positioned child: fixed at
-   this corner regardless of how far the content underneath is
-   scrolled, no JS scroll-tracking needed. */
+/* `position: fixed` to the actual browser viewport (screen corner),
+   not `position: absolute` relative to `.viewport`/`.frame` — a real,
+   reported problem with the absolute version: at low zoom, this sits
+   in the exact same screen corner the underlying image's own extreme
+   corner renders in, making a target in that few-pixel region briefly
+   unclickable. `.overlayBackdrop`/`.overlayViewport` set no `transform`/
+   `filter` (this file's own doc comments confirm it), so a `fixed`
+   descendant here still anchors to the real screen, immune to the
+   map's own pan/zoom — a target can always be reached by panning it
+   away from this fixed corner, but this corner itself never has to
+   compete with map content for clicks at all any more. Only ever
+   rendered while fullscreen (zoomInteractive), so `fixed` positioning
+   is always correct here — never mounted for the plain inline map. */
 .zoomControls {
-  position: absolute;
-  bottom: var(--vb-space-2);
-  right: var(--vb-space-2);
+  position: fixed;
+  bottom: var(--vb-space-4);
+  right: var(--vb-space-4);
   display: flex;
   align-items: center;
   gap: var(--vb-space-1);
@@ -241,4 +457,212 @@
   text-decoration: underline;
   cursor: pointer;
   padding: 0 var(--vb-space-1);
+}
+
+/* The corner trigger into the fullscreen zoom space, inline map only —
+   same rounded-pill dark treatment as `.zoomControls` (this reads as
+   "part of the same map chrome"), positioned opposite corner so it
+   never collides with any marker sitting near the bottom-right. The
+   ONLY entry point on a touch device (no wheel gesture exists there);
+   still shown on desktop too rather than relying solely on the implicit
+   scroll-to-zoom gesture. */
+.expandButton {
+  position: absolute;
+  top: var(--vb-space-2);
+  right: var(--vb-space-2);
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--vb-radius-full);
+  border: none;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(4px);
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.expandButton:hover {
+  background: rgba(0, 0, 0, 0.85);
+}
+
+/* The dedicated fullscreen zoom space itself — a real, reported UX
+   complaint about the previous inline-only zoom ("le truc pour zoomer
+   est affreux"): cramped panning inside a page-width card, the whole
+   layout jumping as `.viewport` grew. `position: fixed` + `inset: 0`
+   escapes the surrounding page entirely, above every other layer this
+   app uses (Dialog: 100, ScrollProgress: 150, PageChangeCurtain: 200) —
+   a zoomed map the player is actively trying to place a precise guess
+   on should never be able to end up BEHIND anything else on screen.
+   Click anywhere on this backdrop (NOT the map itself — see
+   ClickableImageMap.tsx's own `stopPropagation` on the inner viewport)
+   closes the overlay, same "click outside to dismiss" convention this
+   app's own Dialog primitive already uses. */
+.overlayBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 250;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--vb-space-4);
+  background: rgba(10, 10, 14, 0.92);
+  backdrop-filter: blur(2px);
+}
+
+/* Fills as much of the available viewport as comfortably fits, instead
+   of the inline instance's own natural-image-height clamp (moot here —
+   ClickableImageMap.tsx's own natural-height effect is a no-op while
+   fullscreen) — the whole point of this space is room to actually zoom
+   and pan, not a box sized to the UN-zoomed image. */
+/* NO `border-radius` here either — same corner hit-testing dead zone
+   as `.viewport`'s own doc comment above, same fix. This is the box a
+   player is actively zoomed into to place a PRECISE guess — the one
+   place in this whole component where losing real, clickable image
+   pixels to a decorative rounded corner matters most. */
+.overlayViewport {
+  position: relative;
+  width: 100%;
+  max-width: 1400px;
+  height: 100%;
+  max-height: calc(100dvh - var(--vb-space-8));
+  overflow: auto;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--vb-surface-raised);
+  box-sizing: border-box;
+}
+
+/* NO `min-height` here — a REAL, REPRODUCED bug the PREVIOUS version of
+   this rule (`min-height: 100%`, meant to visually fill a taller box —
+   see history below) actually caused: whenever `.overlayViewport` was
+   taller than the image's own natural aspect ratio at 100% width (the
+   ordinary case for most maps in a portrait-ish browser window),
+   `min-height: 100%` stretched `.frame` to fill that EXTRA height —
+   measured directly, `.frame` could end up 68px taller than its own
+   `<img>`. Click math (`ClickableImageMap.tsx`'s `onPick` handlers)
+   computes the guess's y-fraction as `(clientY - frameRect.top) /
+   frameRect.height` — against `.frame`'s OWN rect, which this stretch
+   had just inflated past the image's real size. The result: a click on
+   the image's OWN true bottom edge computed a fraction like 0.925, not
+   1.0 — confirmed directly, clicking the visible bottom pixel of the
+   map placed the marker at `top: 90%` (renderPercent's own clamp), not
+   the bottom. The real bottom ~7% of the image was only reachable by
+   clicking in the BLANK strip of `.frame`'s own background peeking out
+   below the image — which looks exactly like empty margin, not part of
+   the map, because visually it isn't. This is what "je ne peux pas
+   sélectionner les bordures... comme une marge" actually was: a
+   coordinate-mapping bug wearing a margin's clothes, not (only) the
+   corner-clipping bug the border-radius fix above already closed.
+   `.frame` with no explicit height now just sizes to its own content
+   (the image) at every zoom level — `frameRect` and `imageRect` are
+   always identical, so the click fraction is always correct, corner to
+   corner, with no separate "reachable range" to reason about. Zero
+   visual cost: `.overlayViewport` shares the exact same
+   `var(--vb-surface-raised)` background `.frame` used to stretch to
+   show, so any leftover space below a not-yet-zoomed image reads
+   identically either way — this was purely a coordinate bug, not
+   actually a visual one.
+
+   History for why `.frame` had ANY special height rule at all: an
+   EARLIER version used `display: flex; align-items: center` on
+   `.overlayViewport` (to visually center a not-yet-zoomed small image),
+   which had its OWN real bug — a flex item that grows PAST its
+   scrollable container while centered overflows unevenly on both
+   sides, and `overflow: auto` can only ever reach the TRAILING
+   overflow, never the LEADING one (would need a negative `scrollTop`
+   no browser allows) — confirmed as the cause of an earlier report
+   ("je peux pas ping plus haut que ça"). That flex/centering is GONE
+   (not present here at all any more, and doesn't need to be to avoid
+   its own bug — plain block flow default-anchors `.frame` at the
+   viewport's own top-left, growing `scrollWidth`/`scrollHeight`
+   correctly with no centering to create an unreachable region in the
+   first place). `min-height: 100%` was this rule's own replacement at
+   the time, added only to keep filling the box cosmetically — which
+   is exactly the part that turned out to have this newer, worse bug
+   of its own. Removing it fixes both the coordinate math AND keeps
+   the original centering-overflow bug closed, with no rule needed
+   here at all. */
+
+.overlayViewport .frame > img {
+  width: 100%;
+  height: auto;
+}
+
+/* `position: fixed` to the real screen corner, same reasoning as
+   `.zoomControls`'s own doc comment right above — never competes with
+   the map's own content for clicks at any zoom/pan position. */
+.closeButton {
+  position: fixed;
+  top: var(--vb-space-4);
+  left: var(--vb-space-4);
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  /* A generous, real touch target (~44px tall, the standard minimum
+     comfortable one — WCAG/mobile platform guidelines both converge on
+     roughly this) rather than shrink-wrapped to the text — a small
+     hitbox in a screen corner is easy to miss-tap, especially one-
+     handed on a phone. */
+  min-height: 2.75rem;
+  padding: var(--vb-space-2) var(--vb-space-3);
+  border-radius: var(--vb-radius-full);
+  border: none;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(4px);
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.closeButton:hover {
+  background: rgba(0, 0, 0, 0.85);
+}
+
+/* A brief, self-dismissing gesture hint — real, reported feedback that
+   the interaction model (scroll/pinch to zoom, drag to pan, tap to
+   place) had nothing on screen explaining it. `position: fixed`, top-
+   center of the real screen — same reasoning as `.zoomControls`/
+   `.closeButton`'s own comments, never competing with map content —
+   `pointer-events: none` so it can never itself intercept a tap meant
+   for the map underneath. The fade-out is a pure CSS transition off a
+   class toggle (ClickableImageMap.tsx's own `showHint` timer), not an
+   animation something could get stuck mid-way through. */
+.gestureHint {
+  position: fixed;
+  top: var(--vb-space-4);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1;
+  margin: 0;
+  padding: var(--vb-space-2) var(--vb-space-4);
+  border-radius: var(--vb-radius-full);
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(4px);
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+  animation: vb-geo-hint-fade 3.5s ease forwards;
+}
+
+@keyframes vb-geo-hint-fade {
+  0%,
+  75% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gestureHint {
+    animation: none;
+  }
 }

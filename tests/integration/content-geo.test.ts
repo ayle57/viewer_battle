@@ -3,7 +3,7 @@ import { appRouter } from "@/server/trpc/router";
 import { createContentHost } from "@/server/db/contentHost";
 import { createSession } from "@/server/db/session";
 import { joinSession } from "@/server/db/participant";
-import { getCurrentGame } from "@/server/game";
+import { applyGameAction, getCurrentGame } from "@/server/game";
 import { prisma } from "@/server/db/client";
 import { DEV_PLAYGROUND_HOST_PASSWORD } from "@/domain/session";
 
@@ -140,6 +140,57 @@ describe("Content Studio — GeoGuessr", () => {
       expect(detail.readiness.status).toBe("ready");
     });
 
+    it("Remove map (imageUrl: null) drops a ready round back to incomplete — clearing must persist, not just look cleared client-side", async () => {
+      const token = await freshHost();
+      const playlist = await freshReadyPlaylist(token);
+      const round = (await caller.content.geoPlaylist.get({ token, playlistId: playlist.id })).rounds[0]!;
+      expect((await caller.content.geoPlaylist.get({ token, playlistId: playlist.id })).readiness.status).toBe("ready");
+
+      await caller.content.geoRound.update({ token, roundId: round.id, imageUrl: null });
+      const afterRemove = await caller.content.geoPlaylist.get({ token, playlistId: playlist.id });
+      expect(afterRemove.readiness.status).toBe("incomplete");
+      expect(afterRemove.readiness.incompleteRounds).toContainEqual({ roundId: round.id, missingImage: true, missingQuestion: false, missingTarget: false });
+      // The clear itself actually persisted — re-reading the round shows null, not the old value re-appearing.
+      const reread = await caller.content.geoPlaylist.get({ token, playlistId: playlist.id });
+      expect(reread.rounds.find((r) => r.id === round.id)?.imageUrl).toBeNull();
+    });
+
+    it("Reset location (targetX/targetY: null) drops a ready round back to incomplete, and requires both coordinates cleared together", async () => {
+      const token = await freshHost();
+      const playlist = await freshReadyPlaylist(token);
+      const round = (await caller.content.geoPlaylist.get({ token, playlistId: playlist.id })).rounds[0]!;
+
+      // Clearing only one side of an already-SET target is rejected the
+      // same way setting only one side is (contentGeo.ts's own "both or
+      // neither" guarantee, checked against the EFFECTIVE value).
+      await expect(caller.content.geoRound.update({ token, roundId: round.id, targetX: null })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+
+      await caller.content.geoRound.update({ token, roundId: round.id, targetX: null, targetY: null });
+      const afterReset = await caller.content.geoPlaylist.get({ token, playlistId: playlist.id });
+      expect(afterReset.readiness.status).toBe("incomplete");
+      expect(afterReset.readiness.incompleteRounds).toContainEqual({ roundId: round.id, missingImage: false, missingQuestion: false, missingTarget: true });
+      const reread = await caller.content.geoPlaylist.get({ token, playlistId: playlist.id });
+      const rereadRound = reread.rounds.find((r) => r.id === round.id)!;
+      expect(rereadRound.targetX).toBeNull();
+      expect(rereadRound.targetY).toBeNull();
+    });
+
+    it("Replace map: a new imageUrl overwrites the old one, doesn't disturb question/target, and the OLD url is genuinely gone from the round", async () => {
+      const token = await freshHost();
+      const playlist = await freshReadyPlaylist(token);
+      const round = (await caller.content.geoPlaylist.get({ token, playlistId: playlist.id })).rounds[0]!;
+      const originalUrl = round.imageUrl;
+
+      await caller.content.geoRound.update({ token, roundId: round.id, imageUrl: "/images/maps/a-different-map.jpg" });
+      const detail = await caller.content.geoPlaylist.get({ token, playlistId: playlist.id });
+      const updated = detail.rounds.find((r) => r.id === round.id)!;
+      expect(updated.imageUrl).toBe("/images/maps/a-different-map.jpg");
+      expect(updated.imageUrl).not.toBe(originalUrl);
+      expect(updated.targetX).toBe(round.targetX); // untouched
+      expect(updated.question).toBe(round.question); // untouched
+      expect(detail.readiness.status).toBe("ready"); // still ready — a replace, not a clear
+    });
+
     it("rejects a target with only one coordinate set (must be set together)", async () => {
       const token = await freshHost();
       const playlist = await caller.content.geoPlaylist.create({ token, gameKey: "geoguessr", name: "Half Target" });
@@ -174,6 +225,31 @@ describe("Content Studio — GeoGuessr", () => {
       const afterDelete = await caller.content.geoPlaylist.get({ token, playlistId: playlist.id });
       expect(afterDelete.rounds).toHaveLength(1);
       expect(afterDelete.rounds[0]!.id).toBe(second!.id);
+    });
+
+    it("duplicates a round — question, image reference, and target all copied, a new id, the original untouched", async () => {
+      const token = await freshHost();
+      const playlist = await freshReadyPlaylist(token);
+      const before = await caller.content.geoPlaylist.get({ token, playlistId: playlist.id });
+      const original = before.rounds[0]!;
+
+      const copy = await caller.content.geoRound.duplicate({ token, roundId: original.id });
+      expect(copy.id).not.toBe(original.id);
+      expect(copy.title).toBe("Dam Battlegrounds (Copy)");
+      expect(copy.imageUrl).toBe(original.imageUrl);
+      expect(copy.question).toBe(original.question);
+      expect(copy.targetX).toBe(original.targetX);
+      expect(copy.targetY).toBe(original.targetY);
+
+      const after = await caller.content.geoPlaylist.get({ token, playlistId: playlist.id });
+      expect(after.rounds).toHaveLength(3); // appended, not inserted after the source
+      expect(after.rounds.map((r) => r.id)).toContain(copy.id);
+      expect(after.readiness.ready).toBe(true); // the copy is already complete, same as its source
+
+      // Editing the copy never touches the original.
+      await caller.content.geoRound.update({ token, roundId: copy.id, question: "Edited copy only" });
+      const afterEdit = await caller.content.geoPlaylist.get({ token, playlistId: playlist.id });
+      expect(afterEdit.rounds.find((r) => r.id === original.id)?.question).toBe(original.question);
     });
   });
 
@@ -260,6 +336,29 @@ describe("Content Studio — GeoGuessr", () => {
       ).rejects.toMatchObject({ code: "NOT_FOUND" });
     });
 
+    it("a playlist deleted AFTER the Host selected it (another Content Studio tab, mid-session) fails Start Game cleanly — no crash, no SessionGame row, a real error code", async () => {
+      const contentToken = await freshHost();
+      const playlist = await freshReadyPlaylist(contentToken); // ready at the moment the Host's picker would have shown it
+      const { session, hostToken } = await hostedSession();
+
+      // Deleted from a DIFFERENT Content Studio tab/session — the exact
+      // "content deleted while /host is open" scenario: the Host's own
+      // picker still has this playlistId selected in local state, but it
+      // no longer exists server-side by the time they actually click
+      // Start Game.
+      await caller.content.geoPlaylist.delete({ token: contentToken, playlistId: playlist.id });
+
+      await expect(
+        caller.game.start({
+          token: hostToken,
+          gameKey: "geoguessr",
+          content: { type: "playlist", playlistId: playlist.id, contentToken },
+        }),
+      ).rejects.toMatchObject({ code: "NOT_FOUND" });
+
+      expect(await getCurrentGame(session.id)).toBeNull(); // no half-created game left behind
+    });
+
     it("refuses to start with an incomplete GeoGuessr playlist, and never creates a SessionGame row for it", async () => {
       const contentToken = await freshHost();
       const playlist = await caller.content.geoPlaylist.create({ token: contentToken, gameKey: "geoguessr", name: "Incomplete" });
@@ -275,6 +374,81 @@ describe("Content Studio — GeoGuessr", () => {
       ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
 
       expect(await getCurrentGame(session.id)).toBeNull();
+    });
+
+    /** Locks item 8's explicit ask: the Content Studio round ORDER is what the Game Kernel actually plays, not creation order. */
+    it("plays rounds in exactly the persisted reorder, not the order they were created in", async () => {
+      const contentToken = await freshHost();
+      const playlist = await freshReadyPlaylist(contentToken); // created as [Dam Battlegrounds, Blue Lake]
+      const before = await caller.content.geoPlaylist.get({ token: contentToken, playlistId: playlist.id });
+      const [first, second] = before.rounds;
+
+      // Flip the order before the game ever starts.
+      await caller.content.geoRound.reorder({ token: contentToken, playlistId: playlist.id, orderedRoundIds: [second!.id, first!.id] });
+
+      const { session, hostToken } = await hostedSession();
+      await caller.game.start({ token: hostToken, gameKey: "geoguessr", content: { type: "playlist", playlistId: playlist.id, contentToken } });
+
+      const game = await getCurrentGame(session.id);
+      const state = game?.internalState as { rounds: { title?: string }[] };
+      expect(state.rounds.map((r) => r.title)).toEqual(["Blue Lake", "Dam Battlegrounds"]); // the REORDERED order, not creation order
+    });
+
+    it("editing a GeoGuessr playlist after a game has started never changes the running game's snapshot", async () => {
+      const contentToken = await freshHost();
+      const playlist = await freshReadyPlaylist(contentToken);
+      const { session, hostToken } = await hostedSession();
+
+      await caller.game.start({ token: hostToken, gameKey: "geoguessr", content: { type: "playlist", playlistId: playlist.id, contentToken } });
+      const beforeEdit = await getCurrentGame(session.id);
+      const beforeState = beforeEdit?.internalState as { rounds: { title?: string; question: string }[] };
+
+      // Live-edit the playlist mid-game: retitle a round, add a new one.
+      const detail = await caller.content.geoPlaylist.get({ token: contentToken, playlistId: playlist.id });
+      await caller.content.geoRound.update({ token: contentToken, roundId: detail.rounds[0]!.id, title: "Renamed Live", question: "Renamed live question?" });
+      await caller.content.geoRound.create({ token: contentToken, playlistId: playlist.id, title: "Added Live" });
+
+      // Advance the actual game a bit, to prove it's still the untouched snapshot doing the work.
+      const acted = await applyGameAction(session.id, { type: "SET_GUESS", by: "TEAM_A", byName: "P", x: 0.5, y: 0.5 });
+      expect(acted.ok).toBe(true);
+
+      const afterEdit = await getCurrentGame(session.id);
+      const afterState = afterEdit?.internalState as { rounds: { title?: string; question: string }[] };
+      expect(afterState.rounds.map((r) => r.title)).toEqual(beforeState.rounds.map((r) => r.title));
+      expect(afterState.rounds.map((r) => r.title)).not.toContain("Renamed Live");
+      expect(afterState.rounds.map((r) => r.title)).not.toContain("Added Live");
+      expect(afterState.rounds).toHaveLength(beforeState.rounds.length); // the added-live round never joined the running snapshot either
+
+      // But the Playlist itself really did change, for the NEXT game.
+      const playlistNow = await caller.content.geoPlaylist.get({ token: contentToken, playlistId: playlist.id });
+      expect(playlistNow.rounds.map((r) => r.title)).toContain("Renamed Live");
+      expect(playlistNow.rounds.map((r) => r.title)).toContain("Added Live");
+    });
+
+    it("Play Again with the same (now-edited) GeoGuessr playlist picks up the new version in the next game", async () => {
+      const contentToken = await freshHost();
+      const playlist = await freshReadyPlaylist(contentToken);
+      const { session, hostToken } = await hostedSession();
+
+      await caller.game.start({ token: hostToken, gameKey: "geoguessr", content: { type: "playlist", playlistId: playlist.id, contentToken } });
+      await applyGameAction(session.id, { type: "END_GAME", by: "HOST" }); // finish the first game so a second one can start
+
+      const newRound = await caller.content.geoRound.create({ token: contentToken, playlistId: playlist.id, title: "Added After Game 1" });
+      await caller.content.geoRound.update({
+        token: contentToken,
+        roundId: newRound.id,
+        imageUrl: "/images/maps/ac_odyssey_world_map.jpg",
+        question: "Where is the new spot?",
+        targetX: 0.1,
+        targetY: 0.1,
+      });
+
+      const again = await caller.game.start({ token: hostToken, gameKey: "geoguessr", content: { type: "playlist", playlistId: playlist.id, contentToken } });
+      expect(again.ok).toBe(true);
+
+      const game = await getCurrentGame(session.id);
+      const state = game?.internalState as { rounds: { title?: string }[] };
+      expect(state.rounds.map((r) => r.title)).toContain("Added After Game 1");
     });
   });
 });

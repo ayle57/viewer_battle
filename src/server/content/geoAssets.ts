@@ -1,4 +1,4 @@
-import { mkdir, readdir, writeFile } from "node:fs/promises";
+import { mkdir, readdir, unlink, writeFile } from "node:fs/promises";
 import { randomBytes } from "node:crypto";
 import path from "node:path";
 import { ContentError } from "@/domain/content";
@@ -107,4 +107,50 @@ export async function saveUploadedGeoAsset(file: File): Promise<GeoMapAsset> {
   await writeFile(path.join(MAPS_DIR, filename), buffer);
 
   return { url: `/images/maps/${filename}`, name: file.name };
+}
+
+/**
+ * Removes one image from the shared pool — the streamer's own "clean up
+ * the picker" action (contentGeoRouter.ts's `geoAsset.delete`, gated
+ * behind a real ContentHost token, same posture as the upload). Idempotent: deleting a URL
+ * that's already gone (a stale list, a double-click) is a silent
+ * success, not an error — the end state ("this file doesn't exist") is
+ * identical either way. Doesn't check whether any PlaylistRound still
+ * references this URL first — that cross-playlist scan is real added
+ * scope for a "remove a stray/duplicate upload" action; the round
+ * editor's own Save still works afterward, it just shows a broken image
+ * for a round that pointed at the now-deleted file, same as any other
+ * dangling reference in a system with no cascading foreign key here.
+ */
+export async function deleteGeoMapAsset(url: string): Promise<void> {
+  const filename = extractMapsFilename(url);
+  if (!filename) {
+    throw new ContentError("VALIDATION", "That doesn't look like a map image.");
+  }
+  try {
+    await unlink(path.join(MAPS_DIR, filename));
+  } catch (error) {
+    if (isEnoent(error)) return; // already gone — deleting is idempotent
+    throw error;
+  }
+}
+
+/**
+ * Accepts only a URL of the exact shape this file itself hands out
+ * ("/images/maps/<flat filename>") and returns just the filename.
+ * `path.basename` strips any directory component, so a client-supplied
+ * `url` (untrusted — this is what a DELETE request actually carries,
+ * unlike upload's server-generated filename) can never escape MAPS_DIR
+ * via "../" or an absolute path, even though every URL this app itself
+ * ever produces is already flat.
+ */
+function extractMapsFilename(url: string): string | null {
+  if (!url.startsWith("/images/maps/")) return null;
+  const filename = path.basename(url);
+  if (!filename || filename === "." || filename === "..") return null;
+  return filename;
+}
+
+function isEnoent(error: unknown): boolean {
+  return typeof error === "object" && error !== null && "code" in error && (error as { code: unknown }).code === "ENOENT";
 }

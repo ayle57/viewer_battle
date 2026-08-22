@@ -8,6 +8,7 @@ import {
   deleteGeoPlaylist,
   deleteRound,
   duplicateGeoPlaylist,
+  duplicateRound,
   getOwnedGeoPlaylist,
   isGeoPlaylistInUse,
   listGeoPlaylists,
@@ -16,7 +17,7 @@ import {
   updateRound,
 } from "@/server/db/contentGeo";
 import { getGeoPlaylistReadiness } from "@/domain/content";
-import { listGeoMapAssets } from "@/server/content/geoAssets";
+import { deleteGeoMapAsset, listGeoMapAssets } from "@/server/content/geoAssets";
 
 /**
  * GeoGuessr's Content Studio tRPC surface — the geo counterpart to
@@ -155,6 +156,16 @@ const geoRoundRouter = router({
     }
   }),
 
+  /** Copies question/image/target into a new round appended to the same playlist — see contentGeo.ts's duplicateRound for why copying the image REFERENCE is safe. Useful for a Host preparing several variants of the same map. */
+  duplicate: publicProcedure.input(z.object({ token: z.string().min(1), roundId: z.string().min(1) })).mutation(async ({ input }) => {
+    const hostId = await requireHostId(input.token);
+    try {
+      return await duplicateRound(hostId, input.roundId);
+    } catch (error) {
+      throw toContentTRPCError(error);
+    }
+  }),
+
   reorder: publicProcedure
     .input(z.object({ token: z.string().min(1), playlistId: z.string().min(1), orderedRoundIds: z.array(z.string().min(1)) }))
     .mutation(async ({ input }) => {
@@ -168,9 +179,20 @@ const geoRoundRouter = router({
     }),
 });
 
-/** Read-only — see src/server/content/geoAssets.ts for why this lists a folder instead of a real upload system. No `token` required: this isn't Host-owned content, it's the shared pool of available map images every Host picks from (same posture as a stock asset library would have). */
 const geoAssetRouter = router({
+  /** Read-only — see src/server/content/geoAssets.ts for why this lists a folder instead of real object storage. No `token` required: this isn't Host-owned content, it's the shared pool of available map images every Host picks from (same posture as a stock asset library would have). */
   list: publicProcedure.query(async () => listGeoMapAssets()),
+
+  /** Removes an image from that shared pool — gated behind a real ContentHost token ("le streamer seulement"), unlike `list` above: this is a destructive write, not a read of a shared library. */
+  delete: publicProcedure.input(z.object({ token: z.string().min(1), url: z.string().min(1) })).mutation(async ({ input }) => {
+    await requireHostId(input.token);
+    try {
+      await deleteGeoMapAsset(input.url);
+      return { ok: true as const };
+    } catch (error) {
+      throw toContentTRPCError(error);
+    }
+  }),
 });
 
 export const contentGeoRouter = router({

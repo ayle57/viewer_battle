@@ -9,6 +9,12 @@
   width: 100%;
 }
 
+/* OBS-scale, same reasoning as `.roundLabel` right below — legible from a couch, not a desk. */
+.countdownBadge {
+  font-size: 1.1rem;
+  padding: var(--vb-space-2) var(--vb-space-4);
+}
+
 .roundLabel {
   font-size: 1.1rem;
   font-weight: 800;
@@ -58,9 +64,14 @@
   margin: 0;
 }
 
+/* The dominant element on screen, same scale as DisplayBoardPanel's own
+   board (90rem) — was capped at 900px (56.25rem), noticeably smaller
+   than the Jeopardy equivalent for no reason tied to content; a
+   streamer's map is the whole point of this game, it should read as the
+   biggest thing in the room, not one card among several. */
 .mapCard {
   width: 100%;
-  max-width: 900px;
+  max-width: 90rem;
 }
 
 .distanceRow {
@@ -78,7 +89,21 @@
   color: var(--vb-team-b);
 }
 
+.winnerStage {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--vb-space-2) 0;
+}
+
+/* The team-colored background wash itself now lives in
+   src/app/_shared/VictoryGlow.tsx — a full-viewport portaled overlay,
+   not scoped to this small box. */
+
 .winnerBanner {
+  position: relative;
+  z-index: 1;
   font-size: 1.75rem;
   font-weight: 800;
   letter-spacing: 0.02em;

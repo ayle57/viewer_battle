@@ -27,6 +27,9 @@ const GEO_PLAYLIST_INCLUDE = {
   rounds: { orderBy: { position: "asc" } },
 } satisfies Prisma.PlaylistInclude;
 
+/** How many round images the library grid shows per card — a glance-able stack, not a full filmstrip (see toGeoSummary's own doc comment). */
+const SUMMARY_THUMBNAIL_COUNT = 3;
+
 export interface GeoPlaylistSummary {
   id: string;
   name: string;
@@ -34,12 +37,18 @@ export interface GeoPlaylistSummary {
   gameKey: string;
   roundCount: number;
   readiness: GeoPlaylistReadiness;
+  /** Up to the first SUMMARY_THUMBNAIL_COUNT rounds' images, in round order, skipping rounds with no image yet — purely a library-grid preview (item 1's "map library" card), never read by the Game Kernel or anything readiness-related. */
+  thumbnails: string[];
   createdAt: Date;
   updatedAt: Date;
 }
 
 function toGeoSummary(playlist: Prisma.PlaylistGetPayload<{ include: typeof GEO_PLAYLIST_INCLUDE }>): GeoPlaylistSummary {
   const readiness = getGeoPlaylistReadiness(playlist.rounds);
+  const thumbnails = playlist.rounds
+    .map((r) => r.imageUrl)
+    .filter((url): url is string => Boolean(url))
+    .slice(0, SUMMARY_THUMBNAIL_COUNT);
   return {
     id: playlist.id,
     name: playlist.name,
@@ -47,6 +56,7 @@ function toGeoSummary(playlist: Prisma.PlaylistGetPayload<{ include: typeof GEO_
     gameKey: playlist.gameKey,
     roundCount: readiness.roundCount,
     readiness,
+    thumbnails,
     createdAt: playlist.createdAt,
     updatedAt: playlist.updatedAt,
   };
@@ -204,6 +214,37 @@ export async function updateRound(hostId: string, roundId: string, input: RoundI
     });
     await touchPlaylist(tx, round.playlistId);
     return updated;
+  });
+}
+
+/**
+ * Copies one round — question, target, AND the image reference — into a
+ * brand-new row at the end of the SAME playlist, same shape as
+ * content.ts's `duplicateQuestion`. Safe to just copy the `imageUrl`
+ * STRING rather than the underlying file: an uploaded map was never
+ * owned per-round to begin with (see geoAssets.ts's own doc comment —
+ * it's a shared pool every round in every playlist picks a path INTO,
+ * the exact same many-rounds-one-file relationship `sampleGeoPlaylist`
+ * itself already relies on for its two fixture rounds). The original
+ * round is never touched — this only ever creates a new row.
+ */
+export async function duplicateRound(hostId: string, roundId: string) {
+  const source = await getOwnedRound(hostId, roundId);
+  return prisma.$transaction(async (tx) => {
+    const count = await tx.playlistRound.count({ where: { playlistId: source.playlistId } });
+    const copy = await tx.playlistRound.create({
+      data: {
+        playlistId: source.playlistId,
+        position: count,
+        title: source.title ? `${source.title} (Copy)` : null,
+        imageUrl: source.imageUrl,
+        question: source.question,
+        targetX: source.targetX,
+        targetY: source.targetY,
+      },
+    });
+    await touchPlaylist(tx, source.playlistId);
+    return copy;
   });
 }
 

@@ -1,6 +1,6 @@
 import type { ParticipantRole, TeamRole } from "@/domain/session";
 import { isTeamRole } from "@/domain/session";
-import type { GeoGuess, GeoGuessrState, GeoRound } from "./types";
+import type { GeoGuess, GeoGuessrState, GeoProposal, GeoRound } from "./types";
 
 /**
  * The redaction rule — see types.ts's top comment for why this engine
@@ -22,6 +22,10 @@ import type { GeoGuess, GeoGuessrState, GeoRound } from "./types";
  *     whole engine exists to prove out. DISPLAY never sees either
  *     team's live guess pre-reveal; both become visible, like
  *     everyone else's, once revealed.
+ *   - `proposals`: the same "own team only" posture as `guesses`, always
+ *     — a team's candidate spots stay private to that team even after
+ *     `guesses` itself goes public at reveal, since a proposal that
+ *     never got locked was never anyone's real answer.
  *
  * Redacted numeric fields become `null` (not `""` — there's no sensible
  * string placeholder for a coordinate), keeping the return type
@@ -38,7 +42,21 @@ export function toPublicView(state: GeoGuessrState, viewerRole: ParticipantRole)
     TEAM_B: redactGuess("TEAM_B", state, viewerRole),
   };
 
-  return { ...state, rounds, guesses };
+  // Same "your own team's, never the opponent's" posture as `guesses` —
+  // a proposal is a private in-team candidate (types.ts's
+  // GeoGuessrState.proposals doc comment), not information the other
+  // team should ever see, and DISPLAY has no team to see either team's
+  // proposals from.
+  const proposals: Record<TeamRole, GeoProposal[]> = {
+    TEAM_A: isTeamRole(viewerRole) && viewerRole === "TEAM_A" ? state.proposals.TEAM_A : [],
+    TEAM_B: isTeamRole(viewerRole) && viewerRole === "TEAM_B" ? state.proposals.TEAM_B : [],
+  };
+
+  // `countdownDeadline` deliberately isn't touched here — see its own
+  // doc comment on types.ts's GeoGuessrState: unlike every field above,
+  // it's genuinely public, so the `...state` spread already carries it
+  // through byte-identical for every role, HOST included.
+  return { ...state, rounds, guesses, proposals };
 }
 
 function redactRound(round: GeoRound, index: number, state: GeoGuessrState): GeoRound {

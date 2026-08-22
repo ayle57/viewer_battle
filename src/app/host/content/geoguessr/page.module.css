@@ -156,6 +156,41 @@
   border-color: var(--vb-accent);
 }
 
+/* A glance-able stack of this set's own maps, top of the card — item 1's
+   "miniature de quelques maps si disponibles." Fixed-height strip of up
+   to 3 thumbnails side by side, not a single hero image: the point is
+   "here's a preview of what's inside," not one map standing in for the
+   whole set. */
+.thumbStack {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 3px;
+  height: 4.5rem;
+  border-radius: var(--vb-radius-md);
+  overflow: hidden;
+  margin-bottom: var(--vb-space-1);
+}
+
+.thumbImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: var(--vb-surface-raised);
+}
+
+.thumbEmpty {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--vb-surface-raised);
+  border: 1px dashed var(--vb-border);
+  border-radius: var(--vb-radius-md);
+  color: var(--vb-text-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
 .playlistCardTop {
   display: flex;
   align-items: flex-start;
@@ -175,12 +210,54 @@ a.playlistName:hover {
   color: var(--vb-accent);
 }
 
+/* Rename-in-place, swapped in for `.playlistName` — same visual weight
+   as the name it replaces so the card doesn't jump around when the
+   Host chooses "Rename" from the card's own menu. */
+.renameInput {
+  flex: 1;
+  min-width: 0;
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--vb-text);
+  border: 1px solid var(--vb-accent);
+  border-radius: var(--vb-radius-sm);
+  background: var(--vb-surface-raised);
+  padding: 1px var(--vb-space-1);
+  margin: -1px calc(var(--vb-space-1) * -1);
+}
+
+.reviewLink {
+  color: var(--vb-warning);
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.reviewLink:hover {
+  text-decoration: underline;
+}
+
 .playlistMeta {
   color: var(--vb-text-muted);
   font-size: 0.8125rem;
   font-weight: 700;
   letter-spacing: 0.02em;
   margin: 0;
+}
+
+.cardProgressTrack {
+  width: 100%;
+  height: 0.3rem;
+  border-radius: var(--vb-radius-full);
+  background: var(--vb-surface-raised);
+  overflow: hidden;
+}
+
+.cardProgressFill {
+  height: 100%;
+  border-radius: var(--vb-radius-full);
+  background: var(--vb-warning);
+  transition: width var(--vb-transition-base);
 }
 
 .playlistDescription {
@@ -243,45 +320,6 @@ a.playlistName:hover {
   line-height: 1;
 }
 
-/* --- Create playlist dialog --- */
-
-.createLayout {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--vb-space-5);
-}
-
-.dialogForm {
-  display: flex;
-  flex-direction: column;
-  gap: var(--vb-space-4);
-}
-
-.previewColumn {
-  display: flex;
-  flex-direction: column;
-  gap: var(--vb-space-2);
-}
-
-.previewLabel {
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--vb-text-muted);
-  margin: 0;
-}
-
-.previewCard {
-  display: flex;
-  flex-direction: column;
-  gap: var(--vb-space-2);
-  padding: var(--vb-space-4);
-  border-radius: var(--vb-radius-lg);
-  border: 1px solid var(--vb-border);
-  background: var(--vb-surface-raised);
-}
-
 .errorBanner {
   padding: var(--vb-space-2) var(--vb-space-3);
   background: var(--vb-danger-bg);
@@ -289,10 +327,4 @@ a.playlistName:hover {
   border-radius: var(--vb-radius-sm);
   font-size: 0.85rem;
   font-weight: 600;
-}
-
-@media (max-width: 40rem) {
-  .createLayout {
-    grid-template-columns: 1fr;
-  }
 }
