@@ -1,0 +1,35 @@
+/* A fixed 4:3 box, not "grow to fit content" — a canvas has no natural
+   intrinsic size the way an <img> does, so something has to pick one;
+   4:3 reads well from a phone in portrait up to an OBS-scale Display
+   without ever needing to scroll. Dark, slightly-raised surface so a
+   light-colored stroke reads clearly regardless of theme. */
+.canvasWrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border: 1px solid var(--vb-border);
+  border-radius: var(--vb-radius-lg);
+  /* Fixed dark surface, deliberately NOT `--vb-surface` (which flips
+     light/dark with the app's own theme) — this is a drawing canvas
+     shown on stream, and the default pen color below (`#f5f5f5`, a
+     light off-white) needs a genuinely dark ground to read against
+     regardless of which theme the rest of the app is in, the same way
+     a whiteboard app's canvas usually doesn't follow OS dark mode. */
+  background: #14151a;
+  overflow: hidden;
+  touch-action: none; /* a drag on this element is a stroke, never a page scroll */
+}
+
+.canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.drawable {
+  cursor: crosshair;
+}
+
+.readOnly {
+  cursor: default;
+}

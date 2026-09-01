@@ -1,0 +1,186 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-4);
+}
+
+.endGameRow {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--vb-space-2);
+}
+
+.roundLabel {
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--vb-text-muted);
+  margin: 0 0 var(--vb-space-2);
+}
+
+.errorBanner {
+  padding: var(--vb-space-2) var(--vb-space-3);
+  background: var(--vb-danger-bg);
+  color: var(--vb-danger);
+  border-radius: var(--vb-radius-sm);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.resultBanner {
+  padding: var(--vb-space-2) var(--vb-space-3);
+  background: var(--vb-surface-raised);
+  border-radius: var(--vb-radius-sm);
+  font-weight: 600;
+  text-align: center;
+}
+
+/* The item photo — public the whole time (this game's own item/price
+   split, see HostPricePanel.tsx's own doc comment), so unlike
+   SteamRatings' HOST-only answer-key image, this one is exactly what
+   Player/Display are already showing. */
+.itemImage {
+  width: 100%;
+  max-height: 14rem;
+  object-fit: contain;
+  border-radius: var(--vb-radius-sm);
+  background: var(--vb-surface-raised);
+  margin-bottom: var(--vb-space-3);
+}
+
+/* Host-only "cheat sheet" — the real price (+ optional margin), the
+   ONLY thing this game ever hides, same posture as SteamRatings' own
+   .answerKey block. Small and clearly labeled so it can never be
+   mistaken for what the audience currently sees. */
+.answerKey {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--vb-space-1);
+  padding: var(--vb-space-3);
+  background: var(--vb-surface-raised);
+  border-radius: var(--vb-radius-sm);
+  margin-bottom: var(--vb-space-3);
+  text-align: center;
+}
+
+.answerKeyLabel {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--vb-text-muted);
+}
+
+.answerKeyPrice {
+  margin: 0;
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: var(--vb-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.answerKeyMargin {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--vb-text-muted);
+}
+
+.hint {
+  margin: 0;
+  color: var(--vb-text-muted);
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.statusBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--vb-space-2);
+  padding: var(--vb-space-4) 0;
+  text-align: center;
+}
+
+.bigBuzz {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.submittedGuess {
+  margin: 0;
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: var(--vb-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.teamA {
+  color: var(--vb-team-a);
+}
+
+.teamB {
+  color: var(--vb-team-b);
+}
+
+.judgeRow {
+  display: flex;
+  gap: var(--vb-space-3);
+  margin-top: var(--vb-space-2);
+  width: 100%;
+}
+
+.judgeRow > * {
+  flex: 1;
+}
+
+.resultBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--vb-space-2);
+  padding: var(--vb-space-3) 0;
+  text-align: center;
+}
+
+.resultHeadline {
+  font-size: 1.3rem;
+  font-weight: 800;
+  margin: 0;
+}
+
+.resultTeamA {
+  color: var(--vb-team-a);
+}
+
+.resultTeamB {
+  color: var(--vb-team-b);
+}
+
+.answerReveal {
+  margin: 0 0 var(--vb-space-2);
+  color: var(--vb-text-muted);
+  font-size: 1rem;
+}
+
+.answerReveal strong {
+  color: var(--vb-text);
+}
+
+.closeRow {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--vb-space-3);
+}
+
+@media (max-width: 26rem) {
+  .judgeRow {
+    flex-direction: column;
+  }
+
+  .bigBuzz {
+    font-size: 1.6rem;
+  }
+}

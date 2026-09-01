@@ -1,0 +1,219 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(var(--vb-space-4), 3vw, var(--vb-space-6));
+  width: 100%;
+  max-width: 90rem;
+  margin: 0 auto;
+}
+
+.scoreCard {
+  padding: var(--vb-space-4) 0;
+}
+
+.trackEnter {
+  animation: vb-fade-in-up 380ms ease both;
+}
+
+.hiddenAudio {
+  display: none;
+}
+
+.statusLine {
+  text-align: center;
+  font-size: clamp(1.1rem, 2vw, 1.5rem);
+  font-weight: 600;
+  color: var(--vb-text-muted);
+  padding: var(--vb-space-4);
+  margin: 0;
+}
+
+.nowPlaying {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--vb-space-2);
+  flex-wrap: wrap;
+  padding: var(--vb-space-6) 0;
+  font-size: clamp(1.3rem, 2.5vw, 2rem);
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: var(--vb-accent);
+}
+
+.nowPlayingDot {
+  width: 0.9rem;
+  height: 0.9rem;
+  border-radius: var(--vb-radius-full);
+  background: var(--vb-accent);
+  animation: vb-now-playing-pulse 1.2s ease-in-out infinite;
+}
+
+/* The Host's own PAUSE_PLAYBACK, honestly reflected here too — the
+   audience should see WHY the music stopped, not just silence with a
+   dot still pulsing as if nothing changed. */
+.paused {
+  color: var(--vb-text-muted);
+}
+
+.paused .nowPlayingDot {
+  background: var(--vb-text-muted);
+  animation: none;
+}
+
+@keyframes vb-now-playing-pulse {
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: scale(0.85);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+}
+
+.unlockButton {
+  border: 1px solid var(--vb-warning);
+  background: var(--vb-warning-bg);
+  color: var(--vb-warning);
+  border-radius: var(--vb-radius-full);
+  padding: var(--vb-space-1) var(--vb-space-3);
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.revealBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--vb-space-1);
+  padding: var(--vb-space-6) 0;
+  text-align: center;
+}
+
+.revealLabel {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: var(--vb-text-muted);
+}
+
+.revealTitle {
+  margin: 0;
+  font-size: clamp(2rem, 4.5vw, 3.5rem);
+  font-weight: 800;
+  color: var(--vb-text);
+}
+
+.revealArtist {
+  margin: 0;
+  font-size: clamp(1.1rem, 2vw, 1.6rem);
+  color: var(--vb-text-muted);
+}
+
+.buzzedBanner {
+  text-align: center;
+  padding: var(--vb-space-4);
+  border-radius: var(--vb-radius-lg);
+  font-size: clamp(1.5rem, 3.2vw, 2.75rem);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.buzzedTeamA {
+  background: var(--vb-team-a-bg);
+  color: var(--vb-team-a);
+  border: 2px solid var(--vb-team-a);
+}
+
+.buzzedTeamB {
+  background: var(--vb-team-b-bg);
+  color: var(--vb-team-b);
+  border: 2px solid var(--vb-team-b);
+}
+
+.finishedBanner {
+  text-align: center;
+  padding: var(--vb-space-5);
+  font-size: clamp(2rem, 5vw, 4rem);
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: var(--vb-accent);
+  animation: vb-winner-reveal-lg 550ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes vb-winner-reveal-lg {
+  from {
+    opacity: 0;
+    transform: scale(0.9) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.finishedA {
+  color: var(--vb-team-a);
+}
+
+.finishedB {
+  color: var(--vb-team-b);
+}
+
+.buzzedBlock {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-3);
+}
+
+.submittedAnswer {
+  text-align: center;
+  font-size: clamp(1.5rem, 3vw, 2.25rem);
+  font-weight: 600;
+  font-style: italic;
+  margin: 0;
+}
+
+.resultBanner {
+  text-align: center;
+  padding: var(--vb-space-4);
+  font-size: clamp(1.25rem, 2.5vw, 2rem);
+  font-weight: 700;
+  background: var(--vb-surface-raised);
+  border-radius: var(--vb-radius-lg);
+}
+
+.judgmentBanner {
+  text-align: center;
+  padding: var(--vb-space-4);
+  border-radius: var(--vb-radius-lg);
+  font-size: clamp(2.25rem, 5vw, 4rem);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.correct {
+  background: var(--vb-success-bg);
+  color: var(--vb-success);
+}
+
+.incorrect {
+  background: var(--vb-danger-bg);
+  color: var(--vb-danger);
+}
+
+@keyframes vb-fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

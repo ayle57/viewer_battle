@@ -1,0 +1,45 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--vb-space-4);
+}
+
+.name {
+  margin: 0;
+  font-size: 1.4rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-align: center;
+  color: var(--vb-text);
+}
+
+.roundLabel {
+  /* `margin-bottom`, not a negative top margin tucked under `.name` —
+     REAL, reproduced overlap this closes: AnimatedScoreDisplay's own
+     "+N just landed" delta badge doesn't just sit at its CSS `top:
+     -0.4rem` (AnimatedScoreDisplay.module.css) — it ANIMATES up to
+     `y: -16px` on TOP of that (AnimatedScoreDisplay.tsx's own
+     `animate={{ y: -16 }}`), so at rest it floats roughly 1.4rem above
+     the score row, not 0.4rem. Every OTHER `AnimatedScoreDisplay`
+     consumer in this app has nothing sitting directly above it closely
+     enough for that extra rise to matter — this is the first one that
+     does, so the extra clearance belongs here, not in the shared
+     component. */
+  margin: 0 0 var(--vb-space-4);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-align: center;
+  color: var(--vb-text-muted);
+}
+
+.statusLine {
+  text-align: center;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--vb-text-muted);
+  padding: var(--vb-space-3);
+  margin: 0;
+}

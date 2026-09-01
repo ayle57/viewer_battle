@@ -1,0 +1,64 @@
+.form {
+  display: flex;
+  gap: var(--vb-space-2);
+}
+
+.inputWrap {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.currencyPrefix {
+  position: absolute;
+  left: var(--vb-space-3);
+  color: var(--vb-text-muted);
+  font-weight: 700;
+  pointer-events: none;
+}
+
+.input {
+  padding-left: calc(var(--vb-space-3) * 2 + 0.6em);
+}
+
+/* Stacked, full-width Send button below a full-width input — same
+   reasoning as `AnswerInput.module.css`'s own breakpoint: easier to hit
+   with a thumb than a cramped inline row, and this is the single most
+   time-sensitive action a player takes. */
+@media (max-width: 26rem) {
+  .form {
+    flex-direction: column;
+  }
+
+  .sendButton {
+    width: 100%;
+  }
+}
+
+.confirmation {
+  display: flex;
+  align-items: center;
+  gap: var(--vb-space-2);
+  padding: var(--vb-space-3);
+  border-radius: var(--vb-radius-md);
+  background: var(--vb-success-bg);
+  color: var(--vb-success);
+  font-size: 0.9rem;
+  font-weight: 600;
+  animation: vb-fade-in-up var(--vb-transition-base) both;
+}
+
+.checkmark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 50%;
+  background: var(--vb-success);
+  color: var(--vb-surface);
+  font-size: 0.75rem;
+  flex-shrink: 0;
+}

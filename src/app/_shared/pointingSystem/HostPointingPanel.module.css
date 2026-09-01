@@ -1,0 +1,258 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-4);
+}
+
+.nameButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--vb-space-2);
+  width: 100%;
+  margin: 0 0 var(--vb-space-3);
+  padding: var(--vb-space-2) var(--vb-space-3);
+  border: none;
+  border-radius: var(--vb-radius-sm);
+  background: transparent;
+  color: var(--vb-text);
+  font-size: 1.3rem;
+  font-weight: 800;
+  text-align: center;
+  cursor: pointer;
+}
+
+.nameButton:hover:not(:disabled) {
+  background: var(--vb-surface-raised);
+}
+
+.nameButton:disabled {
+  cursor: default;
+}
+
+.nameEditHint {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--vb-text-muted);
+}
+
+.nameInput {
+  display: block;
+  width: 100%;
+  margin: 0 0 var(--vb-space-3);
+  padding: var(--vb-space-2) var(--vb-space-3);
+  border: 1px solid var(--vb-accent);
+  border-radius: var(--vb-radius-sm);
+  background: var(--vb-surface-raised);
+  color: var(--vb-text);
+  font-size: 1.3rem;
+  font-weight: 800;
+  text-align: center;
+}
+
+.roundButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--vb-space-1);
+  width: 100%;
+  margin: 0 0 var(--vb-space-3);
+  padding: var(--vb-space-1) var(--vb-space-2);
+  border: none;
+  border-radius: var(--vb-radius-sm);
+  background: transparent;
+  color: var(--vb-text-muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-align: center;
+  cursor: pointer;
+}
+
+.roundButton:hover {
+  background: var(--vb-surface-raised);
+  color: var(--vb-text);
+}
+
+.roundInput {
+  display: block;
+  width: 100%;
+  margin: 0 0 var(--vb-space-3);
+  padding: var(--vb-space-1) var(--vb-space-2);
+  border: 1px solid var(--vb-accent);
+  border-radius: var(--vb-radius-sm);
+  background: var(--vb-surface-raised);
+  color: var(--vb-text);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-align: center;
+}
+
+.thisRoundLine {
+  margin: var(--vb-space-2) 0 0;
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--vb-text-muted);
+}
+
+.scoreA {
+  color: var(--vb-team-a);
+  font-weight: 700;
+}
+
+.scoreB {
+  color: var(--vb-team-b);
+  font-weight: 700;
+}
+
+.historyTitle {
+  margin: 0 0 var(--vb-space-2);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--vb-text-muted);
+}
+
+.historyList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.historyRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--vb-space-2);
+  padding: var(--vb-space-1) var(--vb-space-2);
+  border-radius: var(--vb-radius-sm);
+  background: var(--vb-surface-raised);
+  font-size: 0.9rem;
+}
+
+.historyLabel {
+  color: var(--vb-text);
+  font-weight: 600;
+}
+
+.historyScore {
+  font-variant-numeric: tabular-nums;
+}
+
+.errorBanner {
+  padding: var(--vb-space-2) var(--vb-space-3);
+  background: var(--vb-danger-bg);
+  color: var(--vb-danger);
+  border-radius: var(--vb-radius-sm);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.amountRow {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--vb-space-2);
+}
+
+.amountLabel {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--vb-text-muted);
+}
+
+.amountChips {
+  display: flex;
+  align-items: center;
+  gap: var(--vb-space-2);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.amountChip {
+  min-width: 2.5rem;
+  padding: var(--vb-space-1) var(--vb-space-2);
+  border: 1px solid var(--vb-border);
+  border-radius: var(--vb-radius-full);
+  background: transparent;
+  color: var(--vb-text);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.amountChip:hover {
+  border-color: var(--vb-accent);
+}
+
+.amountChipActive {
+  border-color: var(--vb-accent);
+  background: color-mix(in srgb, var(--vb-accent) 12%, transparent);
+  color: var(--vb-accent);
+}
+
+.amountInput {
+  width: 4.5rem;
+  text-align: center;
+}
+
+.teamGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--vb-space-3);
+}
+
+.teamBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--vb-space-2);
+  padding: var(--vb-space-3);
+  border-radius: var(--vb-radius-lg);
+  background: var(--vb-surface-raised);
+}
+
+.teamName {
+  margin: 0;
+  font-weight: 800;
+  font-size: 1rem;
+}
+
+.teamA .teamName {
+  color: var(--vb-team-a);
+}
+
+.teamB .teamName {
+  color: var(--vb-team-b);
+}
+
+.teamButtons {
+  display: flex;
+  gap: var(--vb-space-2);
+  width: 100%;
+}
+
+.teamButtons > * {
+  flex: 1;
+}
+
+.endGameRow {
+  display: flex;
+  justify-content: flex-end;
+}
+
+@media (max-width: 26rem) {
+  .teamGrid {
+    grid-template-columns: 1fr;
+  }
+}

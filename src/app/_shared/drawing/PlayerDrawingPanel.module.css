@@ -1,0 +1,235 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-3);
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--vb-space-2);
+  text-align: center;
+}
+
+.turnLabel {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: var(--vb-text-muted);
+}
+
+.errorBanner {
+  margin: 0;
+  padding: var(--vb-space-2) var(--vb-space-3);
+  background: var(--vb-danger-bg);
+  color: var(--vb-danger);
+  border-radius: var(--vb-radius-sm);
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+.chooseBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--vb-space-3);
+  padding: var(--vb-space-6) var(--vb-space-4);
+  border-radius: var(--vb-radius-lg);
+  border: 1px dashed var(--vb-border);
+  background: linear-gradient(180deg, var(--vb-surface-raised), transparent);
+}
+
+.chooseIcon {
+  font-size: 2.5rem;
+  line-height: 1;
+}
+
+.instruction {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  color: var(--vb-text);
+  text-align: center;
+}
+
+/* The word reveal — a real "arrival" moment for the drawer, not a plain
+   line of text: a small card of its own, eyebrow label first so the
+   word itself reads as the payoff, not a label + value pair. */
+.promptCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: var(--vb-space-3) var(--vb-space-4);
+  border-radius: var(--vb-radius-md);
+  background: color-mix(in srgb, var(--vb-accent) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--vb-accent) 30%, transparent);
+}
+
+.promptEyebrow {
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  color: var(--vb-accent);
+}
+
+.promptWord {
+  margin: 0;
+  font-size: clamp(1.3rem, 6vw, 1.9rem);
+  font-weight: 900;
+  color: var(--vb-accent);
+  text-align: center;
+}
+
+/* The drawer (and their watching teammate) need this number readable at
+   a glance without hunting for the small shared CountdownBadge every
+   other role gets — this IS the core tension of the drawing phase.
+   Escalates to the danger color + a slow pulse once genuinely urgent
+   (URGENT_THRESHOLD_MS), never before — a countdown that's "urgent" the
+   whole time teaches players to ignore it. */
+.bigCountdown {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  color: var(--vb-warning);
+}
+
+.bigCountdownUrgent {
+  color: var(--vb-danger);
+  animation: vb-drawing-pulse 1s ease-in-out infinite;
+}
+
+@keyframes vb-drawing-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.08);
+  }
+}
+
+.waitingBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--vb-space-3);
+  padding: var(--vb-space-6) 0;
+}
+
+.pulseDot {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--vb-radius-full);
+  background: var(--vb-accent);
+  animation: vb-drawing-dot-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes vb-drawing-dot-pulse {
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: scale(0.85);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
+
+.statusLine {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--vb-text-muted);
+  text-align: center;
+}
+
+.canvasBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--vb-space-2);
+}
+
+.timesUpHeadline {
+  margin: 0;
+  font-size: clamp(1.15rem, 5vw, 1.5rem);
+  font-weight: 900;
+  color: var(--vb-text);
+  text-align: center;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--vb-space-2);
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.swatchRow {
+  display: flex;
+  align-items: center;
+  gap: var(--vb-space-2);
+  flex-wrap: wrap;
+}
+
+.strokeActions {
+  display: flex;
+  align-items: center;
+  gap: var(--vb-space-2);
+  flex-wrap: wrap;
+}
+
+.swatch {
+  position: relative;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--vb-radius-full);
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+  transition: transform var(--vb-transition-fast), border-color var(--vb-transition-fast);
+}
+
+/* Same extended-hit-target pattern as ClickableImageMap.module.css's
+   `.markerDotSelectable::before` — up to `--vb-tap-target` (40px). A
+   real audited gap: the only controls the drawer actually touches
+   in-game, sized well under the minimum. `.swatchRow`'s own
+   `--vb-space-2` (8px) gap between swatches means two neighbors'
+   extended zones meet edge-to-edge here, never overlap. */
+.swatch::before {
+  content: "";
+  position: absolute;
+  inset: -4px;
+}
+
+.swatch:hover {
+  transform: scale(1.1);
+}
+
+.swatchActive {
+  border-color: var(--vb-accent);
+  transform: scale(1.1);
+}
+
+/* A native `<select>` — its whole box is already the real hit target
+   (no pseudo-element trick needed/reliable on a form control), so this
+   is sized straight to `--vb-tap-target` rather than 32px. */
+.widthSelect {
+  height: var(--vb-tap-target);
+  border-radius: var(--vb-radius-sm);
+  border: 1px solid var(--vb-border);
+  background: var(--vb-surface);
+  color: var(--vb-text);
+  font-size: 0.85rem;
+  padding: 0 var(--vb-space-2);
+}

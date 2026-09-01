@@ -1,0 +1,479 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-5);
+  padding: var(--vb-space-5);
+  border-radius: var(--vb-radius-lg);
+  border: 1px solid var(--vb-border);
+  background: var(--vb-surface);
+  box-shadow: var(--vb-shadow-sm);
+}
+
+/* --- Game identity header — "GAME 03 / HOLLOW KNIGHT", plus a
+   glance-able READY/NOT READY verdict, same shape as GeoGuessr's own
+   round header / Music's own TrackEditorPanel. --- */
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--vb-space-3);
+  flex-wrap: wrap;
+}
+
+.headerText {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-1);
+  min-width: 0;
+}
+
+.roundEyebrow {
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--vb-text-muted);
+  margin: 0;
+}
+
+.roundTitle {
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--vb-text);
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: var(--vb-space-3);
+  flex-shrink: 0;
+}
+
+/* --- Readiness panel — same "one consolidated answer" shape as
+   GeoGuessr's own RoundEditorPanel / Music's own TrackEditorPanel. --- */
+
+.readinessPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--vb-space-3) var(--vb-space-4);
+  border-radius: var(--vb-radius-md);
+  border: 1px solid transparent;
+}
+
+.readinessPanelOk {
+  background: var(--vb-success-bg);
+  border-color: color-mix(in srgb, var(--vb-success) 30%, transparent);
+}
+
+.readinessPanelWarn {
+  background: var(--vb-warning-bg);
+  border-color: color-mix(in srgb, var(--vb-warning) 30%, transparent);
+}
+
+.readinessLine {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.readinessPanelOk .readinessLine {
+  color: var(--vb-success);
+}
+
+.readinessPanelWarn .readinessLine {
+  color: var(--vb-warning);
+}
+
+.nextStepLine {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--vb-warning);
+}
+
+.nextStepLabel {
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  margin-right: var(--vb-space-1);
+}
+
+.fieldLabelOk {
+  color: var(--vb-success);
+  font-weight: 800;
+}
+
+/* --- Form --- */
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-4);
+}
+
+.fieldLabel {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--vb-text-muted);
+  margin: 0 0 var(--vb-space-1);
+}
+
+.hint {
+  font-size: 0.8rem;
+  color: var(--vb-text-muted);
+  margin: 0 0 var(--vb-space-2);
+}
+
+/* --- Cover preview: dominant once an image is chosen — same "the
+   preview IS the content, not a buried metadata line" posture as
+   GeoGuessr's own .mapPreview. --- */
+.imagePreview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-2);
+}
+
+.imagePreviewImg {
+  max-width: 100%;
+  max-height: 14rem;
+  border-radius: var(--vb-radius-md);
+  object-fit: contain;
+  background: var(--vb-surface-raised);
+}
+
+.imagePreviewActions {
+  display: flex;
+  gap: var(--vb-space-2);
+}
+
+.cancelReplace {
+  border: none;
+  background: none;
+  padding: 0;
+  margin-top: calc(var(--vb-space-2) * -1);
+  margin-bottom: var(--vb-space-2);
+  color: var(--vb-text-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.cancelReplace:hover {
+  color: var(--vb-text);
+}
+
+/* "Drop the cover image here / or / Browse files" — same real
+   drop-target shape as GeoGuessr's own .dropzone. */
+.dropzone {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--vb-space-1);
+  min-height: 8rem;
+  padding: var(--vb-space-4);
+  margin-bottom: var(--vb-space-2);
+  border-radius: var(--vb-radius-lg);
+  border: 2px dashed var(--vb-border);
+  background: var(--vb-surface-raised);
+  text-align: center;
+  transition: border-color var(--vb-transition-fast), background var(--vb-transition-fast);
+}
+
+.dropzoneActive {
+  border-color: var(--vb-accent);
+  background: color-mix(in srgb, var(--vb-accent) 8%, var(--vb-surface-raised));
+}
+
+.dropzoneUploading {
+  border-style: solid;
+  border-color: var(--vb-accent);
+}
+
+.dropzone:focus-visible {
+  outline: 2px solid var(--vb-accent);
+  outline-offset: 2px;
+}
+
+.dropzoneTitle {
+  font-weight: 700;
+  color: var(--vb-text);
+  margin: 0;
+}
+
+.dropzoneHint {
+  font-size: 0.8rem;
+  color: var(--vb-text-muted);
+  margin: 0;
+}
+
+.dropzoneMeta {
+  font-size: 0.75rem;
+  color: var(--vb-text-muted);
+  margin: var(--vb-space-1) 0 0;
+}
+
+.fileInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+.dismissInlineError {
+  border: none;
+  background: none;
+  padding: 0;
+  color: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* --- Shared-pool asset picker: a vertical list of rows (a small
+   thumbnail + filename + a select action) — same layout shape as
+   GeoGuessr's own map picker, just a row list rather than a grid to
+   match this panel's overall vertical flow. --- */
+.assetList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-1);
+}
+
+.assetRow {
+  display: flex;
+  align-items: center;
+  gap: var(--vb-space-2);
+  padding: var(--vb-space-2) var(--vb-space-3);
+  border: 1px solid var(--vb-border);
+  border-radius: var(--vb-radius-md);
+  background: var(--vb-surface-raised);
+}
+
+.assetRowSelected {
+  border-color: var(--vb-accent);
+  background: color-mix(in srgb, var(--vb-accent) 8%, var(--vb-surface-raised));
+}
+
+.assetRowMain {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--vb-space-1);
+}
+
+.assetRowSelectButton {
+  display: flex;
+  align-items: center;
+  gap: var(--vb-space-2);
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--vb-text);
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.assetRowSelectButton:hover {
+  color: var(--vb-accent);
+}
+
+.assetRowSelected .assetRowSelectButton {
+  color: var(--vb-accent);
+}
+
+.assetRowThumb {
+  flex-shrink: 0;
+  width: 2.5rem;
+  height: 1.7rem;
+  object-fit: cover;
+  border-radius: var(--vb-radius-sm);
+}
+
+.assetRowDelete {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border: none;
+  border-radius: var(--vb-radius-full);
+  background: transparent;
+  color: var(--vb-text-muted);
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.assetRowDelete:hover {
+  background: var(--vb-danger-bg);
+  color: var(--vb-danger);
+}
+
+/* --- Ratings editor: genuinely new UI, no other game's editor has this
+   shape — a plain ordered list of short textareas, each with its own
+   up/down/remove controls (same glyph vocabulary as the sidebar's own
+   reorder buttons in page.module.css), least-obvious-first order
+   matching exactly how the Host reveals them live. --- */
+.ratingsEditor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-2);
+  margin-bottom: var(--vb-space-2);
+}
+
+.ratingEditorRow {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--vb-space-2);
+}
+
+.ratingEditorNumber {
+  flex-shrink: 0;
+  width: 1.5rem;
+  padding-top: var(--vb-space-2);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--vb-text-muted);
+}
+
+.ratingEditorInput {
+  flex: 1;
+  min-width: 0;
+  padding: var(--vb-space-2) var(--vb-space-3);
+  border-radius: var(--vb-radius-sm);
+  border: 1px solid var(--vb-border);
+  background: var(--vb-surface-raised);
+  color: var(--vb-text);
+  font-family: inherit;
+  font-size: 0.9rem;
+  resize: vertical;
+}
+
+.ratingEditorInput:focus-visible {
+  outline: 2px solid var(--vb-accent);
+  outline-offset: 1px;
+}
+
+.ratingEditorButtons {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: var(--vb-space-1);
+}
+
+.ratingOrderButton,
+.ratingRemoveButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border: none;
+  border-radius: var(--vb-radius-sm);
+  background: transparent;
+  color: var(--vb-text-muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ratingOrderButton:hover:not(:disabled) {
+  background: var(--vb-surface-raised);
+  color: var(--vb-text);
+}
+
+.ratingOrderButton:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.ratingRemoveButton:hover {
+  background: var(--vb-danger-bg);
+  color: var(--vb-danger);
+}
+
+.errorBanner {
+  padding: var(--vb-space-2) var(--vb-space-3);
+  background: var(--vb-danger-bg);
+  color: var(--vb-danger);
+  border-radius: var(--vb-radius-sm);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+/* --- Footer --- */
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--vb-space-3);
+  flex-wrap: wrap;
+  padding-top: var(--vb-space-3);
+  border-top: 1px solid var(--vb-border);
+}
+
+.footerLeft {
+  display: flex;
+  gap: var(--vb-space-1);
+  flex-wrap: wrap;
+}
+
+.footerRight {
+  display: flex;
+  align-items: center;
+  gap: var(--vb-space-2);
+}
+
+.saveNextGroup {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.saveNextHint {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--vb-text-muted);
+}
+
+@media (max-width: 30rem) {
+  .footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .footerRight {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+  .saveNextGroup {
+    align-items: stretch;
+  }
+}

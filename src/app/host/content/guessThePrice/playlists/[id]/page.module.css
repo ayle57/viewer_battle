@@ -1,0 +1,437 @@
+.pageIn {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-5);
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-3);
+}
+
+.titleRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--vb-space-3);
+  flex-wrap: wrap;
+}
+
+.titleBlock {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-1);
+  min-width: 14rem;
+  flex: 1;
+}
+
+/* Reads as a headline first, an input second — transparent border/bg at
+   rest, chrome only appears once the Host actually interacts with it. */
+.nameInput {
+  font-size: 1.75rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: var(--vb-radius-sm);
+  padding: var(--vb-space-1) var(--vb-space-2);
+  margin-left: calc(var(--vb-space-2) * -1);
+  color: var(--vb-text);
+  width: 100%;
+  max-width: 32rem;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  transition: background var(--vb-transition-fast), border-color var(--vb-transition-fast);
+}
+
+.nameInput:hover,
+.nameInput:focus {
+  border-color: var(--vb-border);
+  outline: none;
+  background: var(--vb-surface-raised);
+}
+
+.nameRow {
+  display: flex;
+  align-items: center;
+  gap: var(--vb-space-2);
+  flex-wrap: wrap;
+}
+
+.subLine {
+  display: flex;
+  align-items: center;
+  gap: var(--vb-space-3);
+  flex-wrap: wrap;
+}
+
+.descriptionInput {
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: var(--vb-radius-sm);
+  padding: var(--vb-space-1) var(--vb-space-2);
+  margin-left: calc(var(--vb-space-2) * -1);
+  color: var(--vb-text-muted);
+  font-size: 0.9rem;
+  flex: 1;
+  min-width: 10rem;
+  max-width: 28rem;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  transition: background var(--vb-transition-fast), border-color var(--vb-transition-fast);
+}
+
+.descriptionInput:hover,
+.descriptionInput:focus {
+  border-color: var(--vb-border);
+  outline: none;
+  background: var(--vb-surface-raised);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--vb-space-2);
+  flex-wrap: wrap;
+}
+
+.inUseBanner {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--vb-space-3);
+  padding: var(--vb-space-3) var(--vb-space-4);
+  background: var(--vb-warning-bg);
+  border: 1px solid var(--vb-warning);
+  border-radius: var(--vb-radius-md);
+  color: var(--vb-warning);
+  font-size: 0.85rem;
+}
+
+.inUseText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.inUseText span:last-child {
+  font-weight: 500;
+  color: var(--vb-text-muted);
+}
+
+.duplicatedBanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--vb-space-3);
+  padding: var(--vb-space-2) var(--vb-space-4);
+  background: var(--vb-success-bg);
+  border: 1px solid var(--vb-success);
+  border-radius: var(--vb-radius-md);
+  color: var(--vb-success);
+  font-size: 0.85rem;
+}
+
+.dismissButton {
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: var(--vb-space-1);
+  border-radius: var(--vb-radius-sm);
+  opacity: 0.7;
+}
+
+.dismissButton:hover {
+  opacity: 1;
+  background: color-mix(in srgb, var(--vb-success) 12%, transparent);
+}
+
+/* --- Playlist-wide stats: "12 TRACKS · 9 READY · 3 NEED ATTENTION" +
+   a progress bar — same rollup GeoGuessr's own editor shows, over
+   tracks instead of rounds. --- */
+
+.statsBlock {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-2);
+}
+
+.statsRow {
+  display: flex;
+  align-items: center;
+  gap: var(--vb-space-4);
+  flex-wrap: wrap;
+}
+
+.statItem {
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  color: var(--vb-text-muted);
+}
+
+.statOk {
+  color: var(--vb-success);
+}
+
+.statWarn {
+  color: var(--vb-warning);
+}
+
+.progressTrack {
+  width: 100%;
+  max-width: 24rem;
+  height: 0.4rem;
+  border-radius: var(--vb-radius-full);
+  background: var(--vb-surface-raised);
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  border-radius: var(--vb-radius-full);
+  background: var(--vb-success);
+  transition: width var(--vb-transition-base);
+}
+
+.headerCta {
+  display: flex;
+  align-items: center;
+  gap: var(--vb-space-2);
+  margin-top: var(--vb-space-1);
+  flex-wrap: wrap;
+}
+
+.loadingState {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-4);
+}
+
+.loadingLine {
+  height: 1.75rem;
+  width: 16rem;
+  max-width: 60%;
+  border-radius: var(--vb-radius-sm);
+  background: var(--vb-surface-raised);
+  animation: vb-content-shimmer-block 1.4s ease-in-out infinite;
+}
+
+.loadingBoard {
+  height: 14rem;
+  border-radius: var(--vb-radius-lg);
+  background: var(--vb-surface-raised);
+  animation: vb-content-shimmer-block 1.4s ease-in-out infinite;
+}
+
+@keyframes vb-content-shimmer-block {
+  0%,
+  100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.emptyBoard {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--vb-space-3);
+  padding: var(--vb-space-8) var(--vb-space-6);
+  border-radius: var(--vb-radius-lg);
+  border: 1px dashed var(--vb-border);
+  background: linear-gradient(180deg, var(--vb-surface-raised), transparent);
+  color: var(--vb-text-muted);
+}
+
+.emptyTitle {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: var(--vb-text);
+  margin: 0;
+}
+
+.errorBanner {
+  padding: var(--vb-space-2) var(--vb-space-3);
+  background: var(--vb-danger-bg);
+  color: var(--vb-danger);
+  border-radius: var(--vb-radius-sm);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+/* A single-line <input> can't wrap the way a heading would — at 320-375px
+   a real playlist name clips inside itself rather than overflowing the
+   page, which reads as broken even though nothing actually breaks
+   layout. Shrinking the font is enough for it to fit real names at this
+   width without touching the desktop treatment. */
+@media (max-width: 30rem) {
+  .nameInput {
+    font-size: 1.3rem;
+  }
+}
+
+/* --- Editor layout: a persistent track SIDEBAR next to a single MAIN
+   editor panel — same shape as GeoGuessr's own round editor. Sidebar
+   first in source order (keyboard/reader flow matches the visual "pick
+   a track, then edit it" sequence); becomes a horizontal strip above
+   the editor on narrow viewports rather than squeezing both columns
+   side by side. --- */
+
+.editorLayout {
+  display: grid;
+  grid-template-columns: 16rem 1fr;
+  gap: var(--vb-space-5);
+  align-items: start;
+}
+
+@media (max-width: 48rem) {
+  .editorLayout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-2);
+  padding: var(--vb-space-3);
+  border-radius: var(--vb-radius-lg);
+  border: 1px solid var(--vb-border);
+  background: var(--vb-surface);
+  /* Sticks alongside the editor on a long playlist instead of scrolling
+     out of view — the whole point of a sidebar nav. */
+  position: sticky;
+  top: var(--vb-space-4);
+}
+
+@media (max-width: 48rem) {
+  .sidebar {
+    position: static;
+  }
+}
+
+.sidebarLabel {
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: var(--vb-text-muted);
+  margin: 0 0 var(--vb-space-1) var(--vb-space-1);
+}
+
+.roundList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 28rem;
+  overflow-y: auto;
+}
+
+.roundListItem {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  border-radius: var(--vb-radius-md);
+}
+
+.roundListItemSelected {
+  background: color-mix(in srgb, var(--vb-accent) 12%, transparent);
+}
+
+.roundListButton {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--vb-space-2);
+  min-width: 0;
+  padding: var(--vb-space-2);
+  border: none;
+  border-radius: var(--vb-radius-md);
+  background: none;
+  cursor: pointer;
+  text-align: left;
+  /* A left accent bar on the SELECTED row, not just a background tint —
+     same "unmistakable which one" signal GeoGuessr's own sidebar uses. */
+  border-left: 3px solid transparent;
+}
+
+.roundListItemSelected .roundListButton {
+  border-left-color: var(--vb-accent);
+}
+
+.roundListNumber {
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: var(--vb-text-muted);
+  flex-shrink: 0;
+}
+
+.roundListTitle {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--vb-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.roundListOk {
+  color: var(--vb-success);
+  flex-shrink: 0;
+}
+
+.roundListWarn {
+  color: var(--vb-warning);
+  flex-shrink: 0;
+}
+
+.roundListEmpty {
+  color: var(--vb-text-muted);
+  flex-shrink: 0;
+}
+
+.roundListOrderButtons {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.roundOrderButton {
+  border: none;
+  background: none;
+  border-radius: var(--vb-radius-sm);
+  width: 1.25rem;
+  height: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--vb-text-muted);
+  font-size: 0.65rem;
+  line-height: 1;
+}
+
+.roundOrderButton:hover:not(:disabled) {
+  color: var(--vb-accent);
+}
+
+.roundOrderButton:disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
+}
+
+.main {
+  min-width: 0;
+}

@@ -1,0 +1,173 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-5);
+  padding: var(--vb-space-5);
+  border-radius: var(--vb-radius-lg);
+  border: 1px solid var(--vb-border);
+  background: var(--vb-surface);
+  box-shadow: var(--vb-shadow-sm);
+}
+
+/* --- Prompt identity header — "PROMPT 03 / CHENILLE", plus a
+   glance-able READY/NOT READY verdict — same shape as GeoGuessr's own
+   RoundEditorPanel.module.css. --- */
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--vb-space-3);
+  flex-wrap: wrap;
+}
+
+.headerText {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-1);
+  min-width: 0;
+}
+
+.promptEyebrow {
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--vb-text-muted);
+  margin: 0;
+}
+
+.promptTitle {
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--vb-text);
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: var(--vb-space-3);
+  flex-shrink: 0;
+}
+
+/* --- Readiness panel --- */
+
+.readinessPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--vb-space-3) var(--vb-space-4);
+  border-radius: var(--vb-radius-md);
+  border: 1px solid transparent;
+}
+
+.readinessPanelOk {
+  background: var(--vb-success-bg);
+  border-color: color-mix(in srgb, var(--vb-success) 30%, transparent);
+}
+
+.readinessPanelWarn {
+  background: var(--vb-warning-bg);
+  border-color: color-mix(in srgb, var(--vb-warning) 30%, transparent);
+}
+
+.readinessLine {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.readinessPanelOk .readinessLine {
+  color: var(--vb-success);
+}
+
+.readinessPanelWarn .readinessLine {
+  color: var(--vb-warning);
+}
+
+.nextStepLine {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--vb-warning);
+}
+
+.nextStepLabel {
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  margin-right: var(--vb-space-1);
+}
+
+/* --- Form --- */
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-4);
+}
+
+.errorBanner {
+  padding: var(--vb-space-2) var(--vb-space-3);
+  background: var(--vb-danger-bg);
+  color: var(--vb-danger);
+  border-radius: var(--vb-radius-sm);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+/* --- Footer --- */
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--vb-space-3);
+  flex-wrap: wrap;
+  padding-top: var(--vb-space-3);
+  border-top: 1px solid var(--vb-border);
+}
+
+.footerLeft {
+  display: flex;
+  gap: var(--vb-space-1);
+  flex-wrap: wrap;
+}
+
+.footerRight {
+  display: flex;
+  align-items: center;
+  gap: var(--vb-space-2);
+}
+
+.saveNextGroup {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.saveNextHint {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--vb-text-muted);
+}
+
+@media (max-width: 30rem) {
+  .footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .footerRight {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+  .saveNextGroup {
+    align-items: stretch;
+  }
+}

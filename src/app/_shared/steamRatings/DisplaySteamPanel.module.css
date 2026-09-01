@@ -1,0 +1,182 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(var(--vb-space-4), 3vw, var(--vb-space-6));
+  width: 100%;
+  max-width: 90rem;
+  margin: 0 auto;
+}
+
+.scoreCard {
+  padding: var(--vb-space-4) 0;
+}
+
+.gameEnter {
+  animation: vb-fade-in-up 380ms ease both;
+}
+
+.statusLine {
+  text-align: center;
+  font-size: clamp(1.1rem, 2vw, 1.5rem);
+  font-weight: 600;
+  color: var(--vb-text-muted);
+  padding: var(--vb-space-4);
+  margin: 0;
+}
+
+.gameLabel {
+  text-align: center;
+  margin: 0 0 var(--vb-space-2);
+  font-size: clamp(0.9rem, 1.6vw, 1.15rem);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--vb-text-muted);
+}
+
+.ratingsList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-3);
+  margin: 0;
+  padding: var(--vb-space-3) 0;
+  list-style: none;
+}
+
+.ratingItem {
+  padding: var(--vb-space-3) var(--vb-space-4);
+  background: var(--vb-surface-raised);
+  border-radius: var(--vb-radius-lg);
+  font-style: italic;
+  font-size: clamp(1.15rem, 2.2vw, 1.6rem);
+  text-align: center;
+  animation: vb-fade-in-up 320ms ease both;
+}
+
+.revealBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--vb-space-2);
+  padding: var(--vb-space-6) 0;
+  text-align: center;
+}
+
+.revealLabel {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: var(--vb-text-muted);
+}
+
+.revealImage {
+  max-width: min(24rem, 60vw);
+  width: 100%;
+  height: auto;
+  border-radius: var(--vb-radius-lg);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.28);
+}
+
+.revealTitle {
+  margin: 0;
+  font-size: clamp(2rem, 4.5vw, 3.5rem);
+  font-weight: 800;
+  color: var(--vb-text);
+}
+
+.buzzedBanner {
+  text-align: center;
+  padding: var(--vb-space-4);
+  border-radius: var(--vb-radius-lg);
+  font-size: clamp(1.5rem, 3.2vw, 2.75rem);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.buzzedTeamA {
+  background: var(--vb-team-a-bg);
+  color: var(--vb-team-a);
+  border: 2px solid var(--vb-team-a);
+}
+
+.buzzedTeamB {
+  background: var(--vb-team-b-bg);
+  color: var(--vb-team-b);
+  border: 2px solid var(--vb-team-b);
+}
+
+.finishedBanner {
+  text-align: center;
+  padding: var(--vb-space-5);
+  font-size: clamp(2rem, 5vw, 4rem);
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: var(--vb-accent);
+  animation: vb-winner-reveal-lg 550ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes vb-winner-reveal-lg {
+  from {
+    opacity: 0;
+    transform: scale(0.9) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.finishedA {
+  color: var(--vb-team-a);
+}
+
+.finishedB {
+  color: var(--vb-team-b);
+}
+
+.buzzedBlock {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-3);
+}
+
+.resultBanner {
+  text-align: center;
+  padding: var(--vb-space-4);
+  font-size: clamp(1.25rem, 2.5vw, 2rem);
+  font-weight: 700;
+  background: var(--vb-surface-raised);
+  border-radius: var(--vb-radius-lg);
+}
+
+.judgmentBanner {
+  text-align: center;
+  padding: var(--vb-space-4);
+  border-radius: var(--vb-radius-lg);
+  font-size: clamp(2.25rem, 5vw, 4rem);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.correct {
+  background: var(--vb-success-bg);
+  color: var(--vb-success);
+}
+
+.incorrect {
+  background: var(--vb-danger-bg);
+  color: var(--vb-danger);
+}
+
+@keyframes vb-fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

@@ -1,0 +1,140 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-3);
+}
+
+.endGameRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--vb-space-2);
+  flex-wrap: wrap;
+}
+
+/* The ordinary timer controls — no visual treatment of their own beyond
+   letting them breathe/wrap, same as HostBoardPanel's identical group. */
+.timerGroup {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--vb-space-2);
+}
+
+/* The one genuinely destructive control in this row, now visually its
+   own group — a left divider marks it as NOT part of the ordinary timer
+   cluster right next to it. Same fix as HostBoardPanel's own endGameRow. */
+.dangerGroup {
+  display: flex;
+  align-items: center;
+  padding-left: var(--vb-space-3);
+  border-left: 1px solid var(--vb-border);
+}
+
+.timeAdjustRow {
+  display: flex;
+  align-items: center;
+  gap: var(--vb-space-1);
+}
+
+/* "Why is there no Start timer button here?" — the one-line answer, see
+   this panel's own render for exactly when it shows. */
+.timerHint {
+  margin: calc(-1 * var(--vb-space-2)) 0 0;
+  font-size: 0.75rem;
+  color: var(--vb-text-muted);
+  text-align: center;
+}
+
+.errorBanner {
+  padding: var(--vb-space-2) var(--vb-space-3);
+  background: var(--vb-danger-bg);
+  color: var(--vb-danger);
+  border-radius: var(--vb-radius-sm);
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+.turnLabel {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: var(--vb-text-muted);
+  text-align: center;
+}
+
+.teamStatusRow {
+  display: flex;
+  gap: var(--vb-space-3);
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.teamStatus {
+  display: flex;
+  align-items: center;
+  gap: var(--vb-space-2);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.active {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--vb-space-1);
+  color: var(--vb-accent);
+}
+
+.teamPulseDot {
+  width: 7px;
+  height: 7px;
+  border-radius: var(--vb-radius-full);
+  background: var(--vb-accent);
+  animation: vb-host-dot-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes vb-host-dot-pulse {
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: scale(0.85);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
+
+.idle {
+  color: var(--vb-text-muted);
+}
+
+/* `.judgeLabel`/`.resultHeadline`/`.resultTeamA`/`.resultTeamB` now live
+   in the shared `@/app/_shared/RoundStatus` component — see that
+   component's doc comment for why this and the other two Host panels'
+   own status text consolidated onto one treatment. */
+
+/* `.judgeRow` now lives in the shared `@/app/_shared/JudgeRow` component
+   (its own module.css) — see that component's doc comment for why this
+   stopped being a per-engine copy. */
+
+.resultBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--vb-space-2);
+  padding: var(--vb-space-3) 0;
+  text-align: center;
+}
+
+.nextPromptRow {
+  margin-top: var(--vb-space-4);
+}
+
+.closeRow {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--vb-space-3);
+}

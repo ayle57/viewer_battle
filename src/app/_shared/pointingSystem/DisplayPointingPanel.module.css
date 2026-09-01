@@ -1,0 +1,78 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--vb-space-5);
+  padding: var(--vb-space-6) var(--vb-space-4);
+}
+
+.name {
+  margin: 0;
+  font-size: clamp(2rem, 6vw, 4rem);
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-align: center;
+  color: var(--vb-text);
+  animation: vb-pointing-name-in 0.4s ease-out both;
+}
+
+@keyframes vb-pointing-name-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .name {
+    animation: none;
+  }
+}
+
+.roundLabel {
+  /* Plain flex spacing, not a negative margin tucked under `.name` — see
+     PlayerPointingPanel.module.css's own doc comment: the score row's
+     "+N just landed" delta badge floats just above the score numbers
+     regardless of what's above it, and a negative margin here risks the
+     same overlap on a narrower capture even though this Display layout
+     has enough natural room that it wasn't reproduced here. */
+  margin: 0;
+  font-size: clamp(0.9rem, 2vw, 1.2rem);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-align: center;
+  color: var(--vb-text-muted);
+  animation: vb-pointing-name-in 0.4s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .roundLabel {
+    animation: none;
+  }
+}
+
+.scoreCard {
+  width: 100%;
+  max-width: 48rem;
+}
+
+.finishedBanner {
+  margin: 0;
+  font-size: clamp(1.5rem, 4vw, 2.5rem);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-align: center;
+}
+
+.finishedA {
+  color: var(--vb-team-a);
+}
+
+.finishedB {
+  color: var(--vb-team-b);
+}

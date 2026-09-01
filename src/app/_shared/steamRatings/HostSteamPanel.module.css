@@ -1,0 +1,205 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-4);
+}
+
+.endGameRow {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--vb-space-2);
+}
+
+.roundLabel {
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--vb-text-muted);
+  margin: 0 0 var(--vb-space-2);
+}
+
+.errorBanner {
+  padding: var(--vb-space-2) var(--vb-space-3);
+  background: var(--vb-danger-bg);
+  color: var(--vb-danger);
+  border-radius: var(--vb-radius-sm);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.resultBanner {
+  padding: var(--vb-space-2) var(--vb-space-3);
+  background: var(--vb-surface-raised);
+  border-radius: var(--vb-radius-sm);
+  font-weight: 600;
+  text-align: center;
+}
+
+/* Host-only "cheat sheet" — the cover art, always visible to the Host
+   even before reveal (this game's answer key, same posture as Music's
+   own CardHeader title/artist showing before reveal). Small and clearly
+   labeled so it can never be mistaken for what the audience currently
+   sees. */
+.answerKey {
+  display: flex;
+  align-items: center;
+  gap: var(--vb-space-3);
+  padding: var(--vb-space-2) var(--vb-space-3);
+  background: var(--vb-surface-raised);
+  border-radius: var(--vb-radius-sm);
+  margin-bottom: var(--vb-space-3);
+}
+
+.answerKeyImage {
+  width: 4.5rem;
+  height: auto;
+  border-radius: var(--vb-radius-sm);
+  flex-shrink: 0;
+}
+
+.answerKeyLabel {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--vb-text-muted);
+}
+
+.ratingsList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-2);
+  margin-bottom: var(--vb-space-3);
+}
+
+.ratingRow {
+  display: flex;
+  align-items: center;
+  gap: var(--vb-space-2);
+  padding: var(--vb-space-2) var(--vb-space-3);
+  border-radius: var(--vb-radius-sm);
+  font-size: 0.95rem;
+}
+
+.ratingHidden {
+  background: var(--vb-surface-raised);
+  color: var(--vb-text-muted);
+}
+
+.ratingRevealed {
+  background: var(--vb-warning-bg);
+  color: var(--vb-text);
+  font-weight: 600;
+}
+
+.ratingNumber {
+  flex-shrink: 0;
+  width: 1.5rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--vb-text-muted);
+}
+
+.ratingText {
+  flex: 1;
+}
+
+.ratingRevealedTag {
+  flex-shrink: 0;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: var(--vb-accent);
+}
+
+.hint {
+  margin: 0;
+  color: var(--vb-text-muted);
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.statusBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--vb-space-2);
+  padding: var(--vb-space-4) 0;
+  text-align: center;
+}
+
+.bigBuzz {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.teamA {
+  color: var(--vb-team-a);
+}
+
+.teamB {
+  color: var(--vb-team-b);
+}
+
+.judgeRow {
+  display: flex;
+  gap: var(--vb-space-3);
+  margin-top: var(--vb-space-2);
+  width: 100%;
+}
+
+.judgeRow > * {
+  flex: 1;
+}
+
+.resultBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--vb-space-2);
+  padding: var(--vb-space-3) 0;
+  text-align: center;
+}
+
+.resultHeadline {
+  font-size: 1.3rem;
+  font-weight: 800;
+  margin: 0;
+}
+
+.resultTeamA {
+  color: var(--vb-team-a);
+}
+
+.resultTeamB {
+  color: var(--vb-team-b);
+}
+
+.answerReveal {
+  margin: 0 0 var(--vb-space-2);
+  color: var(--vb-text-muted);
+  font-size: 1rem;
+}
+
+.answerReveal strong {
+  color: var(--vb-text);
+}
+
+.closeRow {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--vb-space-3);
+}
+
+@media (max-width: 26rem) {
+  .judgeRow {
+    flex-direction: column;
+  }
+
+  .bigBuzz {
+    font-size: 1.6rem;
+  }
+}

@@ -1,0 +1,49 @@
+/* Centers icon + label over whatever box the caller's own className
+   already sized (width/max-height/border-radius/background) — this
+   class only ever ADDS the centering + muted-text treatment, it never
+   sets an explicit width/height itself so it never fights a caller that
+   pins BOTH dimensions (e.g. `.assetRowThumb`'s fixed `width`+`height`).
+   `aspect-ratio` IS set, deliberately, as a fallback for the much more
+   common case a real `<img>`'s missing dimension normally covers for
+   free: most of these callers' own CSS only ever constrains `width` (or
+   `max-width`) and leaves `height: auto` — that's the `<img>` element
+   deriving its height from its own intrinsic size, something a plain
+   `<div>` has no equivalent of and would otherwise collapse to
+   "whatever the icon+label need," a cramped, undersized box instead of
+   a real placeholder. Per spec, `aspect-ratio` only fills in a dimension
+   CSS couldn't otherwise resolve — a caller that already pins both
+   width AND height (like `.assetRowThumb`) is completely unaffected. */
+.fallback {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--vb-space-1);
+  aspect-ratio: 4 / 3;
+  color: var(--vb-text-muted);
+  background: var(--vb-surface-raised);
+  text-align: center;
+}
+
+.fallbackIcon {
+  font-size: 1.75rem;
+  opacity: 0.6;
+}
+
+/* A thumbnail too small for the icon's default size + a label under it
+   (an asset-picker row, a library card) — icon only, shrunk to fit,
+   `gap`/padding collapse along with the hidden label. The accessible
+   name still comes from `aria-label` on the wrapping element regardless
+   — see ImageWithFallback.tsx's own doc comment on `compact`. */
+.compact {
+  gap: 0;
+}
+
+.compact .fallbackIcon {
+  font-size: 1rem;
+}
+
+.fallbackLabel {
+  font-size: 0.75rem;
+  font-weight: 600;
+}
