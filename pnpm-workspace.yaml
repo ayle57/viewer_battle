@@ -3,3 +3,10 @@ allowBuilds:
   esbuild: true
   prisma: true
   unrs-resolver: true
+
+# deepmerge-ts <8 has a stack-exhaustion advisory (GHSA-ggr8-5vv4-36mx);
+# it's only pulled in transitively by the Prisma CLI's config loader
+# (@prisma/config), never in the running server, but this keeps a client's
+# `pnpm audit` clean. Drop this once Prisma is bumped past 7.9.
+overrides:
+  deepmerge-ts: '^8.0.0'

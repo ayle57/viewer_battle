@@ -1,4 +1,7 @@
-import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
+import { randomBytes, scrypt as scryptCb, timingSafeEqual } from "node:crypto";
+import { promisify } from "node:util";
+
+const scrypt = promisify(scryptCb) as (password: string, salt: string, keylen: number) => Promise<Buffer>;
 
 /**
  * Password hashing for real, user-chosen `User` credentials
@@ -18,21 +21,27 @@ import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
  * package for something the platform already does" posture as every
  * other pass this session) rather than bcrypt/argon2, which aren't in
  * this project's dependencies and would be the only reason to add one.
+ *
+ * ASYNC (`crypto.scrypt`, not `scryptSync`): scrypt is deliberately
+ * CPU-heavy, and there is no rate limit on `user.login` — the sync
+ * variant blocks the whole event loop per call, so a handful of
+ * concurrent login attempts would stall every other request. The async
+ * form runs on libuv's threadpool instead.
  */
 const KEY_LENGTH = 64;
 
 /** "<saltHex>:<hashHex>" — one column, the salt stored right alongside its own hash, same spirit as every other single-column secret in this app. */
-export function hashPassword(password: string): string {
+export async function hashPassword(password: string): Promise<string> {
   const salt = randomBytes(16).toString("hex");
-  const derived = scryptSync(password, salt, KEY_LENGTH);
+  const derived = await scrypt(password, salt, KEY_LENGTH);
   return `${salt}:${derived.toString("hex")}`;
 }
 
-export function verifyPassword(password: string, stored: string): boolean {
+export async function verifyPassword(password: string, stored: string): Promise<boolean> {
   const [salt, hashHex] = stored.split(":");
   if (!salt || !hashHex) return false;
   const expected = Buffer.from(hashHex, "hex");
-  const actual = scryptSync(password, salt, KEY_LENGTH);
+  const actual = await scrypt(password, salt, KEY_LENGTH);
   // Equal-length check before timingSafeEqual — same reasoning as
   // hostPassword.ts's own comment: it throws on mismatched lengths
   // instead of returning false, which a malformed/corrupt stored hash

@@ -24,7 +24,7 @@ export async function registerUser(input: RegisterInput): Promise<UserSession> {
   const token = generateToken();
   try {
     const user = await prisma.user.create({
-      data: { username: input.username, passwordHash: hashPassword(input.password), tokenHash: hashToken(token) },
+      data: { username: input.username, passwordHash: await hashPassword(input.password), tokenHash: hashToken(token) },
     });
     return { token, userId: user.id, username: user.username, isAdmin: user.isAdmin };
   } catch (error) {
@@ -46,7 +46,7 @@ export async function registerUser(input: RegisterInput): Promise<UserSession> {
  */
 export async function loginUser(input: LoginInput): Promise<UserSession> {
   const user = await prisma.user.findUnique({ where: { username: input.username } });
-  if (!user || !verifyPassword(input.password, user.passwordHash)) {
+  if (!user || !(await verifyPassword(input.password, user.passwordHash))) {
     throw new UserError("INVALID_CREDENTIALS");
   }
   const token = generateToken();
@@ -106,10 +106,10 @@ export async function changeUsername(token: string, newUsername: string): Promis
 export async function changePassword(input: ChangePasswordInput): Promise<void> {
   const user = await prisma.user.findUnique({ where: { tokenHash: hashToken(input.token) } });
   if (!user) throw new UserError("INVALID_TOKEN");
-  if (!verifyPassword(input.currentPassword, user.passwordHash)) {
+  if (!(await verifyPassword(input.currentPassword, user.passwordHash))) {
     throw new UserError("INVALID_CREDENTIALS");
   }
-  await prisma.user.update({ where: { id: user.id }, data: { passwordHash: hashPassword(input.newPassword) } });
+  await prisma.user.update({ where: { id: user.id }, data: { passwordHash: await hashPassword(input.newPassword) } });
 }
 
 export interface UserStats {

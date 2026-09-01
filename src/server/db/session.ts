@@ -3,6 +3,7 @@ import { MAX_PLAYERS_PER_TEAM } from "@/domain/session";
 import { getGameEngine } from "@/domain/game";
 import { Prisma } from "@/generated/prisma/client";
 import { hashToken } from "@/server/auth/token";
+import { secureUnitRandom } from "@/server/auth/secureRandom";
 import { prisma } from "@/server/db/client";
 
 const CODE_COLLISION_RETRIES = 5;
@@ -24,8 +25,11 @@ export interface CreateSessionResult {
  */
 export async function createSession(): Promise<CreateSessionResult> {
   for (let attempt = 0; attempt < CODE_COLLISION_RETRIES; attempt++) {
-    const code = generateSessionCode();
-    const hostKey = generateHostKey();
+    // CSPRNG, not `Math.random` — a session code is observable output and
+    // the host recovery key must not be predictable from it (both would
+    // be, on V8's shared xorshift128+ PRNG).
+    const code = generateSessionCode(secureUnitRandom);
+    const hostKey = generateHostKey(secureUnitRandom);
     try {
       const session = await prisma.session.create({ data: { code, hostKeyHash: hashToken(hostKey) } });
       return { id: session.id, code: session.code, status: session.status, hostKey };
@@ -107,7 +111,7 @@ export async function endSession(sessionId: string) {
  */
 export async function rotateSessionCode(sessionId: string): Promise<string> {
   for (let attempt = 0; attempt < CODE_COLLISION_RETRIES; attempt++) {
-    const code = generateSessionCode();
+    const code = generateSessionCode(secureUnitRandom); // CSPRNG — see createSession
     try {
       const session = await prisma.session.update({ where: { id: sessionId }, data: { code } });
       return session.code;
