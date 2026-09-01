@@ -133,7 +133,7 @@ export default function AdminPage() {
  * The operator-curated chat blocklist (see src/domain/chat/wordFilter.ts).
  * Applies to PLAYER chat only — a hit blocks the whole message and the
  * sender is told why. The list is seeded with a sensible default set the
- * first time it's empty; this is where erwin trims or extends it.
+ * first time it's empty; this is where the operator trims or extends it.
  */
 function ChatWordFilter({ token }: { token: string }) {
   const utils = trpc.useUtils();

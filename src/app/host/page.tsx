@@ -253,7 +253,7 @@ function HostAccountGate() {
               void handleSubmit();
             }}
           >
-            <Input size="lg" label="Username" value={username} onChange={(event) => setUsername(event.target.value)} placeholder="e.g. erwin" autoFocus />
+            <Input size="lg" label="Username" value={username} onChange={(event) => setUsername(event.target.value)} placeholder="Your account username" autoFocus />
             <Input size="lg" type="password" label="Password" value={password} onChange={(event) => setPassword(event.target.value)} />
             {error && <p className={styles.errorBanner}>{error}</p>}
             <Button size="lg" type="submit" loading={login.isPending} disabled={!username.trim() || !password} fullWidth>
@@ -294,8 +294,8 @@ function HostNotAdminNotice({ account }: { account: Account }) {
 function CreateGameForm({ account, onCreated }: { account: Account; onCreated: (reveal: { hostKey: string; identity: Identity }) => void }) {
   // Defaults to the account's own username — editable, since the display
   // name a Host shows the room isn't necessarily identical to their
-  // account username (e.g. a branded "Erwin Live" vs. the plain account
-  // "erwin"). No `getLastDisplayName`/`RememberedNameHint` machinery
+  // account username (e.g. a branded "Streamer Live" vs. the plain
+  // account username). No `getLastDisplayName`/`RememberedNameHint` machinery
   // needed here anymore — that convenience existed to guess at a name
   // with no better source of truth; a real, logged-in account (required
   // to even reach this form now — see HostConnexion's own account gate)

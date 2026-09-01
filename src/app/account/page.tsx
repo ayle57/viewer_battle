@@ -152,7 +152,7 @@ function AccountProfile({ account }: { account: Account }) {
 
   return (
     <div className={styles.profileStack}>
-      {/* Only ever rendered for the one real `isAdmin` account (erwin) —
+      {/* Only ever rendered for a real `isAdmin` account —
           see router.ts's session.create doc comment / User.isAdmin's own
           comment (prisma/schema.prisma) for why that flag exists at
           all. Links to /host/content/admin, which has its own separate
