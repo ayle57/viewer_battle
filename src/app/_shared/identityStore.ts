@@ -10,6 +10,8 @@ export interface Identity {
   displayName: string;
   /** Real bearer token from session.join (src/server/auth/token.ts) — same scheme for all 4 roles, the one identity system this app has. */
   token: string;
+  /** This seat's own Participant.id (`JoinSessionResult.id`, src/server/db/participant.ts) — the real, stable identifier GameChatPanel.tsx's `isOwn` check needs instead of `role`+`displayName` alone (a REAL, REPRODUCED bug two same-named teammates hit: every message from either one showed up tagged "You" on the OTHER's own screen too). Every `setIdentity` call site threads it straight through from whichever join/reclaim/resume mutation just ran — none of them invent it. */
+  participantId: string;
 }
 
 interface IdentityState {

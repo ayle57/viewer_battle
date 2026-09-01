@@ -23,8 +23,8 @@ describe("identityStore.updateSessionCode()", () => {
     useIdentityStore.getState().clearIdentity();
   });
 
-  it("updates sessionCode in place, leaving role/displayName/token untouched", () => {
-    useIdentityStore.getState().setIdentity({ sessionCode: "OLDCODE", role: "TEAM_A", displayName: "Nova", token: "tok-1" });
+  it("updates sessionCode in place, leaving role/displayName/token/participantId untouched", () => {
+    useIdentityStore.getState().setIdentity({ sessionCode: "OLDCODE", role: "TEAM_A", displayName: "Nova", token: "tok-1", participantId: "p-1" });
 
     useIdentityStore.getState().updateSessionCode("NEWCODE");
 
@@ -33,6 +33,7 @@ describe("identityStore.updateSessionCode()", () => {
       role: "TEAM_A",
       displayName: "Nova",
       token: "tok-1",
+      participantId: "p-1",
     });
   });
 

@@ -10,6 +10,8 @@ export interface DevIdentity {
   displayName: string;
   /** Real bearer token from session.join — see src/server/auth/token.ts. */
   token: string;
+  /** This seat's own Participant.id — same field, same reasoning as the product's own identityStore.ts (its own doc comment has the full story: GameChatPanel.tsx's `isOwn` check needs this, not just `role`+`displayName`). */
+  participantId: string;
 }
 
 interface DevIdentityState {

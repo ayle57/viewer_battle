@@ -1,7 +1,8 @@
 import type { Server as SocketIOServer, Socket } from "socket.io";
-import { canPostToChannel, channelsForRole, chatRoomName, sendChatMessageSchema } from "@/domain/chat";
+import { canPostToChannel, channelsForRole, chatRoomName, findBlockedWord, sendChatMessageSchema } from "@/domain/chat";
 import type { ChatChannel, ChatRole } from "@/domain/chat";
 import type { SocketIdentity } from "@/server/auth";
+import { getBlockedWordList } from "@/server/db/blockedWords";
 import { prisma } from "@/server/db/client";
 import { logger } from "@/server/logger";
 
@@ -12,6 +13,8 @@ export interface ChatMessageWire {
   channel: ChatChannel;
   role: ChatRole;
   senderName: string;
+  /** The sender's own Participant.id — the real, stable identifier GameChatPanel.tsx's `isOwn` check now uses instead of `role`+`senderName` alone. `null` only for history predating this field (see the Prisma model's own doc comment); every message sent from here on always carries one. */
+  senderParticipantId: string | null;
   body: string;
   createdAt: string;
 }
@@ -23,6 +26,7 @@ interface ChatMessageRow {
   channel: string;
   role: string;
   senderName: string;
+  participantId: string | null;
   body: string;
   createdAt: Date;
 }
@@ -33,6 +37,7 @@ function toWire(row: ChatMessageRow): ChatMessageWire {
     channel: row.channel as ChatChannel,
     role: row.role as ChatRole,
     senderName: row.senderName,
+    senderParticipantId: row.participantId,
     body: row.body,
     createdAt: row.createdAt.toISOString(),
   };
@@ -87,12 +92,26 @@ export function registerChatHandlers(io: SocketIOServer, socket: Socket) {
         return;
       }
 
+      // Host-managed word filter — players only. The Host is the
+      // moderator (never a target) and Display can't post, so this only
+      // ever runs for TEAM_A / TEAM_B. A hit blocks the whole message;
+      // the sender gets a plain reason back (GameChatPanel surfaces it).
+      if (identity.role === "TEAM_A" || identity.role === "TEAM_B") {
+        const hit = findBlockedWord(body, await getBlockedWordList());
+        if (hit) {
+          logger.info({ socketId: socket.id, sessionId: identity.sessionId, rule: hit }, "chat message blocked by word filter");
+          ack?.({ ok: false, error: "Message not sent — it contains a word the host has blocked." });
+          return;
+        }
+      }
+
       const created = await prisma.chatMessage.create({
         data: {
           sessionId: identity.sessionId,
           channel,
           role: identity.role,
           senderName: identity.displayName,
+          participantId: identity.participantId,
           body,
         },
       });

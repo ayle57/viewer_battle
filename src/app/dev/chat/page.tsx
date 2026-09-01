@@ -82,7 +82,10 @@ function ChatRoom({ identity }: { identity: DevIdentity }) {
                   role: toUiRole(message.role),
                   body: message.body,
                   createdAt: new Date(message.createdAt),
-                  isOwn: message.role === identity.role && message.senderName === identity.displayName,
+                  // Same fix, same reasoning as GameChatPanel.tsx's own
+                  // `isOwn` — `role`+`senderName` alone can't tell two
+                  // same-named identities apart.
+                  isOwn: message.senderParticipantId !== null && message.senderParticipantId === identity.participantId,
                 }))}
                 disabled={!canPostToChannel(identity.role, channel)}
                 onSend={(body) => void send(channel, body)}

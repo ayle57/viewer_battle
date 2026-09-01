@@ -19,8 +19,10 @@ const CHANNEL_LABEL: Record<ChatChannel, string> = {
 
 export interface GameChatPanelProps {
   role: ParticipantRole;
-  /** This tab's own display name — used only to right-align/bubble-tint its own messages back to it; the server is still the one deciding who posted what. */
+  /** This tab's own display name — shown on ITS OWN messages same as everyone else's; no longer part of deciding which ones are its own (`participantId` below is — see this file's own `isOwn` comment for the real bug that split these two apart). */
   displayName: string;
+  /** This seat's own Participant.id (identityStore.ts's own doc comment) — the ONLY thing `isOwn` compares on now. */
+  participantId: string;
   sendChatMessage: (channel: ChatChannel, body: string) => void;
 }
 
@@ -39,7 +41,7 @@ export interface GameChatPanelProps {
  * a channel that isn't the one currently open shows a real notification
  * bubble on that tab — cleared the instant the Host/team switches to it.
  */
-export function GameChatPanel({ role, displayName, sendChatMessage }: GameChatPanelProps) {
+export function GameChatPanel({ role, displayName, participantId, sendChatMessage }: GameChatPanelProps) {
   const reduced = useReducedMotionSafe(); // hydration-safe — see that hook's own doc comment
   const messagesByChannel = useChatStore((state) => state.messagesByChannel);
   const unreadByChannel = useChatStore((state) => state.unreadByChannel);
@@ -96,9 +98,21 @@ export function GameChatPanel({ role, displayName, sendChatMessage }: GameChatPa
                   role: toChatMessageRole(message.role),
                   body: message.body,
                   createdAt: new Date(message.createdAt),
-                  isOwn: message.role === role && message.senderName === displayName,
+                  // A REAL, REPRODUCED bug this replaced: comparing
+                  // `role`+`senderName` alone made two teammates who
+                  // happen to share a display name indistinguishable —
+                  // every message from EITHER one showed up tagged "You"
+                  // on the OTHER's own screen too. `participantId` is
+                  // the one thing that's always unique per seat, even
+                  // when two people type the exact same name.
+                  isOwn: message.senderParticipantId !== null && message.senderParticipantId === participantId,
                 }))}
                 disabled={!canPostToChannel(role, channel)}
+                // Display is the OBS overlay — read-only AND on stream, so
+                // drop the dead composer entirely rather than capture a
+                // greyed-out input + Send button. A player on a read-only
+                // tab still keeps it (see ChatPanel's `hideComposer` doc).
+                hideComposer={role === "DISPLAY"}
                 onSend={(body) => sendChatMessage(channel, body)}
               />
             </div>

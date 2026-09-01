@@ -185,6 +185,54 @@ describe("Chat vertical slice (Socket.IO auth + rooms + permissions + Prisma)", 
     teamB.close();
   });
 
+  /**
+   * A REAL, REPRODUCED bug ("les equipes c'est nimp la Chat"): the
+   * client used to decide "is this MY OWN message" off `role`+
+   * `senderName` alone (GameChatPanel.tsx) — two teammates who happen to
+   * share a display name were indistinguishable by that pair, so every
+   * message from EITHER one showed up tagged "You" on the OTHER's own
+   * screen too. This locks down the server-side half of the fix: two
+   * SEPARATE participants with the IDENTICAL role+displayName still get
+   * distinct `senderParticipantId`s on the wire, matching each one's own
+   * `joinSession` id exactly — the one thing the client's `isOwn` check
+   * now actually compares.
+   */
+  it("two teammates sharing a display name still get distinguishable senderParticipantId on their messages", async () => {
+    const { sessionCode } = await sessionWithConnectedHost();
+    const dup1 = await joinSession({ sessionCode, role: "TEAM_A", displayName: "Dup" });
+    // The first seat must be genuinely CONNECTED before the second join —
+    // joinSession's own reclaim-by-name path (src/server/db/participant.ts)
+    // only skips reusing a same-name/same-role seat once a LIVE presence
+    // check (isParticipantConnected) proves someone's actually still
+    // there; two back-to-back `joinSession` calls with nobody connected
+    // yet would otherwise reclaim the SAME seat instead of creating a
+    // real second one, which isn't the bug this test exists to guard.
+    const socket1 = connect(dup1.token);
+    await waitForConnect(socket1);
+
+    const dup2 = await joinSession({ sessionCode, role: "TEAM_A", displayName: "Dup" });
+    expect(dup1.id).not.toBe(dup2.id); // two genuinely separate seats, not a reused one
+
+    const socket2 = connect(dup2.token);
+    await waitForConnect(socket2);
+
+    const ack1 = await send(socket1, "TEAM_A", "from seat 1");
+    const ack2 = await send(socket2, "TEAM_A", "from seat 2");
+    expect(ack1.ok).toBe(true);
+    expect(ack2.ok).toBe(true);
+
+    expect(ack1.message?.senderParticipantId).toBe(dup1.id);
+    expect(ack2.message?.senderParticipantId).toBe(dup2.id);
+    expect(ack1.message?.senderParticipantId).not.toBe(ack2.message?.senderParticipantId);
+    // Exactly what the old bug compared, both identical on purpose — this
+    // is the pair that used to be (wrongly) treated as "close enough."
+    expect(ack1.message?.role).toBe(ack2.message?.role);
+    expect(ack1.message?.senderName).toBe(ack2.message?.senderName);
+
+    socket1.close();
+    socket2.close();
+  });
+
   it("rejects team A posting into team B's channel", async () => {
     const { token } = await joinAs("TEAM_A", "A1");
     const teamA = connect(token);
@@ -205,6 +253,40 @@ describe("Chat vertical slice (Socket.IO auth + rooms + permissions + Prisma)", 
     expect(ack.ok).toBe(false);
 
     display.close();
+  });
+
+  it("blocks a player message that trips the word filter, but not the same word from the Host", async () => {
+    const { prisma: db } = await import("@/server/db/client");
+    const { invalidateBlockedWordCache } = await import("@/server/db/blockedWords");
+    await db.blockedWord.upsert({ where: { word: "zzblockedzz" }, create: { word: "zzblockedzz" }, update: {} });
+    invalidateBlockedWordCache();
+
+    const { token: aToken } = await joinAs("TEAM_A", "A1");
+    const { token: hToken } = await joinAs("HOST", "Host");
+    const teamA = connect(aToken);
+    const host = connect(hToken);
+    await Promise.all([waitForConnect(teamA), waitForConnect(host)]);
+
+    const blocked = await send(teamA, "TEAM_A", "you zzblockedzz idiot");
+    expect(blocked.ok).toBe(false);
+    expect(blocked.error).toMatch(/blocked/i);
+
+    // evasion (spacing) is caught too
+    const evaded = await send(teamA, "TEAM_A", "z z b l o c k e d z z");
+    expect(evaded.ok).toBe(false);
+
+    // a clean message from the same player still goes through
+    const clean = await send(teamA, "TEAM_A", "gg everyone");
+    expect(clean.ok).toBe(true);
+
+    // the Host is never filtered
+    const hostSaysIt = await send(host, "TEAM_A", "reminder: the word zzblockedzz is filtered for players");
+    expect(hostSaysIt.ok).toBe(true);
+
+    await db.blockedWord.deleteMany({ where: { word: "zzblockedzz" } });
+    invalidateBlockedWordCache();
+    teamA.close();
+    host.close();
   });
 
   it("persists sent messages to Postgres", async () => {
