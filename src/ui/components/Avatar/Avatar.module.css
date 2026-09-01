@@ -1,0 +1,59 @@
+.avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  border-radius: 50%;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.sm {
+  width: 1.6rem;
+  height: 1.6rem;
+  font-size: 0.65rem;
+}
+
+.md {
+  width: 1.75rem;
+  height: 1.75rem;
+  font-size: 0.72rem;
+}
+
+/* One of these five is picked per-name by `avatarColorIndex`
+   (src/ui/initials.ts) — real, solid colors pulled from the app's own
+   existing palette (never new hex values invented for this), each
+   already themed for dark mode by virtue of being a real token.
+   `--vb-primary-text`/`--vb-accent-text` are this app's OWN pre-picked
+   contrast colors for those two specific brand colors (accent is a
+   bright gold — white text on it would be a real low-contrast mistake);
+   success/info/team-a are all dark and saturated enough that a plain
+   white works for them, same as every badge/button already using those
+   colors elsewhere. Solid backgrounds + real contrast throughout —
+   originally AccountBadge.module.css's own fix for "les photos de
+   profil... sont cheum," moved here so it's one definition, not one per
+   caller. */
+.identity0 {
+  background: var(--vb-primary);
+  color: var(--vb-primary-text);
+}
+
+.identity1 {
+  background: var(--vb-accent);
+  color: var(--vb-accent-text);
+}
+
+.identity2 {
+  background: var(--vb-success);
+  color: #fff;
+}
+
+.identity3 {
+  background: var(--vb-info);
+  color: #fff;
+}
+
+.identity4 {
+  background: var(--vb-team-a);
+  color: #fff;
+}

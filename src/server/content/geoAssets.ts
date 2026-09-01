@@ -43,11 +43,12 @@ const ALLOWED_MIME_EXT: Record<string, string> = {
  * recompression happens here (see ClickableImageMap's own doc comment on
  * why it renders a plain `<img>`, which is what makes byte-for-byte
  * quality meaningful to preserve). This cap exists only to bound a
- * pathological upload, not to discourage a genuinely large map — the
- * reference asset this shipped with is ~37MB; 100MB gives real headroom
- * above that without being unbounded.
+ * pathological upload: every upload is buffered whole into memory
+ * (`Buffer.from(await file.arrayBuffer())`), so the ceiling is also a
+ * memory-pressure ceiling. 40MB is well above a high-res map screenshot
+ * while keeping a few concurrent uploads from being a DoS.
  */
-export const MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
+export const MAX_UPLOAD_BYTES = 40 * 1024 * 1024;
 
 export interface GeoMapAsset {
   url: string;

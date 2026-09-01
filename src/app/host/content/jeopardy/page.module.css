@@ -175,6 +175,22 @@ a.playlistName:hover {
   color: var(--vb-accent);
 }
 
+/* Rename-in-place, swapped in for `.playlistName` — same visual weight
+   as the name it replaces so the card doesn't jump around when the
+   Host chooses "Rename" from the card's own menu. */
+.renameInput {
+  flex: 1;
+  min-width: 0;
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--vb-text);
+  border: 1px solid var(--vb-accent);
+  border-radius: var(--vb-radius-sm);
+  background: var(--vb-surface-raised);
+  padding: 1px var(--vb-space-1);
+  margin: -1px calc(var(--vb-space-1) * -1);
+}
+
 .playlistMeta {
   color: var(--vb-text-muted);
   font-size: 0.8125rem;

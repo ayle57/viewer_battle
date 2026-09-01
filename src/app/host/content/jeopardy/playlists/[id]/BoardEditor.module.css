@@ -111,6 +111,18 @@
   cursor: not-allowed;
 }
 
+/* A real, audited gap: `.categoryHeader:focus-within`/`.cellRow:focus-within`
+   below already reveal a row's icon-buttons the instant one of them is
+   genuinely focused — but revealed isn't the same as visibly FOCUSED:
+   with 3-5 identically-styled icon-buttons in a row, nothing distinguished
+   which one Tab had actually landed on. Same outline convention as
+   `.cell:focus-visible` right below, applied here too. */
+.iconButton:focus-visible {
+  opacity: 1;
+  outline: 2px solid var(--vb-primary);
+  outline-offset: 1px;
+}
+
 .deleteButton:hover:not(:disabled) {
   color: var(--vb-danger);
 }

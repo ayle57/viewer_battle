@@ -34,19 +34,9 @@
   padding: var(--vb-space-2) var(--vb-space-4);
 }
 
-.avatar {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.6rem;
-  height: 1.6rem;
-  flex: none;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--vb-primary) 18%, var(--vb-surface-raised));
-  color: var(--vb-primary);
-  font-size: 0.65rem;
-  font-weight: 800;
-}
+/* The avatar itself is now `Avatar` (src/ui/components/Avatar) — shared
+   with PlayerCard and the admin accounts table, not its own copy here
+   any more. */
 
 /* A small trailing "signed in" signal, not the identity marker itself
    anymore — the avatar above took that job over. */

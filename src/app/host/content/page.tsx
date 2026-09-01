@@ -18,11 +18,7 @@ import styles from "./page.module.css";
  * shows up in the "live" grid below automatically — this list is not
  * wired to that registry and never claims to be.
  */
-const COMING_SOON_GAMES = [
-  { label: "Guess the Music", meta: "Both teams submit, host judges" },
-  { label: "Top 5", meta: "Rank it, race the clock" },
-  { label: "Drawing", meta: "Timed sketch, teams guess" },
-];
+const COMING_SOON_GAMES = [{ label: "Top 5", meta: "Rank it, race the clock" }];
 
 /**
  * The one place a content-capable `GameEngine.id` (src/domain/game/
@@ -37,6 +33,10 @@ const COMING_SOON_GAMES = [
 const CONTENT_ROUTES: Record<string, string> = {
   "board-question": "/host/content/jeopardy",
   geoguessr: "/host/content/geoguessr",
+  drawing: "/host/content/drawing",
+  music: "/host/content/music",
+  steamRatings: "/host/content/steamRatings",
+  guessThePrice: "/host/content/guessThePrice",
 };
 
 export default function ContentStudioHome() {

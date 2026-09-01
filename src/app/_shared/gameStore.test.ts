@@ -40,6 +40,14 @@ describe("gameStore.reset()", () => {
     expect(useGameStore.getState().kicked).toBe(false);
   });
 
+  it("clears synced back to false — a fresh identity must re-earn its own catch-up confirmation, not inherit the previous one's", () => {
+    useGameStore.getState().setSynced();
+    expect(useGameStore.getState().synced).toBe(true);
+
+    useGameStore.getState().reset();
+    expect(useGameStore.getState().synced).toBe(false);
+  });
+
   it("clears the previous game's snapshot/status/error — a fresh identity must never show a stale board or a stale connection error", () => {
     useGameStore.getState().setSnapshot({ gameId: "g1", gameKey: "geoguessr", state: { foo: "bar" }, events: [{ type: "X" }] });
     useGameStore.getState().setStatus("connected");
@@ -59,18 +67,20 @@ describe("gameStore.reset()", () => {
   it("reset() is exactly the initial state — not an approximation of it", () => {
     useGameStore.getState().setSessionEnded();
     useGameStore.getState().setKicked();
+    useGameStore.getState().setSynced();
     useGameStore.getState().setSnapshot({ gameId: "g1", gameKey: "board-question", state: {}, events: [] });
     useGameStore.getState().setStatus("unauthorized");
     useGameStore.getState().setError({ code: "E", message: "e" });
 
     useGameStore.getState().reset();
 
-    const { setSnapshot, setStatus, setError, setSessionEnded, setKicked, reset, ...dataFields } = useGameStore.getState();
+    const { setSnapshot, setStatus, setError, setSessionEnded, setKicked, setSynced, reset, ...dataFields } = useGameStore.getState();
     void setSnapshot;
     void setStatus;
     void setError;
     void setSessionEnded;
     void setKicked;
+    void setSynced;
     void reset;
     expect(dataFields).toEqual({
       gameId: null,
@@ -81,6 +91,7 @@ describe("gameStore.reset()", () => {
       lastError: null,
       sessionEnded: false,
       kicked: false,
+      synced: false,
     });
   });
 });

@@ -58,6 +58,8 @@ export function apply(state: GeoGuessrState, action: GeoGuessrAction): EngineRes
       return applyLockGuess(state, validated.by, validated.proposalIndex);
     case "NEXT_ROUND":
       return applyNextRound(state, validated.by);
+    case "SKIP_ROUND":
+      return applySkipRound(state, validated.by);
     case "END_GAME":
       return applyEndGame(state, validated.by);
     case "START_COUNTDOWN":
@@ -254,6 +256,49 @@ function applyNextRound(state: GeoGuessrState, by: ParticipantRole): EngineResul
     countdownDeadline: null,
   };
   return ok(nextState, [{ type: "ROUND_ADVANCED", roundIndex: nextIndex }]);
+}
+
+/**
+ * Host escape hatch — "this round isn't working out," reveals it as a
+ * genuine TIE with no guesses on either side, no score change either way.
+ * Reuses `computeRoundResult` directly with both guesses forced to
+ * `null` — the EXACT shape a countdown-forced close already produces for
+ * a team that never proposed anything this round (GeoRoundResult's own
+ * doc comment: `closerTeam` already treats two `null` guesses as a TIE),
+ * so this isn't a second "no data" shape, just the existing one reached a
+ * different way. Any already-locked guess on either team is discarded
+ * too — a skip means "throw this round out," not "keep whatever
+ * progress happened." Only legal during "guessing" (mirrors
+ * MusicEngine's/SteamRatingsEngine's/GuessThePriceEngine's own
+ * SKIP_ROUND — nothing left to skip once already "revealed"). Cancels an
+ * in-progress round countdown out from under it (COUNTDOWN_CANCELLED) so
+ * gameEndTimers.ts doesn't leave a stale Node timer pending for a round
+ * that's already closed.
+ */
+function applySkipRound(state: GeoGuessrState, by: ParticipantRole): EngineResult<GeoGuessrState, GeoGuessrEvent> {
+  if (by !== "HOST") return err("FORBIDDEN_ROLE", "Only the host can skip a round.");
+  if (state.phase !== "guessing") {
+    return err("WRONG_PHASE", `Cannot skip a round during phase "${state.phase}".`);
+  }
+  const guesses: Record<TeamRole, GeoGuess | null> = { TEAM_A: null, TEAM_B: null };
+  const computed = computeRoundResult(state, guesses);
+  if (!computed.ok) return err(computed.error.code, computed.error.message);
+
+  const events: GeoGuessrEvent[] = [{ type: "ROUND_SKIPPED", roundIndex: state.currentRoundIndex }];
+  if (state.countdownDeadline !== null) events.push({ type: "COUNTDOWN_CANCELLED" });
+  events.push(...computed.events);
+
+  const revealedState: GeoGuessrState = {
+    ...state,
+    phase: "revealed",
+    guesses,
+    lockedTeams: [],
+    roundResult: computed.result,
+    history: [...state.history, computed.result],
+    scores: computed.scores, // unchanged — a TIE never scores
+    countdownDeadline: null,
+  };
+  return finishOrContinue(revealedState, events);
 }
 
 /**
@@ -459,7 +504,7 @@ export function availableActions(state: GeoGuessrState, role: ParticipantRole): 
   // NEXT_ROUND/LOCK_GUESS already use elsewhere in this function.
   const hostCanAlwaysEnd = role === "HOST" ? ["END_GAME", "START_COUNTDOWN", ...(state.countdownDeadline !== null ? ["CANCEL_COUNTDOWN"] : [])] : [];
   if (role === "HOST") {
-    return state.phase === "revealed" ? ["NEXT_ROUND", ...hostCanAlwaysEnd] : [...hostCanAlwaysEnd];
+    return state.phase === "revealed" ? ["NEXT_ROUND", ...hostCanAlwaysEnd] : ["SKIP_ROUND", ...hostCanAlwaysEnd];
   }
   if (!isTeamRole(role)) return []; // DISPLAY never acts
   if (state.phase !== "guessing" || state.lockedTeams.includes(role)) return [];

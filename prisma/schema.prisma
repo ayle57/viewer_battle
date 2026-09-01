@@ -130,8 +130,11 @@ model User {
   /// this server-side, not just the client's own localStorage).
   tokenHash    String?       @unique
   /// False for every ordinary viewer account (self-registered, no
-  /// special permission) — true for exactly the one real streamer
-  /// account ("erwin"). This is what actually authorizes `/host`'s own
+  /// special permission) — true only for the operator's own account(s).
+  /// There is no in-app screen that sets it (an operator action, not a
+  /// feature a viewer can reach): the first admin is granted from the
+  /// CLI (`pnpm grant-admin <username>`, scripts/grant-admin.ts). This is
+  /// what actually authorizes `/host`'s own
   /// session.create/reclaimHost now (src/server/trpc/router.ts) —
   /// logging in as an `isAdmin` account is an ALTERNATIVE to typing
   /// HOST_PASSWORD directly, not a replacement for it (see that
@@ -147,16 +150,47 @@ model User {
 }
 
 model ChatMessage {
-  id         String          @id @default(cuid())
-  sessionId  String
-  session    Session         @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  channel    ChatChannel
-  role       ParticipantRole
-  senderName String
-  body       String
-  createdAt  DateTime        @default(now())
+  id            String          @id @default(cuid())
+  sessionId     String
+  session       Session         @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  channel       ChatChannel
+  role          ParticipantRole
+  senderName    String
+  /// A REAL, REPRODUCED bug this closes ("les equipes c'est nimp la
+  /// Chat"): the client used to decide "is this MY OWN message" by
+  /// comparing `role` + `senderName` alone (GameChatPanel.tsx) — two
+  /// participants on the SAME team who happen to share a display name
+  /// (a real, plausible scenario, not an edge case someone made up) were
+  /// therefore indistinguishable, and each one's messages showed up
+  /// tagged "You" on the OTHER's own screen too. A plain denormalized
+  /// snapshot field, same posture as `senderName`/`role` above — NOT a
+  /// real relation to `Participant` on purpose: `kickParticipant`
+  /// (src/server/db/participant.ts) hard-deletes that row, and this
+  /// value only ever needs to answer "was this participant me," never
+  /// join back to a still-live row. Nullable because every message sent
+  /// before this migration genuinely has no known value — the client
+  /// treats `null` as "never mine," never as a false match.
+  participantId String?
+  body          String
+  createdAt     DateTime        @default(now())
 
   @@index([sessionId, channel, createdAt])
+}
+
+/// The operator-curated chat word blocklist — applied ONLY to player
+/// (TEAM_A / TEAM_B) `chat:send` messages (src/server/sockets/chat.ts via
+/// src/domain/chat/wordFilter.ts); a hit blocks the whole message. One
+/// row per entry so the Admin panel (/host/content/admin) can add/remove
+/// individual words live with no deploy. `word` is the normalized form
+/// (`normalizeBlockword` — trimmed, lower-case, accent-folded) and is
+/// unique. The `BlockedWord` table is auto-seeded from
+/// `DEFAULT_BLOCKED_WORDS` the first time it's found empty
+/// (src/server/db/blockedWords.ts) — global, not per-session or
+/// per-ContentHost: there is one real operator and one stream to protect.
+model BlockedWord {
+  id        String   @id @default(cuid())
+  word      String   @unique
+  createdAt DateTime @default(now())
 }
 
 // --- Game Kernel persistence (see AGENTS.md "Game Kernel contract" and
@@ -251,27 +285,35 @@ model ContentHost {
 }
 
 model Playlist {
-  id          String             @id @default(cuid())
+  id          String              @id @default(cuid())
   hostId      String
-  host        ContentHost        @relation(fields: [hostId], references: [id], onDelete: Cascade)
+  host        ContentHost         @relation(fields: [hostId], references: [id], onDelete: Cascade)
   /// Matches a GameEngine.id (src/domain/game/registry.ts) — future-proofs
   /// the content model for a second game's own playlists without a schema
-  /// change. Now genuinely exercised by two: "board-question" (Mini
-  /// Jeopardy, categories/questions below) and "geoguessr" (rounds below)
-  /// — the SAME Playlist entity/ownership/CRUD surface serves both games'
-  /// top-level "named thing a Host prepares," with a game-specific CHILD
-  /// table for each game's own content shape (a Jeopardy playlist only
-  /// ever has `categories` populated; a GeoGuessr playlist only ever has
-  /// `rounds` populated — nothing enforces that at the schema level, it
-  /// falls out of which tRPC procedures a given `gameKey` ever calls, see
-  /// contentRouter.ts / contentGeoRouter.ts).
+  /// change. Exercised by six now: "board-question" (Mini Jeopardy,
+  /// categories/questions below), "geoguessr" (rounds below), "drawing"
+  /// (prompts below), "music" (tracks below), "steamRatings" (steam
+  /// games below), and "guessThePrice" (price items below) — the SAME
+  /// Playlist entity/ownership/CRUD surface serves every game's
+  /// top-level "named thing a Host prepares," with a game-specific
+  /// CHILD table for each game's own content shape (a Jeopardy playlist
+  /// only ever has `categories` populated; a GeoGuessr playlist only
+  /// ever has `rounds` populated; etc — nothing enforces that at the
+  /// schema level, it falls out of which tRPC procedures a given
+  /// `gameKey` ever calls, see contentRouter.ts / contentGeoRouter.ts /
+  /// contentDrawingRouter.ts / contentMusicRouter.ts /
+  /// contentSteamRouter.ts / contentPriceRouter.ts).
   gameKey     String
   name        String
   description String?
-  createdAt   DateTime           @default(now())
-  updatedAt   DateTime           @updatedAt
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
   categories  PlaylistCategory[]
   rounds      PlaylistRound[]
+  prompts     PlaylistPrompt[]
+  tracks      PlaylistTrack[]
+  steamGames  PlaylistSteamGame[]
+  priceItems  PlaylistPriceItem[]
   games       SessionGame[]
 
   @@index([hostId, gameKey])
@@ -328,7 +370,7 @@ model PlaylistQuestion {
 /// — deliberately: this app has no upload/asset-storage system yet (see
 /// the product brief this shipped against), so a round's image today is
 /// literally its serving path under `public/` (e.g.
-/// "/images/maps/ac_odyssey_world_map.jpg", discovered dynamically —
+/// "/images/maps/sample-world-map.png", discovered dynamically —
 /// src/server/content/geoAssets.ts — never hardcoded into the Game
 /// Kernel). Swapping this for real object storage later is a change to
 /// what populates this ONE string column and to geoAssets.ts, nothing
@@ -364,6 +406,170 @@ model PlaylistRound {
   targetY    Float?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+
+  @@index([playlistId, position])
+}
+
+/// Drawing's own content shape — a flat, ordered list of drawing prompts
+/// ("chenille", "dragon", ...), the Drawing counterpart to PlaylistRound
+/// above: same flat-list-not-category-tree reasoning (see that model's
+/// own comment) but simpler still — a prompt is just text plus a
+/// per-prompt timer, no image/target asset fields at all.
+///
+/// `text` nullable on purpose, same "shell now, fill in later" pattern
+/// as PlaylistRound.question — a Host can create a prompt row (get an
+/// id, a position on the list) before typing its word;
+/// src/domain/content/drawingReadiness.ts is what turns "incomplete"
+/// into a real reason a Host can't start the show.
+///
+/// `durationSeconds` is the one field genuinely new to this app's
+/// Content Studio shape (no existing PlaylistQuestion/PlaylistRound
+/// field is a duration) — this is the literal "set the timer per round"
+/// product requirement: src/server/game/service.ts's startGame
+/// snapshots this straight into DrawingEngine's own per-turn
+/// countdown deadline (src/domain/game/drawing/engine.ts's
+/// applyChooseDrawer), so a later edit here can never change a round
+/// already in progress. Defaults to 30s; a Host raises it (60/90...) for
+/// harder prompts. A plain editable positive int, no DB-level CHECK —
+/// same posture as PlaylistQuestion.value.
+model PlaylistPrompt {
+  id              String   @id @default(cuid())
+  playlistId      String
+  playlist        Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  /// Reorder position within the playlist — same integer-position scheme
+  /// as every other Playlist child's own `position` field, not a linked
+  /// list; reordering rewrites every affected row's position in one
+  /// transaction (src/server/db/contentDrawing.ts).
+  position        Int
+  text            String?
+  durationSeconds Int      @default(30)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([playlistId, position])
+}
+
+/// "Guess the Music"'s own content shape — a flat, ordered list of audio
+/// tracks, the Music counterpart to PlaylistRound/PlaylistPrompt above:
+/// same flat-list-not-category-tree reasoning (see PlaylistRound's own
+/// comment) — a track is an uploaded audio clip plus its reference
+/// answer (`title`/optional `artist`), no per-round scoring value at all
+/// (src/domain/game/music/types.ts's top comment: every correctly-
+/// judged round is worth exactly 1 point, "un scoring system simple" —
+/// unlike PlaylistQuestion.value, there's nothing here to configure per
+/// track).
+///
+/// `audioUrl`/`title` nullable on purpose, same "shell now, fill in
+/// later" pattern as PlaylistRound.imageUrl/PlaylistPrompt.text — a Host
+/// can create a track row (get an id, a position on the list) before
+/// uploading a clip or naming it; src/domain/content/musicReadiness.ts
+/// is what turns "incomplete" into a real reason a Host can't start the
+/// show. `artist` is always optional, even once "complete" — some clips
+/// (instrumentals, game/movie themes, memes) have no meaningful separate
+/// artist to name (src/domain/game/music/types.ts's musicRoundSchema).
+///
+/// `audioUrl` is an opaque string, not a foreign key into an asset table
+/// — same posture as PlaylistRound.imageUrl: this app has no
+/// upload/asset-storage system beyond a local `public/` directory per
+/// content type (see src/server/content/musicAssets.ts, the Music
+/// counterpart to geoAssets.ts).
+model PlaylistTrack {
+  id         String   @id @default(cuid())
+  playlistId String
+  playlist   Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  /// Reorder position within the playlist — same integer-position scheme
+  /// as every other Playlist child's own `position` field, not a linked
+  /// list; reordering rewrites every affected row's position in one
+  /// transaction (src/server/db/contentMusic.ts).
+  position   Int
+  audioUrl   String?
+  title      String?
+  artist     String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([playlistId, position])
+}
+
+/// "Guess the Game" (Steam Ratings)'s own content shape — a flat, ordered
+/// list of game entries, the Steam-Ratings counterpart to PlaylistTrack
+/// above: same flat-list-not-category-tree reasoning (see PlaylistRound's
+/// own comment) — one entry is one Steam game the Host prepared: its own
+/// name (`title`, the reference answer), a cover image, and an ORDERED
+/// list of that game's own Steam user reviews, least obvious first
+/// (src/domain/game/steamRatings/types.ts's top comment: the reveal order
+/// IS this array's order). No per-round scoring value, same "un scoring
+/// system simple" posture as PlaylistTrack — every correctly-judged round
+/// is worth exactly 1 point.
+///
+/// `ratings` is a native Postgres `String[]`, not its own child table —
+/// deliberately NOT PlaylistCategory/PlaylistQuestion's two-level shape:
+/// a rating has no identity of its own worth an id (no reorder-by-drag,
+/// no delete-just-one-and-keep-the-rest-stable elsewhere), it only ever
+/// gets edited as a whole ordered batch inside one game entry's own
+/// editor (src/app/host/content/steamRatings/playlists/[id]/
+/// GameEditorPanel.tsx) and read back the same way
+/// (playlistToSteamRatingsConfig). A plain scalar list column is the
+/// honest shape for that, not an over-normalized child table.
+///
+/// `title`/`imageUrl` nullable on purpose, same "shell now, fill in
+/// later" pattern as PlaylistTrack.audioUrl/title — a Host can create a
+/// game row (get an id, a position on the list) before naming it or
+/// uploading its cover; src/domain/content/steamReadiness.ts is what
+/// turns "incomplete" into a real reason a Host can't start the show.
+/// `ratings` defaults to an empty array for the exact same "shell, not
+/// yet complete" reason — readiness requires at least one.
+///
+/// `imageUrl` is an opaque string, not a foreign key into an asset table
+/// — same posture as PlaylistTrack.audioUrl: this app has no
+/// upload/asset-storage system beyond a local `public/` directory per
+/// content type (see src/server/content/steamAssets.ts, the Steam
+/// Ratings counterpart to geoAssets.ts/musicAssets.ts).
+model PlaylistSteamGame {
+  id         String   @id @default(cuid())
+  playlistId String
+  playlist   Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  /// Reorder position within the playlist — same integer-position scheme
+  /// as every other Playlist child's own `position` field, not a linked
+  /// list; reordering rewrites every affected row's position in one
+  /// transaction (src/server/db/contentSteam.ts).
+  position   Int
+  title      String?
+  imageUrl   String?
+  ratings    String[] @default([])
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([playlistId, position])
+}
+
+/// "Guess the Price" content — a flat, ordered list of priced items, same
+/// shape as PlaylistSteamGame above (one child row per round, no nested
+/// category/round-of-rounds structure). `price`/`marginPercent` are the
+/// two fields with no counterpart on any other game's child table: the
+/// REFERENCE price the Host judges a team's oral guess against (hidden
+/// from every other role until a round is revealed — same posture as
+/// PlaylistSteamGame.title/imageUrl, see src/domain/game/guessThePrice/
+/// types.ts's top comment), and an OPTIONAL tolerance the Host can set
+/// per item if they want a "close enough" guideline instead of judging
+/// purely by ear — "il faut qu'il puisse mettre la marge de prix seul
+/// si il veut en mettre une." Both stay null on an incomplete/freshly
+/// created item, same "exists but incomplete" shape as PlaylistTrack.
+model PlaylistPriceItem {
+  id            String   @id @default(cuid())
+  playlistId    String
+  playlist      Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  /// Reorder position within the playlist — same integer-position scheme
+  /// as every other Playlist child's own `position` field, not a linked
+  /// list; reordering rewrites every affected row's position in one
+  /// transaction (src/server/db/contentPrice.ts).
+  position      Int
+  title         String?
+  imageUrl      String?
+  price         Float?
+  marginPercent Float?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   @@index([playlistId, position])
 }

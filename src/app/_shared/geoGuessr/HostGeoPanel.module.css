@@ -45,6 +45,19 @@
   color: var(--vb-danger);
 }
 
+/* Groups the round counter + the dominant status line as one visual
+   unit, with real breathing room before the map Card right below —
+   same "state, then the thing it's about" ordering every Host panel
+   now follows. */
+.statusHeader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--vb-space-1);
+  margin-bottom: var(--vb-space-3);
+  text-align: center;
+}
+
 .roundLabel {
   font-size: 0.8rem;
   font-weight: 800;
@@ -117,22 +130,10 @@
   text-align: center;
 }
 
-.resultHeadline {
-  font-size: 1.3rem;
-  font-weight: 800;
-  margin: 0;
-}
-
-/* Same team-color-on-the-headline pattern PlayerGeoPanel/DisplayGeoPanel
-   already use — see HostGeoPanel.tsx's own doc comment on why the Host
-   needed this too, not just the audience-facing roles. */
-.resultTeamA {
-  color: var(--vb-team-a);
-}
-
-.resultTeamB {
-  color: var(--vb-team-b);
-}
+/* The headline itself (`.resultHeadline`/`.resultTeamA`/`.resultTeamB`)
+   now lives in the shared `@/app/_shared/RoundStatus` component — see
+   that component's doc comment for why this and the other two Host
+   panels' own status text consolidated onto one treatment. */
 
 .distanceRow {
   display: flex;
@@ -144,4 +145,12 @@
 
 .nextRoundRow {
   margin-top: var(--vb-space-4);
+}
+
+/* Same discreet "Skip round"/"Close question" ghost row every other
+   engine's own Host panel uses. */
+.closeRow {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--vb-space-3);
 }

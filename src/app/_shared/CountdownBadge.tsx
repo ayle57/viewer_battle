@@ -3,6 +3,7 @@
 import { Badge } from "@/ui";
 import { formatCountdown } from "./formatCountdown";
 import { useCountdownRemaining } from "./useCountdownRemaining";
+import styles from "./CountdownBadge.module.css";
 
 export interface CountdownBadgeProps {
   deadlineMs: number | null;
@@ -11,6 +12,9 @@ export interface CountdownBadgeProps {
   /** Passed straight through to the underlying `<span>` — Display's own OBS-scale treatment is a font-size bump via its own CSS module, not a Badge-level size variant (Badge only has sm/md — see its own type). */
   className?: string;
 }
+
+/** Under this, the countdown reads as genuinely urgent, not just "counting down" — a real, audited gap: 10 seconds and 2 minutes left used to be visually identical. */
+const CRITICAL_MS = 10_000;
 
 /**
  * The read-only half of the countdown feature — shared by every
@@ -29,8 +33,9 @@ export interface CountdownBadgeProps {
 export function CountdownBadge({ deadlineMs, label = "Ends in", className }: CountdownBadgeProps) {
   const remaining = useCountdownRemaining(deadlineMs);
   if (remaining === null) return null;
+  const critical = remaining <= CRITICAL_MS;
   return (
-    <Badge variant="warning" dot className={className}>
+    <Badge variant={critical ? "danger" : "warning"} dot className={[className, critical && styles.critical].filter(Boolean).join(" ")}>
       {label} {formatCountdown(remaining)}
     </Badge>
   );

@@ -96,7 +96,7 @@ function HostGame({ identity }: { identity: DevIdentity }) {
           <Card>
             <CardHeader title="Chat" />
             <CardBody>
-              <GameChatPanel role="HOST" displayName={identity.displayName} sendChatMessage={sendChatMessage} />
+              <GameChatPanel role="HOST" displayName={identity.displayName} participantId={identity.participantId} sendChatMessage={sendChatMessage} />
             </CardBody>
           </Card>
         </>
@@ -122,7 +122,7 @@ function HostGame({ identity }: { identity: DevIdentity }) {
             <Card>
               <CardHeader title="Chat" />
               <CardBody>
-                <GameChatPanel role="HOST" displayName={identity.displayName} sendChatMessage={sendChatMessage} />
+                <GameChatPanel role="HOST" displayName={identity.displayName} participantId={identity.participantId} sendChatMessage={sendChatMessage} />
               </CardBody>
             </Card>
           </div>

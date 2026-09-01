@@ -1,6 +1,6 @@
 "use client";
 
-import styles from "./HostDisconnectedBanner.module.css";
+import { StatusBanner } from "./StatusBanner";
 
 /**
  * "HOST DISCONNECTED — waiting for host to reconnect", shown ON TOP of
@@ -11,12 +11,12 @@ import styles from "./HostDisconnectedBanner.module.css";
  * a HOST is connected again (see usePresenceStore) — there's no local
  * "reconnecting" timer or guesswork, this reflects the server's own
  * live fact.
+ *
+ * A thin wrapper over `StatusBanner` — the same visual language now also
+ * used for THIS tab's own connection (player/page.tsx, display/page.tsx),
+ * so "something about connectivity needs attention" reads identically
+ * everywhere instead of two banners independently styled.
  */
 export function HostDisconnectedBanner() {
-  return (
-    <div className={styles.banner} role="status">
-      <p className={styles.title}>HOST DISCONNECTED</p>
-      <p className={styles.subtitle}>Waiting for host to reconnect…</p>
-    </div>
-  );
+  return <StatusBanner title="HOST DISCONNECTED" subtitle="Waiting for host to reconnect…" />;
 }

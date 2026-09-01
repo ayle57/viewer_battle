@@ -33,6 +33,12 @@ export default function JeopardyContentPage() {
   const duplicatePlaylist = trpc.content.playlist.duplicate.useMutation({
     onSuccess: () => void utils.content.playlist.list.invalidate(),
   });
+  const renamePlaylist = trpc.content.playlist.update.useMutation({
+    onSuccess: () => {
+      void utils.content.playlist.list.invalidate();
+      setRenamingId(null);
+    },
+  });
   const deletePlaylist = trpc.content.playlist.delete.useMutation({
     onSuccess: () => void utils.content.playlist.list.invalidate(),
   });
@@ -40,6 +46,22 @@ export default function JeopardyContentPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const pendingDeletePlaylist = playlists.data?.find((p) => p.id === pendingDeleteId) ?? null;
+  // Rename-in-place from the library card's own "···" menu — mirrors
+  // ../geoguessr/page.tsx's identical pattern (this game's own library
+  // was the only one of the three missing it; see todos.md "Still needs
+  // your eyes" #3 — renaming a Jeopardy playlist was already possible via
+  // the editor's own title field, just not from here).
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+
+  function commitRename(playlistId: string) {
+    const trimmed = renameValue.trim();
+    if (!trimmed) {
+      setRenamingId(null);
+      return;
+    }
+    renamePlaylist.mutate({ token, playlistId, name: trimmed });
+  }
 
   return (
     <>
@@ -108,9 +130,24 @@ export default function JeopardyContentPage() {
                 className={styles.playlistCard}
               >
                 <div className={styles.playlistCardTop}>
-                  <Link href={`/host/content/jeopardy/playlists/${playlist.id}`} className={styles.playlistName}>
-                    {playlist.name}
-                  </Link>
+                  {renamingId === playlist.id ? (
+                    <input
+                      className={styles.renameInput}
+                      value={renameValue}
+                      autoFocus
+                      onChange={(event) => setRenameValue(event.target.value)}
+                      onBlur={() => commitRename(playlist.id)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") event.currentTarget.blur();
+                        if (event.key === "Escape") setRenamingId(null);
+                      }}
+                      aria-label="Rename playlist"
+                    />
+                  ) : (
+                    <Link href={`/host/content/jeopardy/playlists/${playlist.id}`} className={styles.playlistName}>
+                      {playlist.name}
+                    </Link>
+                  )}
                   <ReadinessBadge readiness={playlist.readiness} size="sm" />
                 </div>
 
@@ -131,6 +168,13 @@ export default function JeopardyContentPage() {
                     <ActionsMenu
                       items={[
                         { label: "Duplicate", onSelect: () => duplicatePlaylist.mutate({ token, playlistId: playlist.id }) },
+                        {
+                          label: "Rename",
+                          onSelect: () => {
+                            setRenameValue(playlist.name);
+                            setRenamingId(playlist.id);
+                          },
+                        },
                         { label: "Delete", danger: true, onSelect: () => setPendingDeleteId(playlist.id) },
                       ]}
                       label={`More actions for ${playlist.name}`}

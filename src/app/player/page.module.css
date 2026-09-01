@@ -4,10 +4,10 @@
  * token this whole file (and every shared component it renders: Card,
  * Badge, Button, TeamRoster, SessionEndedNotice, KickedNotice, chat…)
  * reads resolves to the dark palette for free, with zero changes needed
- * to any of those shared components. Host/Display stay completely
- * untouched; this is the one route that's always dark, not OS-linked,
- * same spirit as `--vb-obs-bg` (a broadcast output stays dark
- * regardless of the visitor's OS theme).
+ * to any of those shared components. Host stays OS-linked; `/player` and
+ * `/display` are both always dark (not OS-linked), same spirit as
+ * `--vb-obs-bg` (a broadcast output stays dark regardless of the
+ * visitor's OS theme) — see display/page.tsx's own `vb-dark-scope` note.
  *
  * The old shell was a flat stack of white-bordered `Card`s inside a
  * cream page (a badge strip for a header, a card for the score, a card
@@ -23,12 +23,46 @@
   color: var(--vb-text);
 }
 
+/* `max-width` bumped from a flat 34rem — a REAL, REPORTED gap ("l'ui
+   doit plus s'adapter aux gros screens"): on anything wider than a
+   tablet, this shell used to stay pinned at a fixed 544px, leaving a
+   huge dead band of `--vb-bg` down BOTH sides on a real desktop/OBS-
+   scale monitor — confirmed live at 1920×1080 before this change, not
+   guessed at. Mobile is completely unaffected either way: a block
+   element's `max-width` only ever CAPS its width, never forces it wider
+   than the viewport actually allows, so a phone was never touching the
+   old 34rem ceiling (544px > any real phone width) and still isn't
+   touching this new one. `min-height: 100dvh` (moved here from relying
+   on `.page` alone) + `display: flex` is what lets `.centerBody` below
+   actually vertically center — this file's own second real gap the
+   same live screenshot showed: the short Lobby/status screens hugging
+   the top with an even bigger dead band BELOW them on a tall screen,
+   not just beside them. */
 .shell {
-  max-width: 34rem;
+  min-height: 100dvh;
+  max-width: 48rem;
   margin: 0 auto;
   padding: 0 var(--vb-space-4) var(--vb-space-6);
   display: flex;
   flex-direction: column;
+  gap: var(--vb-space-4);
+}
+
+/* Vertically centers whatever's inside it within the remaining height
+   `.shell` has left after its own fixed-height children (`topBar`,
+   always `flex-shrink: 0` by default since it never gets this class) —
+   used for every SHORT, fixed-size state (Lobby waiting room, kicked,
+   session-ended, syncing) where "hugging the top of a tall screen"
+   reads as broken, never for the live `GAME_IN_PROGRESS` panels
+   themselves (arbitrary height, a chat drawer that opens/closes below
+   them — pinning those to the top is the safer, more familiar "content
+   flows from the top" posture, same as Host/most apps, and avoids the
+   layout actually jumping every time chat opens on a tall screen). */
+.centerBody {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
   gap: var(--vb-space-4);
 }
 
@@ -214,6 +248,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative;
   width: 2rem;
   height: 2rem;
   border-radius: var(--vb-radius-full);
@@ -223,6 +258,19 @@
   font-size: 1.1rem;
   line-height: 1;
   cursor: pointer;
+}
+
+/* Same extended-hit-target pattern as ClickableImageMap.module.css's
+   `.markerDotSelectable::before` — up to `--vb-tap-target` (40px). A
+   real audited gap: 32px, on the row directly above the Buzz button,
+   the exact spot a thumb is most likely to slip under pressure. The two
+   buttons this class draws (account link, session menu) sit `--vb-space-3`
+   apart, comfortably wider than this extension, so their zones never
+   touch. */
+.menuButton::before {
+  content: "";
+  position: absolute;
+  inset: -4px;
 }
 
 .menuButton:hover,
@@ -333,23 +381,23 @@
 /* The READY -> 3 -> 2 -> 1 -> LIVE moment — GameStartingSequence.tsx
    itself is shared with Host/Display (both keep their own plain
    presentation, untouched), so this only dresses up the PLAYER's own
-   wrapper around it: a soft radial glow (never edited before now,
-   since it used to sit inside a plain white Card) and a scaled-up
-   number so this reads as a real gameshow countdown taking over the
-   whole screen, not a small centered text block in the middle of a
-   page. `transform: scale()` on the wrapper, not a GameStartingSequence
-   prop — the number itself never changes size for Host/Display. */
+   layout around it: just centering, no background of its own anymore.
+   The bigger number itself is a real `font-size` bump via
+   GameStartingSequence's own `size="large"` prop, not a post-hoc
+   `transform: scale()` — a REAL, REPORTED bug this replaced ("le blur
+   est buggé"; see that prop's own doc comment). The ambient glow used to
+   live here too, but `.shell` is a `max-width: 34rem` centered column —
+   nowhere near the real viewport — so it read as clipped rather than the
+   "prend toute la page" takeover a countdown like this wants. It's now
+   `size="large"`'s own `.fullscreenGlow`, portaled straight to
+   `document.body` (GameStartingSequence.module.css) — see that class's
+   doc comment for the full story. */
 .startingWrap {
   position: relative;
   min-height: 70vh;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--vb-primary) 22%, transparent), transparent 65%);
-}
-
-.startingWrap > * {
-  transform: scale(1.4);
 }
 
 /* ---------------------------------------------------------------------

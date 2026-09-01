@@ -1,58 +1,75 @@
 # ViewerBattle
 
-ViewerBattle is an interactive **2v2 gameshow platform** designed for livestreams.
+An interactive **2v2 gameshow platform** for livestreams. Two teams of two
+compete across a run of games while a Host controls the show in real time
+and the scoreboard goes straight onto the stream via OBS.
 
-Two teams of two players compete across multiple games while a Host controls the show in real time.
-
-## Features
-
-- 2 teams of 2 players
-- Multiple games in a single show
-- Progressive scoring system
-- Host control panel
-- Player interface
-- Real-time synchronization
-- Private team chat
-- OBS/browser display
-- Session statistics
-- Reusable UI and game components
-
-Webcams are handled separately through **VDO.Ninja + OBS**.
+Webcams are handled separately (VDO.Ninja + OBS).
 
 ## Games
 
-The current specification includes:
+All seven are live:
 
-1. Mini Jeopardy
-2. Guess the Game via Steam Ratings
-3. GeoGuessr-style game
-4. Jackbox Party
-5. Guess the Music
-6. Drawing
-7. Story Time
-8. Top 5
-9. Guess the Price
+1. **Mini Jeopardy** — host-picked categories and questions; buzz, answer, steal.
+2. **GeoGuessr** — one shared map; place a pin, lock it, closest wins the round.
+3. **Drawing** — one player sketches a secret word against a timer; the host judges the guess.
+4. **Guess the Music** — a track plays for everyone at once; buzz first and name it.
+5. **Guess the Game** — a game's own Steam reviews are revealed one at a time; buzz and name it.
+6. **Guess the Price** — an item is shown; buzz and type your price guess.
+7. **Scoreboard** — a content-free scoreboard for anything played outside the app (Jackbox & co.).
 
-The system should remain flexible enough to add more games later.
+New formats slot in without a schema change — see `src/domain/game/registry.ts`.
 
-## Tech Stack
+## Quick start
 
-- Next.js
-- React
-- TypeScript
-- PostgreSQL
-- pnpm
-- Node.js
+```bash
+pnpm install
+cp .env.example .env          # then edit DATABASE_URL + HOST_PASSWORD
+pnpm db:deploy                # apply migrations to the database in DATABASE_URL
+pnpm dev                      # http://localhost:3000
+```
 
-The project is a single Next.js application (not a monorepo) with a custom
-server entrypoint attaching Socket.IO for realtime. See `AGENTS.md` for
-working conventions and known constraints.
+Create your operator account and promote it:
 
-## Project Status
+```bash
+# 1. open http://localhost:3000/account and register a username + password
+# 2. then:
+pnpm grant-admin <that-username>
+```
 
-🚧 **In development**
+That account can now open `/host` (run games) and `/host/content` (Content
+Studio + Admin panel, also reachable with the `HOST_PASSWORD` from `.env`).
 
-The project is currently being designed and the core architecture is being implemented.
+**Full walkthrough — content, OBS setup, moderation, deployment: see [`SETUP.md`](./SETUP.md).**
+
+## Routes
+
+| Route | Who | What |
+| --- | --- | --- |
+| `/` | anyone | Landing page |
+| `/account` | anyone | Register / log in / stats |
+| `/host` | operator | Run a show (needs an admin account) |
+| `/host/content` | operator | Content Studio + Admin panel (word filter, accounts, stats) |
+| `/player` | viewers | Join a game as Team A / Team B |
+| `/display` | OBS | The on-stream scoreboard (`/display?code=XXXXXX&name=OBS` auto-joins) |
+
+## Tech
+
+Next.js (App Router) + React + TypeScript, a custom server entrypoint
+attaching Socket.IO for realtime, PostgreSQL via Prisma, pnpm. Single app,
+not a monorepo. See `AGENTS.md` for working conventions and constraints.
+
+## Scripts
+
+```
+pnpm dev            pnpm build          pnpm start
+pnpm test           pnpm lint           pnpm typecheck
+pnpm db:migrate     pnpm db:deploy      pnpm db:generate
+pnpm grant-admin <username> [--revoke] | --list
+```
+
+Docker (Caddy + app + Postgres): `make docker-up`, `make docker-migrate`.
+See the `makefile` for the full list.
 
 ## License
 

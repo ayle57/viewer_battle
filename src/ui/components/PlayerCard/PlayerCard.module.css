@@ -7,20 +7,6 @@
   border-radius: var(--vb-radius-sm);
 }
 
-.avatar {
-  width: 1.75rem;
-  height: 1.75rem;
-  border-radius: 50%;
-  background: var(--vb-surface-raised);
-  color: var(--vb-text);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.75rem;
-  font-weight: 700;
-  flex-shrink: 0;
-}
-
 .name {
   font-size: 0.875rem;
   font-weight: 600;

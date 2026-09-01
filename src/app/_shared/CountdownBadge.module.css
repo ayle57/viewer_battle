@@ -1,0 +1,23 @@
+/* A small, audited gap: 10 seconds left and 2 minutes left used to carry
+   the exact same visual weight (plain `warning`, never anything else) —
+   on a badge glanced at mid-buzz/mid-round, urgency should be readable
+   without stopping to read the number. Same ring-pulse shape as tokens.
+   css's own `vb-live-pulse` (the "this is true right now" convention
+   already used for presence dots) but built on `--vb-danger`, its own
+   keyframe — reusing `vb-live-pulse` directly would put a GREEN "still
+   connected"-colored pulse on what needs to read as urgent, the wrong
+   signal. Already covered by the global `prefers-reduced-motion` rule
+   (tokens.css) — no separate opt-out needed here. */
+@keyframes vb-countdown-critical-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--vb-danger) 50%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--vb-danger) 0%, transparent);
+  }
+}
+
+.critical {
+  animation: vb-countdown-critical-pulse 1s ease-in-out infinite;
+}

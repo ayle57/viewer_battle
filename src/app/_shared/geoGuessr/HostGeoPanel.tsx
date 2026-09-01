@@ -10,6 +10,7 @@ import { Badge, Button, Card, CardBody, CardHeader, ClickableImageMap, ConfirmDi
 import { readableGeoError } from "./gameErrorMessages";
 import { formatDistance } from "./format";
 import { CountdownControl } from "@/app/_shared/CountdownControl";
+import { RoundStatus } from "@/app/_shared/RoundStatus";
 import styles from "./HostGeoPanel.module.css";
 
 export interface HostGeoPanelProps {
@@ -32,11 +33,11 @@ const TEAM_LABEL: Record<"TEAM_A" | "TEAM_B", string> = { TEAM_A: "Team A", TEAM
  */
 export function HostGeoPanel({ state, sendAction }: HostGeoPanelProps) {
   const reduced = useReducedMotionSafe(); // hydration-safe — see that hook's own doc comment
-  const [pending, setPending] = useState<"NEXT_ROUND" | "END_GAME" | null>(null);
+  const [pending, setPending] = useState<"NEXT_ROUND" | "SKIP_ROUND" | "END_GAME" | null>(null);
   const [error, setError] = useState<{ code: string; message: string } | null>(null);
   const [endGameOpen, setEndGameOpen] = useState(false);
 
-  async function act(kind: "NEXT_ROUND" | "END_GAME", action: Record<string, unknown>) {
+  async function act(kind: "NEXT_ROUND" | "SKIP_ROUND" | "END_GAME", action: Record<string, unknown>) {
     setPending(kind);
     setError(null);
     const result = await sendAction(action);
@@ -141,13 +142,24 @@ export function HostGeoPanel({ state, sendAction }: HostGeoPanelProps) {
           moved only by the server's own NEXT_ROUND broadcast). */}
       {round && (
         <motion.div key={state.currentRoundIndex} initial="hidden" animate="show" variants={fadeUp(reduced, { y: 14, duration: 0.4 })}>
-          <p className={styles.roundLabel}>
-            ROUND {state.currentRoundIndex + 1} / {state.rounds.length}
-          </p>
+          <div className={styles.statusHeader}>
+            <p className={styles.roundLabel}>
+              ROUND {state.currentRoundIndex + 1} / {state.rounds.length}
+            </p>
+            {/* The one dominant status line this panel was missing — the
+                "revealed" moment already had one (the team-colored
+                headline below, once this pass migrated it onto the same
+                shared component every other Host panel now uses); the
+                much LONGER "guessing" phase had nothing but a muted Card
+                subtitle. Same visual grammar as Jeopardy/Drawing now,
+                not a smaller treatment for the state a Host actually
+                spends most of the round looking at. */}
+            {!revealed && <RoundStatus>Waiting for guesses</RoundStatus>}
+          </div>
           <Card>
             <CardHeader
               title={round.question || `Round ${state.currentRoundIndex + 1}`}
-              subtitle={revealed ? "Revealed — ready for the next round" : "Target hidden until both teams lock"}
+              subtitle={revealed ? "Revealed — ready for the next round" : undefined}
             />
             <CardBody>
               <ClickableImageMap
@@ -179,6 +191,21 @@ export function HostGeoPanel({ state, sendAction }: HostGeoPanelProps) {
         })}
       </div>
 
+      {/* Same discreet ghost styling as every other engine's own Skip
+          round (MusicEngine/SteamRatingsEngine/GuessThePriceEngine's own
+          HostXPanel) — "this round isn't working out," no confirmation
+          needed: it doesn't end the match, just this one round, and the
+          server rejects it outright once already revealed (WRONG_PHASE)
+          so hiding it here too is just not offering a button that would
+          bounce. */}
+      {!revealed && state.status !== "finished" && (
+        <div className={styles.closeRow}>
+          <Button variant="ghost" size="sm" loading={pending === "SKIP_ROUND"} disabled={pending !== null} onClick={() => void act("SKIP_ROUND", { type: "SKIP_ROUND" })}>
+            Skip round (no winner)
+          </Button>
+        </div>
+      )}
+
       {revealed && state.roundResult && (
         <motion.div initial="hidden" animate="show" variants={fadeUp(reduced)}>
         <Card variant="raised">
@@ -193,18 +220,12 @@ export function HostGeoPanel({ state, sendAction }: HostGeoPanelProps) {
                   audit question) genuinely read NO at a glance.
                   Reuses the identical pattern, not a new one — same
                   team-color-on-the-headline idea PlayerGeoPanel/
-                  DisplayGeoPanel already established. */}
-              <p
-                className={[
-                  styles.resultHeadline,
-                  state.roundResult.roundWinner === "TEAM_A" && styles.resultTeamA,
-                  state.roundResult.roundWinner === "TEAM_B" && styles.resultTeamB,
-                ]
-                  .filter(Boolean)
-                  .join(" ")}
-              >
-                {state.roundResult.roundWinner === "TIE" ? "ROUND TIED" : `${TEAM_LABEL[state.roundResult.roundWinner as "TEAM_A" | "TEAM_B"]} WINS THE ROUND`}
-              </p>
+                  DisplayGeoPanel already established; now the same
+                  shared `RoundStatus` component every Host panel uses
+                  for its own dominant status line. */}
+              <RoundStatus tone={state.roundResult.roundWinner === "TIE" ? "neutral" : state.roundResult.roundWinner === "TEAM_A" ? "teamA" : "teamB"}>
+                {state.roundResult.roundWinner === "TIE" ? "Round tied" : `${TEAM_LABEL[state.roundResult.roundWinner as "TEAM_A" | "TEAM_B"]} wins the round`}
+              </RoundStatus>
               <div className={styles.distanceRow}>
                 <span>Team A — {formatDistance(state.roundResult.distances.TEAM_A)}</span>
                 <span>Team B — {formatDistance(state.roundResult.distances.TEAM_B)}</span>

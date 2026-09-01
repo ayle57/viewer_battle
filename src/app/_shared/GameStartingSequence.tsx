@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { motion } from "motion/react";
 import { useReducedMotionSafe } from "@/app/_shared/motion/useReducedMotionSafe";
 import styles from "./GameStartingSequence.module.css";
@@ -15,6 +16,30 @@ export interface GameStartingSequenceProps {
   live: boolean;
   /** Called once — when the local countdown has finished its own beat AND `live` is true. The caller (host/page.tsx) swaps back to its normal phase-driven rendering, which by then already shows the real board. */
   onDone: () => void;
+  /**
+   * `"large"` for Player's own bigger presentation (see player/page.module.css's
+   * `.startingWrap`) — a real, reported bug this replaced: Player used to get
+   * this size by wrapping the whole component in a plain CSS
+   * `transform: scale(1.4)`, which rasterizes the already-laid-out text at its
+   * SMALL size and then blows the pixels up, reading as genuinely blurry
+   * (not a rendering glitch — that's exactly what scaling a rasterized layer
+   * does). A real `font-size` bump instead asks the browser to lay the glyphs
+   * out at the larger size directly, crisp at any zoom/DPI. Host/Display pass
+   * nothing and keep the plain size, unchanged.
+   *
+   * `"large"` also portals in `.fullscreenGlow` (below) — a second, later
+   * report on the exact same "le blur" complaint ("le blur doit prendre
+   * toute la page"): the ambient radial glow behind the countdown used to
+   * be a plain background on player/page.module.css's own `.startingWrap`,
+   * which sits inside `.shell` — a `max-width: 34rem` centered column, not
+   * the real viewport, so the glow was clipped to that narrow strip instead
+   * of taking over the screen the way a real gameshow countdown should.
+   * Fixed the exact way `VictoryGlow.tsx` already fixed the identical class
+   * of bug for the winner reveal: `createPortal` straight to `document.body`
+   * with `position: fixed; inset: 0`, so it means the real viewport
+   * regardless of whatever narrow column renders this component.
+   */
+  size?: "default" | "large";
 }
 
 /**
@@ -36,7 +61,7 @@ export interface GameStartingSequenceProps {
  * host/page.tsx's `sequenceActive` for what actually happens once this
  * calls back.
  */
-export function GameStartingSequence({ live, onDone }: GameStartingSequenceProps) {
+export function GameStartingSequence({ live, onDone, size = "default" }: GameStartingSequenceProps) {
   const reduced = useReducedMotionSafe(); // hydration-safe — see that hook's own doc comment
   // Reduced motion skips straight to the terminal hold as the initial
   // state itself (no timed beats to play) rather than via an effect that
@@ -44,6 +69,15 @@ export function GameStartingSequence({ live, onDone }: GameStartingSequenceProps
   const [index, setIndex] = useState(() => (reduced ? STAGES.length - 1 : 0));
   const stage = STAGES[index]!;
   const atFinalStage = index === STAGES.length - 1;
+
+  // Portals need a real `document` — never available during SSR/the first
+  // render. Same one-time "external system" read `VictoryGlow.tsx` already
+  // has a convention for.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (reduced || atFinalStage) return;
@@ -59,9 +93,10 @@ export function GameStartingSequence({ live, onDone }: GameStartingSequenceProps
 
   return (
     <div className={styles.wrap} role="status" aria-live="polite">
+      {size === "large" && mounted && createPortal(<span className={styles.fullscreenGlow} aria-hidden="true" />, document.body)}
       <motion.p
         key={stage}
-        className={[styles.stage, stage === "LIVE" && styles.stageLive].filter(Boolean).join(" ")}
+        className={[styles.stage, size === "large" && styles.stageLarge, stage === "LIVE" && styles.stageLive].filter(Boolean).join(" ")}
         initial={reduced ? undefined : { opacity: 0, scale: 0.55, y: 12 }}
         animate={reduced ? undefined : { opacity: 1, scale: 1, y: 0 }}
         transition={reduced ? { duration: 0.15 } : { type: "spring", stiffness: 380, damping: 18 }}

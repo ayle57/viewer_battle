@@ -1,6 +1,13 @@
 /* Built for a 16:9 OBS capture, not a centered document — width scales
    with the capture canvas instead of topping out at a fixed rem cap.
-   Mentally verified at 1920×1080, 1280×720, and a small (≈800px) window. */
+   Mentally verified at 1920×1080, 1280×720, and a small (≈800px) window.
+
+   Always-dark: `vb-dark-scope` (set in page.tsx) re-points every `--vb-*`
+   token to the dark palette, and this `background`/`color` pair paints
+   the page's own ground with it so the gaps around/between cards match —
+   an OBS Browser Source has no OS colour-scheme preference and would
+   otherwise leave this ground white. Same treatment as `/player`'s
+   `.page`. */
 .page {
   width: 100%;
   max-width: 120rem;
@@ -11,6 +18,8 @@
   gap: clamp(var(--vb-space-4), 3vw, var(--vb-space-6));
   min-height: 100dvh;
   justify-content: center;
+  background: var(--vb-bg);
+  color: var(--vb-text);
 }
 
 .connect {
@@ -32,6 +41,21 @@
   border-radius: var(--vb-radius-sm);
   font-size: 0.85rem;
   font-weight: 600;
+}
+
+/* The `?code=` auto-connect's own calm status line — same posture as
+   `.waiting` below, deliberately NOT `.errorBanner`'s red: a failed
+   retry here just means "the host hasn't started yet," not a real
+   problem, see DisplayConnect's own doc comment. */
+.autoConnectStatus {
+  margin: 0;
+  padding: var(--vb-space-2) var(--vb-space-3);
+  background: var(--vb-surface-raised);
+  color: var(--vb-text-muted);
+  border-radius: var(--vb-radius-sm);
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-align: center;
 }
 
 .phaseIn {
@@ -96,6 +120,25 @@
   font-weight: 700;
   letter-spacing: 0.05em;
   color: var(--vb-text-muted);
+}
+
+/* Deliberately quiet — an OBS capture should never notice this exists;
+   it's only for the rare human who opens this exact URL directly to
+   debug a connection. See DisplayConnect's own doc comment. */
+.editConnectionLink {
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--vb-text-muted);
+  font-size: 0.7rem;
+  opacity: 0.5;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.editConnectionLink:hover,
+.editConnectionLink:focus-visible {
+  opacity: 1;
 }
 
 /* "Start next game" — the one button this page has (see DisplayGame's

@@ -6,6 +6,7 @@ import { socketAuthMiddleware } from "@/server/sockets/auth";
 import { registerChatHandlers } from "@/server/sockets/chat";
 import { registerGameHandlers } from "@/server/sockets/game";
 import { registerPresenceHandlers } from "@/server/sockets/presence";
+import { registerDrawingHandlers } from "@/server/sockets/drawing";
 import { setSocketServer } from "@/server/sockets/instance";
 
 /**
@@ -36,6 +37,7 @@ export function createSocketServer(httpServer: HTTPServer) {
     registerChatHandlers(io, socket);
     registerGameHandlers(io, socket);
     registerPresenceHandlers(io, socket);
+    registerDrawingHandlers(io, socket);
 
     socket.on("disconnect", (reason) => {
       logger.info({ socketId: socket.id, reason }, "socket disconnected");

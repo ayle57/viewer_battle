@@ -1,0 +1,19 @@
+.judgeRow {
+  display: flex;
+  gap: var(--vb-space-3);
+  margin-top: var(--vb-space-2);
+  width: 100%;
+}
+
+.judgeRow > * {
+  flex: 1;
+}
+
+/* Same 26rem breakpoint HostBoardPanel's own judge row already used —
+   two full-size "lg" buttons side by side overflow a narrow phone
+   screen; stacking them keeps both comfortably tappable. */
+@media (max-width: 26rem) {
+  .judgeRow {
+    flex-direction: column;
+  }
+}

@@ -1,6 +1,9 @@
 export { TeamCard } from "./TeamCard/TeamCard";
 export type { TeamCardProps, TeamSide } from "./TeamCard/TeamCard";
 
+export { Avatar } from "./Avatar/Avatar";
+export type { AvatarProps, AvatarSize } from "./Avatar/Avatar";
+
 export { PlayerCard } from "./PlayerCard/PlayerCard";
 export type { PlayerCardData } from "./PlayerCard/PlayerCard";
 
@@ -30,3 +33,6 @@ export type { TeamRosterProps, TeamRosterSeat } from "./TeamRoster/TeamRoster";
 
 export { ClickableImageMap } from "./ClickableImageMap/ClickableImageMap";
 export type { ClickableImageMapProps, MapMarker, MapMarkerColor, MapLine } from "./ClickableImageMap/ClickableImageMap";
+
+export { ImageWithFallback } from "./ImageWithFallback/ImageWithFallback";
+export type { ImageWithFallbackProps } from "./ImageWithFallback/ImageWithFallback";

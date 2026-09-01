@@ -1,18 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
 import { useReducedMotionSafe } from "@/app/_shared/motion/useReducedMotionSafe";
 import { trpc } from "@/app/_trpc/client";
-import { Badge, Button, ConfirmDialog } from "@/ui";
+import { Badge, Button, ConfirmDialog, Dialog } from "@/ui";
 import { EASE_OUT_EXPO, fadeUp } from "@/app/_shared/motion/variants";
 import { useContentIdentityStore } from "../../../_shared/contentIdentityStore";
 import { StudioBreadcrumb } from "../../../_shared/StudioBreadcrumb";
 import { ActionsMenu } from "@/app/_shared/ActionsMenu";
 import { ReadinessBadge } from "../../../_shared/ReadinessBadge";
-import { RoundEditorPanel } from "./RoundEditorPanel";
+import { RoundEditorPanel, type RoundEditorPanelHandle } from "./RoundEditorPanel";
 import { RoundPreview } from "./RoundPreview";
 import styles from "./page.module.css";
 
@@ -101,14 +101,91 @@ export default function GeoPlaylistEditorPage() {
   // covers three different actions — a sidebar click, +Add Round, and
   // Duplicate round — without three near-identical confirm flows.
   const [pendingSwitchAction, setPendingSwitchAction] = useState<(() => void) | null>(null);
+  // The imperative handle onto the currently-mounted RoundEditorPanel —
+  // see RoundEditorPanelHandle's own doc comment: this is what lets
+  // "Save and continue" below actually save the CURRENT round before
+  // switching, instead of only ever offering Cancel/Discard.
+  const panelRef = useRef<RoundEditorPanelHandle>(null);
+  const [savingBeforeSwitch, setSavingBeforeSwitch] = useState(false);
+  const [saveBeforeSwitchFailed, setSaveBeforeSwitchFailed] = useState(false);
 
   function guardedSwitch(action: () => void) {
     if (dirty) {
+      setSaveBeforeSwitchFailed(false);
       setPendingSwitchAction(() => action);
     } else {
       action();
     }
   }
+
+  // "Save and continue" — closes the real gap Jeopardy's own
+  // `QuestionEditorDialog` doesn't have (it autosaves before ever
+  // showing a dialog at all): this used to force a Host to either lose
+  // the edit (Discard) or back out, manually hit Save, and retry the
+  // exact same switch by hand. Deliberately still a real dialog, not a
+  // fully silent autosave-on-navigate — see RoundEditorPanelHandle's own
+  // doc comment on why an explicit choice stays here.
+  async function saveAndContinueSwitch() {
+    setSavingBeforeSwitch(true);
+    setSaveBeforeSwitchFailed(false);
+    const ok = await panelRef.current?.save("stay");
+    setSavingBeforeSwitch(false);
+    if (!ok) {
+      setSaveBeforeSwitchFailed(true);
+      return;
+    }
+    const action = pendingSwitchAction;
+    setPendingSwitchAction(null);
+    action?.();
+  }
+
+  // Keyboard fast-path, mirroring QuestionEditorDialog's own ArrowLeft/
+  // ArrowRight navigation (Jeopardy's editor) — a real, audited
+  // asymmetry: GeoGuessr had no keyboard way to move between rounds at
+  // all. Same guard shape (never hijacks cursor movement while a text
+  // field is focused, and — the one thing genuinely new here, since
+  // Jeopardy's dialog has no equivalent — never hijacks the round map's
+  // OWN arrow-key keyboard cursor either, ClickableImageMap.tsx's
+  // `role="application"`; without this a Host trying to nudge their
+  // keyboard-placed pin would also flip rounds out from under them on
+  // every single arrow press). Reads the latest state through a ref, one
+  // subscription for the page's whole lifetime, not per-render.
+  const latestRoundNavRef = useRef({ selectedRoundId, rounds: playlist.data?.rounds ?? [], guardedSwitch });
+  useEffect(() => {
+    latestRoundNavRef.current = { selectedRoundId, rounds: playlist.data?.rounds ?? [], guardedSwitch };
+  });
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+      const target = document.activeElement;
+      const isEditableFocused = target instanceof HTMLElement && (target.tagName === "INPUT" || target.tagName === "TEXTAREA");
+      const isMapFocused = target instanceof HTMLElement && target.closest('[role="application"]') !== null;
+      if (isEditableFocused || isMapFocused) return;
+
+      // Read through the ref, not the closure — `guardedSwitch` itself
+      // closes over `dirty`, which changes on every render; this effect
+      // only ever runs its setup once (`[]` below), so calling the
+      // version captured then would silently check a stale `dirty`
+      // forever.
+      const { selectedRoundId: currentId, rounds, guardedSwitch: guard } = latestRoundNavRef.current;
+      const ids = rounds.map((r) => r.id);
+      const index = currentId ? ids.indexOf(currentId) : -1;
+      if (index === -1) return;
+      if (event.key === "ArrowLeft" && index > 0) {
+        event.preventDefault();
+        guard(() => setSelectedRoundId(ids[index - 1]!));
+      } else if (event.key === "ArrowRight" && index < ids.length - 1) {
+        event.preventDefault();
+        guard(() => setSelectedRoundId(ids[index + 1]!));
+      }
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+    // Deliberately once for the page's whole lifetime — everything this
+    // handler needs is read through `latestRoundNavRef` (kept current
+    // above), not closed over directly, same pattern QuestionEditorDialog.
+    // tsx's own identical listener uses.
+  }, []);
 
   // A quiet, self-dismissing confirmation (item 12: "pas de toast
   // permanent") — purely cosmetic UI feedback, not a state a game or
@@ -262,6 +339,7 @@ export default function GeoPlaylistEditorPage() {
                 onBlur={commitName}
                 onKeyDown={(event) => event.key === "Enter" && event.currentTarget.blur()}
                 aria-label="Playlist name"
+                title={name}
                 // A brand-new "Untitled Map Set" (see ../page.tsx's
                 // handleCreate) is meaningless until renamed — autofocus +
                 // select-all so the very next keystroke replaces it,
@@ -285,6 +363,7 @@ export default function GeoPlaylistEditorPage() {
                 onKeyDown={(event) => event.key === "Enter" && event.currentTarget.blur()}
                 placeholder="Add a description…"
                 aria-label="Playlist description"
+                title={description || undefined}
               />
             </div>
           </div>
@@ -428,6 +507,7 @@ export default function GeoPlaylistEditorPage() {
               // buffer state (see that component's own doc comment).
               <motion.div key={selectedRound.id} initial="hidden" animate="show" variants={fadeUp(reduced, { y: 10, duration: 0.3 })}>
                 <RoundEditorPanel
+                  ref={panelRef}
                   token={token}
                   playlistId={playlistId}
                   round={selectedRound}
@@ -464,19 +544,45 @@ export default function GeoPlaylistEditorPage() {
         {deleteRound.isError && <p className={styles.errorBanner}>Couldn&apos;t delete this round. Please try again.</p>}
       </ConfirmDialog>
 
-      <ConfirmDialog
+      {/* A real `Dialog`, not `ConfirmDialog` — this is the one place in
+          the Studio a Host is offered THREE real outcomes (Cancel,
+          Discard, or Save and continue), not two, so it doesn't fit
+          ConfirmDialog's own Cancel/Confirm-only shape. Button order is
+          deliberate: on the ConfirmDialog's own mobile layout the LAST
+          button ends up closest to the thumb (`column-reverse`, see that
+          component's own `.actions` rule) — "Save and continue" (the
+          safe, recommended choice) is placed last here on purpose, same
+          reasoning, so it's the easiest one to reach on a phone too. */}
+      <Dialog
         open={pendingSwitchAction !== null}
-        title="Discard unsaved changes?"
-        description="This round has edits that haven't been saved yet. Switching now will lose them."
-        confirmLabel="Discard changes"
-        danger
-        onCancel={() => setPendingSwitchAction(null)}
-        onConfirm={() => {
-          const action = pendingSwitchAction;
+        onClose={() => {
+          if (savingBeforeSwitch) return;
           setPendingSwitchAction(null);
-          action?.();
         }}
-      />
+        title="Unsaved changes"
+        description="This round has edits that haven't been saved yet."
+      >
+        {saveBeforeSwitchFailed && <p className={styles.errorBanner}>Couldn&apos;t save this round. Try again, or discard the changes.</p>}
+        <div className={styles.switchDialogActions}>
+          <Button variant="ghost" disabled={savingBeforeSwitch} onClick={() => setPendingSwitchAction(null)}>
+            Cancel
+          </Button>
+          <Button
+            variant="danger"
+            disabled={savingBeforeSwitch}
+            onClick={() => {
+              const action = pendingSwitchAction;
+              setPendingSwitchAction(null);
+              action?.();
+            }}
+          >
+            Discard changes
+          </Button>
+          <Button loading={savingBeforeSwitch} onClick={() => void saveAndContinueSwitch()}>
+            Save and continue
+          </Button>
+        </div>
+      </Dialog>
 
       <ConfirmDialog
         open={deleteOpen}

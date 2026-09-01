@@ -320,6 +320,43 @@ a.playlistName:hover {
   line-height: 1;
 }
 
+.createLayout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--vb-space-5);
+}
+
+.dialogForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-4);
+}
+
+.previewColumn {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-2);
+}
+
+.previewLabel {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--vb-text-muted);
+  margin: 0;
+}
+
+.previewCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-2);
+  padding: var(--vb-space-4);
+  border-radius: var(--vb-radius-lg);
+  border: 1px solid var(--vb-border);
+  background: var(--vb-surface-raised);
+}
+
 .errorBanner {
   padding: var(--vb-space-2) var(--vb-space-3);
   background: var(--vb-danger-bg);
@@ -328,3 +365,10 @@ a.playlistName:hover {
   font-size: 0.85rem;
   font-weight: 600;
 }
+
+@media (max-width: 40rem) {
+  .createLayout {
+    grid-template-columns: 1fr;
+  }
+}
+

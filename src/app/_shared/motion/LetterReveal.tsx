@@ -1,6 +1,7 @@
 "use client";
 
-import { motion } from "motion/react";
+import { useMemo } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import { letterContainer, letterReveal } from "@/app/_shared/motion/variants";
 
 /**
@@ -35,6 +36,40 @@ import { letterContainer, letterReveal } from "@/app/_shared/motion/variants";
  * source of truth per screen, same convention as every `variants.ts`
  * builder) — with it true, the word still appears, just as a single
  * near-instant cross-fade with no stagger, no blur, no travel.
+ *
+ * Wrapped in its own local `<AnimatePresence>` (no `initial={false}`) —
+ * a REAL, REPRODUCED bug this closes, confirmed live with instrumented
+ * DOM observation, not a guess: WinnerReveal's own team-name reveal
+ * never actually showed its blur-and-rise on `/player`
+ * ("l'effet de blur est cassé... écrans de player"), even though the
+ * exact same primitive correctly blurred-in for PageChangeCurtain's
+ * wordmark. Root cause: every route's whole tree is wrapped in
+ * `PageTransition.tsx`'s own `<AnimatePresence initial={false}>` (see
+ * layout.tsx) — deliberately so a fresh page load never plays that
+ * curtain's OWN slide-in. But that `initial={false}` cascades down
+ * through ALL nested `motion` components mounting later in the SAME
+ * pathname's lifetime, not just PageTransition's own direct child —
+ * `/player` never changes pathname while a game plays, so WinnerReveal,
+ * mounting minutes later when the game ends, was still being treated as
+ * part of that same suppressed "initial" batch: every letter rendered
+ * straight in its resting `show` state, blur skipped entirely.
+ * PageChangeCurtain sits OUTSIDE PageTransition (a layout.tsx sibling,
+ * not inside `{children}`), so it never inherited the suppression — the
+ * one structural difference that made it "work" while WinnerReveal
+ * didn't. A local `<AnimatePresence>` here re-establishes a fresh
+ * presence context for just this subtree, overriding the ambient
+ * `initial={false}` without touching PageTransition's own behavior
+ * (still exactly zero page-slide on first load) or any other consumer.
+ *
+ * `letterContainer(...)`/`letterReveal(...)` are ALSO memoized
+ * (`useMemo` below) rather than called inline in the JSX — a real,
+ * independently-found second issue: `/player` polls `session.getState`
+ * every 2s (player/page.tsx) alongside the real-time socket state, and a
+ * refetch landing mid-animation re-renders `WinnerReveal` with
+ * value-identical props; a fresh (non-memoized) `Variants` object on
+ * that re-render gives Framer Motion a reason to reconcile the
+ * in-flight staggered children rather than leave them alone. Harmless
+ * either way, but worth keeping regardless of the fix above.
  */
 export function LetterReveal({
   text,
@@ -56,26 +91,33 @@ export function LetterReveal({
   /** Drive this from the caller's own `useScrollReveal` for scroll-triggered use; defaults to unconditional (fires on mount). */
   animate?: "show" | "hidden";
 }) {
+  // Memoized on the scalar inputs, not called inline — see this file's
+  // own doc comment for the real bug a fresh object here caused.
+  const containerVariants = useMemo(() => letterContainer(reduced, { stagger, delayChildren }), [reduced, stagger, delayChildren]);
+  const letterVariants = useMemo(() => letterReveal(reduced, { duration: letterDuration }), [reduced, letterDuration]);
+
   return (
-    <motion.span
-      className={className}
-      initial="hidden"
-      animate={animate}
-      variants={letterContainer(reduced, { stagger, delayChildren })}
-      style={{ display: "inline-block", whiteSpace: "pre" }}
-      aria-label={text}
-    >
-      {text.split("").map((char, i) => (
-        <motion.span
-          key={`${char}-${i}`}
-          className={letterClassName}
-          variants={letterReveal(reduced, { duration: letterDuration })}
-          style={{ display: "inline-block" }}
-          aria-hidden="true"
-        >
-          {char}
-        </motion.span>
-      ))}
-    </motion.span>
+    <AnimatePresence>
+      <motion.span
+        className={className}
+        initial="hidden"
+        animate={animate}
+        variants={containerVariants}
+        style={{ display: "inline-block", whiteSpace: "pre" }}
+        aria-label={text}
+      >
+        {text.split("").map((char, i) => (
+          <motion.span
+            key={`${char}-${i}`}
+            className={letterClassName}
+            variants={letterVariants}
+            style={{ display: "inline-block" }}
+            aria-hidden="true"
+          >
+            {char}
+          </motion.span>
+        ))}
+      </motion.span>
+    </AnimatePresence>
   );
 }

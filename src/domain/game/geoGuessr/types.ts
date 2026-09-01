@@ -58,6 +58,16 @@ import { startCountdownActionSchema, cancelCountdownActionSchema, countdownExpir
  *     BoardQuestionEngine's SELECT_QUESTION/CLOSE_QUESTION, and lets the
  *     Display's reveal sequence actually play out on screen before the
  *     next round's image appears, instead of a timer deciding that.
+ *   - SKIP_ROUND (Host-only, only legal during "guessing") — "this round
+ *     isn't working out" (a broken image, an unanswerable question), no
+ *     winner, no score change either way. Reveals the round as a genuine
+ *     TIE with no guesses (the exact shape `computeRoundResult` already
+ *     produces when a countdown forces a round closed with a team that
+ *     never proposed anything — see GeoRoundResult's own doc comment),
+ *     so it goes through the SAME "revealed" pause NEXT_ROUND already
+ *     paces through rather than an instant second advance path. Mirrors
+ *     MusicEngine's/SteamRatingsEngine's/GuessThePriceEngine's own
+ *     SKIP_ROUND.
  *   - END_GAME (host-only, any phase) is the same escape hatch
  *     BoardQuestionEngine has — ends now, current leader wins ("TIE" if
  *     level), whatever round was live is simply abandoned.
@@ -228,6 +238,12 @@ export const nextRoundActionSchema = z.object({
   by: participantRoleSchema,
 });
 
+/** Host-only escape hatch — "this round isn't working out," closes the round with no winner. Only legal during "guessing" (mirrors MusicEngine's/SteamRatingsEngine's/GuessThePriceEngine's own SKIP_ROUND) — see this file's top comment. */
+export const skipRoundActionSchema = z.object({
+  type: z.literal("SKIP_ROUND"),
+  by: participantRoleSchema,
+});
+
 /** Host-only, any phase — same escape hatch as BoardQuestionEngine's END_GAME. */
 export const endGameActionSchema = z.object({
   type: z.literal("END_GAME"),
@@ -245,6 +261,7 @@ export const geoGuessrActionSchema = z.discriminatedUnion("type", [
   setGuessActionSchema,
   lockGuessActionSchema,
   nextRoundActionSchema,
+  skipRoundActionSchema,
   endGameActionSchema,
   startCountdownActionSchema,
   cancelCountdownActionSchema,
@@ -268,6 +285,11 @@ export interface RoundAdvancedEvent {
   type: "ROUND_ADVANCED";
   roundIndex: number;
 }
+/** Emitted only by SKIP_ROUND — mirrors RoundRevealedEvent's role (marks the round as force-closed) without carrying a full result payload of its own; the reveal itself still emits a real RoundRevealedEvent (a TIE, no guesses) right alongside it. */
+export interface RoundSkippedEvent {
+  type: "ROUND_SKIPPED";
+  roundIndex: number;
+}
 // CountdownStartedEvent / CountdownCancelledEvent are the shared
 // ../countdown ones (imported above).
 
@@ -276,6 +298,7 @@ export type GeoGuessrEvent =
   | TeamLockedEvent
   | RoundRevealedEvent
   | RoundAdvancedEvent
+  | RoundSkippedEvent
   | CountdownStartedEvent
   | CountdownCancelledEvent
   | ScoreChangedEvent

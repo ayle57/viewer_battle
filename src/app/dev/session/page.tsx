@@ -34,6 +34,7 @@ export default function SessionPage() {
         role: result.role,
         displayName: result.displayName,
         token: result.token,
+        participantId: result.id,
       });
     },
   });

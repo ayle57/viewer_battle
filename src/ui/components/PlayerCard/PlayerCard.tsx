@@ -1,4 +1,4 @@
-import { getInitials } from "../../initials";
+import { Avatar } from "../Avatar/Avatar";
 import styles from "./PlayerCard.module.css";
 
 export interface PlayerCardData {
@@ -8,13 +8,9 @@ export interface PlayerCardData {
 }
 
 export function PlayerCard({ name, connected = true, detail }: PlayerCardData) {
-  const initials = getInitials(name);
-
   return (
     <div className={[styles.row, !connected && styles.disconnected].filter(Boolean).join(" ")}>
-      <span className={styles.avatar} aria-hidden="true">
-        {initials}
-      </span>
+      <Avatar name={name} size="sm" />
       <span className={styles.identity}>
         <span className={styles.name}>{name}</span>
         {detail && <span className={styles.detail}>{detail}</span>}

@@ -126,7 +126,7 @@ export default function ComponentsShowcasePage() {
 
       <ShowcaseSection
         title="Tokens & palette audit"
-        subtitle="Palette du logo conservée. Aucun ajout de couleur hors tokens existants."
+        subtitle="The logo palette, kept as-is. No colors added outside the existing tokens."
       >
         <div className={styles.noticeRow}>
           <Badge variant="success" dot>
@@ -146,7 +146,7 @@ export default function ComponentsShowcasePage() {
         ))}
       </ShowcaseSection>
 
-      <ShowcaseSection title="Button" subtitle="Variantes, tailles, états: normal, hover, disabled, loading.">
+      <ShowcaseSection title="Button" subtitle="Variants, sizes, states: normal, hover, disabled, loading.">
         <Card variant="subtle">
           <CardBody>
             <div className={styles.stack}>
@@ -175,9 +175,9 @@ export default function ComponentsShowcasePage() {
         </Card>
       </ShowcaseSection>
 
-      <ShowcaseSection title="Input" subtitle="Normal / disabled / error + tailles pour formulaires session et chat.">
+      <ShowcaseSection title="Input" subtitle="Normal / disabled / error, plus the session- and chat-form sizes.">
         <div className={styles.grid2}>
-          <Input label="Session code" placeholder="X7K2QP" hint="6 caractères attendus" size="sm" />
+          <Input label="Session code" placeholder="X7K2QP" hint="6 characters" size="sm" />
           <Input label="Display name" placeholder="Jamie" size="md" />
           <Input label="Host note" placeholder="Ready for round 2" size="lg" />
           <Input label="Join token" defaultValue="readonly-preview" disabled hint="Locked by backend identity" />
@@ -185,7 +185,7 @@ export default function ComponentsShowcasePage() {
         </div>
       </ShowcaseSection>
 
-      <ShowcaseSection title="Card + Badge" subtitle="Panneaux de statut réalistes pour l’espace dev.">
+      <ShowcaseSection title="Card + Badge" subtitle="Realistic status panels for the dev workspace.">
         <div className={styles.grid2}>
           <Card>
             <CardHeader
@@ -197,7 +197,7 @@ export default function ComponentsShowcasePage() {
                   </Badge>
                 </div>
               }
-              subtitle="Host + 3 participants connectés"
+              subtitle="Host + 3 connected participants"
             />
             <CardBody>
               <p className={styles.muted}>État réel attendu une fois les flux host/player/display branchés.</p>
@@ -226,7 +226,7 @@ export default function ComponentsShowcasePage() {
         </div>
       </ShowcaseSection>
 
-      <ShowcaseSection title="Dialog" subtitle="Etat ouvert avec action destructive + cancel.">
+      <ShowcaseSection title="Dialog" subtitle="Open state with a destructive action + cancel.">
         <div className={styles.row}>
           <Button onClick={() => setDialogOpen(true)}>Open dialog</Button>
         </div>
@@ -248,7 +248,7 @@ export default function ComponentsShowcasePage() {
         </Dialog>
       </ShowcaseSection>
 
-      <ShowcaseSection title="Tabs" subtitle="Navigation role-based avec état disabled.">
+      <ShowcaseSection title="Tabs" subtitle="Role-based navigation with a disabled state.">
         <Card variant="subtle">
           <CardBody>
             <Tabs

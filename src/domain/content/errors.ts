@@ -16,6 +16,10 @@ export type ContentErrorCode =
   | "QUESTION_NOT_FOUND"
   | "CATEGORY_NOT_EMPTY"
   | "ROUND_NOT_FOUND"
+  | "PROMPT_NOT_FOUND"
+  | "TRACK_NOT_FOUND"
+  | "STEAM_GAME_NOT_FOUND"
+  | "PRICE_ITEM_NOT_FOUND"
   | "VALIDATION"
   | "PLAYLIST_NOT_READY";
 
@@ -27,6 +31,10 @@ const MESSAGES: Record<ContentErrorCode, string> = {
   QUESTION_NOT_FOUND: "No question with that id exists.",
   CATEGORY_NOT_EMPTY: "This category still has questions — confirm before deleting.",
   ROUND_NOT_FOUND: "No round with that id exists.",
+  PROMPT_NOT_FOUND: "No prompt with that id exists.",
+  TRACK_NOT_FOUND: "No track with that id exists.",
+  STEAM_GAME_NOT_FOUND: "No game with that id exists.",
+  PRICE_ITEM_NOT_FOUND: "No item with that id exists.",
   VALIDATION: "That value isn't valid.",
   // Default message only — src/server/trpc/router.ts's game.start always
   // supplies a specific one built from the playlist's own

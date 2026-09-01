@@ -19,11 +19,14 @@ import type { GeoGuessrConfig } from "./types";
  * existed on disk — the exact bug this comment now guards against.)
  * Reuses the one bundled seed asset (see src/server/content/
  * geoAssets.ts) at two different target points rather than inventing a
- * second file that also has to be kept real.
+ * second file that also has to be kept real. `sample-world-map.png` is
+ * an original, procedurally-generated stylised map
+ * (scripts/gen-sample-map.py) — no third-party/game art ships with this
+ * repo.
  */
 export const sampleGeoPlaylist: GeoGuessrConfig = {
   rounds: [
-    { id: "round-1", imageUrl: "/images/maps/ac_odyssey_world_map.jpg", question: "Where is the capital city?", targetX: 0.5, targetY: 0.5, title: "Round 1" },
-    { id: "round-2", imageUrl: "/images/maps/ac_odyssey_world_map.jpg", question: "Where is the southern port?", targetX: 0.25, targetY: 0.75, title: "Round 2" },
+    { id: "round-1", imageUrl: "/images/maps/sample-world-map.png", question: "Where is the capital city?", targetX: 0.5, targetY: 0.5, title: "Round 1" },
+    { id: "round-2", imageUrl: "/images/maps/sample-world-map.png", question: "Where is the southern port?", targetX: 0.25, targetY: 0.75, title: "Round 2" },
   ],
 };

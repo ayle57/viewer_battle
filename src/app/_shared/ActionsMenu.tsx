@@ -65,6 +65,8 @@ export function ActionsMenu({
   const [open, setOpen] = useState(false);
   const [position, setPosition] = useState<MenuPosition | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const menuId = useId();
   const reduced = useReducedMotionSafe(); // hydration-safe — see that hook's own doc comment
 
@@ -74,7 +76,33 @@ export function ActionsMenu({
       if (rootRef.current && !rootRef.current.contains(event.target as Node)) setOpen(false);
     }
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") setOpen(false);
+      // A real, audited gap: `role="menu"`/`role="menuitem"` below imply
+      // the standard ARIA menu keyboard contract (arrow keys move
+      // between items), but nothing here actually implemented it — Tab
+      // was the only way through. Escape also returns focus to the
+      // trigger, same "pick up where you left off" contract Dialog.tsx
+      // now follows for the same reason.
+      if (event.key === "Escape") {
+        setOpen(false);
+        triggerRef.current?.focus();
+        return;
+      }
+      const count = itemRefs.current.length;
+      if (count === 0) return;
+      const currentIndex = itemRefs.current.findIndex((el) => el === document.activeElement);
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        itemRefs.current[currentIndex === -1 ? 0 : (currentIndex + 1) % count]?.focus();
+      } else if (event.key === "ArrowUp") {
+        event.preventDefault();
+        itemRefs.current[currentIndex === -1 ? count - 1 : (currentIndex - 1 + count) % count]?.focus();
+      } else if (event.key === "Home") {
+        event.preventDefault();
+        itemRefs.current[0]?.focus();
+      } else if (event.key === "End") {
+        event.preventDefault();
+        itemRefs.current[count - 1]?.focus();
+      }
     }
     // Any scroll while open would stale the computed fixed position
     // (it doesn't track the trigger) — closing is simpler and safer
@@ -92,6 +120,16 @@ export function ActionsMenu({
     };
   }, [open]);
 
+  // Focus lands on the first item the instant the menu actually opens
+  // (its portaled DOM exists by the time this runs, same commit-then-
+  // passive-effect ordering Dialog.tsx's own doc comment explains) —
+  // opening a menu and having focus stay behind on the trigger, invisible
+  // under the popover, was the same class of gap Dialog.tsx just closed.
+  useEffect(() => {
+    if (!open) return;
+    itemRefs.current[0]?.focus();
+  }, [open]);
+
   function openMenu() {
     const rect = rootRef.current?.getBoundingClientRect();
     if (!rect) return;
@@ -103,6 +141,7 @@ export function ActionsMenu({
     <div className={styles.root} ref={rootRef}>
       <button
         type="button"
+        ref={triggerRef}
         className={triggerClassName ?? styles.trigger}
         aria-haspopup="menu"
         aria-expanded={open}
@@ -134,6 +173,9 @@ export function ActionsMenu({
                 {items.map((item, index) => (
                   <button
                     key={index}
+                    ref={(el) => {
+                      itemRefs.current[index] = el;
+                    }}
                     type="button"
                     role="menuitem"
                     className={[styles.item, item.danger && styles.danger].filter(Boolean).join(" ")}
@@ -141,6 +183,7 @@ export function ActionsMenu({
                       event.preventDefault();
                       event.stopPropagation();
                       setOpen(false);
+                      triggerRef.current?.focus();
                       item.onSelect();
                     }}
                   >

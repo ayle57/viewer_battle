@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
 import { useReducedMotionSafe } from "@/app/_shared/motion/useReducedMotionSafe";
 import { trpc } from "@/app/_trpc/client";
-import { Button, ConfirmDialog } from "@/ui";
+import { Button, ConfirmDialog, Dialog, Input } from "@/ui";
 import { fadeUp, staggerContainer, EASE_OUT_EXPO } from "@/app/_shared/motion/variants";
 import { useContentIdentityStore } from "../_shared/contentIdentityStore";
 import { formatRelativeTime } from "../_shared/relativeTime";
@@ -16,8 +16,6 @@ import { ReadinessBadge } from "../_shared/ReadinessBadge";
 import styles from "./page.module.css";
 
 const GAME_KEY = "geoguessr" as const;
-/** What a brand-new playlist is called until the Host renames it — see handleCreate below. */
-const DEFAULT_PLAYLIST_NAME = "Untitled Map Set";
 
 /**
  * GeoGuessr's playlist library — item 1's "map library / show
@@ -26,6 +24,10 @@ const DEFAULT_PLAYLIST_NAME = "Untitled Map Set";
  * `content.playlist.*`. A separate component, not a gameKey branch
  * inside the Jeopardy page — this pass's instruction is explicit: don't
  * touch Jeopardy's own procedures/UI.
+ *
+ * Creation flow mirrors Jeopardy's own CreatePlaylistDialog (name +
+ * optional description, entered up front) rather than the old
+ * instant-create-with-default-name pattern.
  */
 export default function GeoGuessrContentPage() {
   const token = useContentIdentityStore((s) => s.token) ?? "";
@@ -34,15 +36,10 @@ export default function GeoGuessrContentPage() {
   const reduced = useReducedMotionSafe(); // hydration-safe — see that hook's own doc comment
 
   const playlists = trpc.content.geoPlaylist.list.useQuery({ token, gameKey: GAME_KEY }, { enabled: Boolean(token) });
-  // Item 2: creating a Map Set is one click, no name-entry dialog in the
-  // way — a default name + straight into the editor (`?new=1` tells that
-  // page to autofocus/select the name, see its own doc comment), same
-  // "Create -> immediately editing" flow a Host preparing 12 rounds
-  // wants for every OTHER step too (item 7's "Save & Next Round").
   const createPlaylist = trpc.content.geoPlaylist.create.useMutation({
     onSuccess: (playlist) => {
       void utils.content.geoPlaylist.list.invalidate();
-      router.push(`/host/content/geoguessr/playlists/${playlist.id}?new=1`);
+      router.push(`/host/content/geoguessr/playlists/${playlist.id}`);
     },
   });
   const duplicatePlaylist = trpc.content.geoPlaylist.duplicate.useMutation({
@@ -58,10 +55,7 @@ export default function GeoGuessrContentPage() {
     onSuccess: () => void utils.content.geoPlaylist.list.invalidate(),
   });
 
-  function handleCreate() {
-    createPlaylist.mutate({ token, gameKey: GAME_KEY, name: DEFAULT_PLAYLIST_NAME });
-  }
-
+  const [createOpen, setCreateOpen] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const pendingDeletePlaylist = playlists.data?.find((p) => p.id === pendingDeleteId) ?? null;
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -85,7 +79,7 @@ export default function GeoGuessrContentPage() {
           <h1 className={styles.title}>GeoGuessr</h1>
           <p className={styles.subtitle}>Prepare the maps and rounds for your next show.</p>
         </div>
-        <Button size="lg" loading={createPlaylist.isPending} onClick={handleCreate}>
+        <Button size="lg" onClick={() => setCreateOpen(true)}>
           + Create Map Set
         </Button>
       </div>
@@ -123,7 +117,7 @@ export default function GeoGuessrContentPage() {
           <p className={styles.emptyEyebrow}>First map set</p>
           <h2 className={styles.emptyTitle}>Build your first GeoGuessr show.</h2>
           <p className={styles.emptySubtitle}>Add maps, mark the correct locations, and you&apos;re ready to play.</p>
-          <Button size="lg" loading={createPlaylist.isPending} onClick={handleCreate}>
+          <Button size="lg" onClick={() => setCreateOpen(true)}>
             + Create Map Set
           </Button>
         </motion.div>
@@ -235,7 +229,7 @@ export default function GeoGuessrContentPage() {
             })}
           </AnimatePresence>
 
-          <button type="button" className={styles.createCard} onClick={handleCreate} disabled={createPlaylist.isPending}>
+          <button type="button" className={styles.createCard} onClick={() => setCreateOpen(true)}>
             <span className={styles.createCardPlus} aria-hidden="true">
               +
             </span>
@@ -243,6 +237,14 @@ export default function GeoGuessrContentPage() {
           </button>
         </motion.div>
       )}
+
+      <CreatePlaylistDialog
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onCreate={(name, description) => createPlaylist.mutate({ token, gameKey: GAME_KEY, name, description })}
+        pending={createPlaylist.isPending}
+        error={createPlaylist.error?.message}
+      />
 
       <ConfirmDialog
         open={pendingDeleteId !== null}
@@ -264,5 +266,76 @@ export default function GeoGuessrContentPage() {
         {deletePlaylist.isError && <p className={styles.errorBanner}>Couldn&apos;t delete this map set. Please try again.</p>}
       </ConfirmDialog>
     </>
+  );
+}
+
+function CreatePlaylistDialog({
+  open,
+  onClose,
+  onCreate,
+  pending,
+  error,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onCreate: (name: string, description: string | undefined) => void;
+  pending: boolean;
+  error?: string;
+}) {
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+
+  function handleClose() {
+    setName("");
+    setDescription("");
+    onClose();
+  }
+
+  if (!open) return null;
+
+  return (
+    <Dialog open={open} onClose={handleClose} title="Create Map Set" description="A new map set, ready to fill in." size="lg">
+      <div className={styles.createLayout}>
+        <form
+          className={styles.dialogForm}
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (!name.trim()) return;
+            onCreate(name.trim(), description.trim() || undefined);
+          }}
+        >
+          <Input
+            label="Map set name"
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            placeholder="e.g. World Capitals"
+            autoFocus
+          />
+          <Input
+            label="Description (optional)"
+            value={description}
+            onChange={(event) => setDescription(event.target.value)}
+            placeholder="e.g. Community night map set"
+          />
+          {error && <p className={styles.errorBanner}>{error}</p>}
+          <Button type="submit" size="lg" loading={pending} disabled={!name.trim()} fullWidth>
+            Create Map Set
+          </Button>
+        </form>
+
+        <div className={styles.previewColumn}>
+          <p className={styles.previewLabel}>Preview</p>
+          <div className={styles.previewCard}>
+            <div className={styles.playlistCardTop}>
+              <span className={styles.playlistName}>{name.trim() || "Untitled Map Set"}</span>
+              <ReadinessBadge readiness={{ status: "empty" }} size="sm" />
+            </div>
+            <p className={styles.playlistMeta}>0 rounds</p>
+            {description.trim() && <p className={styles.playlistDescription}>{description.trim()}</p>}
+            <p className={styles.playlistUpdated}>Updated just now</p>
+          </div>
+        </div>
+      </div>
+    </Dialog>
   );
 }

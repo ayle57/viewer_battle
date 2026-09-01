@@ -40,6 +40,9 @@
   color: var(--vb-text);
   width: 100%;
   max-width: 32rem;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
   transition: background var(--vb-transition-fast), border-color var(--vb-transition-fast);
 }
 
@@ -90,6 +93,9 @@
   flex: 1;
   min-width: 10rem;
   max-width: 28rem;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
   transition: background var(--vb-transition-fast), border-color var(--vb-transition-fast);
 }
 

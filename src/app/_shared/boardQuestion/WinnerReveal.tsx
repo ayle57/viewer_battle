@@ -37,6 +37,21 @@ export interface WinnerRevealProps {
   size?: "md" | "lg";
   /** Defaults to "Game Over" (unchanged for both existing callers — Host's results splash, Display's finished state). The Show layer reuses this exact same choreography for its OWN final result (`winner`/scores already generic — see this component's own doc comment) with `eyebrow="Show Over"`, rather than a second, duplicated reveal component. */
   eyebrow?: string;
+  /**
+   * ONLY the Player passes this (their own `role`) — Host and Display
+   * have no personal stake in the result, so they keep the third-person
+   * "TEAM A WINS" grammar unchanged. A real, audited inconsistency this
+   * closes: PlayerGeoPanel's own round result already used a personal
+   * "YOU WON"/"YOU LOST" grammar (with a deliberate, documented reason —
+   * see that component's own `RoundResultSummary` doc comment: a loss
+   * stays calm/muted, never celebrating the OPPONENT's color on the
+   * losing viewer's own screen), while this component — the one a
+   * Mini Jeopardy player actually sees at GAME OVER — still announced
+   * "TEAM A WINS" in third person, never actually telling THIS viewer
+   * whether they themselves won. Same grammar, same "muted on a loss"
+   * principle, now shared instead of forked.
+   */
+  viewerTeam?: "TEAM_A" | "TEAM_B";
 }
 
 /**
@@ -63,14 +78,34 @@ export interface WinnerRevealProps {
  * this component's own small box (see that component's own doc comment
  * for the real "coupée pas correctement" complaint this used to have).
  */
-export function WinnerReveal({ winner, teamAScore, teamBScore, size = "md", eyebrow = "Game Over" }: WinnerRevealProps) {
+export function WinnerReveal({ winner, teamAScore, teamBScore, size = "md", eyebrow = "Game Over", viewerTeam }: WinnerRevealProps) {
   const reduced = useReducedMotionSafe(); // hydration-safe — see that hook's own doc comment
-  const winnerClass = winner === "TEAM_A" ? styles.winnerA : winner === "TEAM_B" ? styles.winnerB : undefined;
-  const winnerText = winner === "TIE" ? "IT'S A TIE" : winner === "TEAM_A" ? "TEAM A WINS" : "TEAM B WINS";
+  // `undefined` = not personalized (Host/Display, unchanged) or a tie
+  // (no "you" framing applies to a tie either way); `true`/`false` = this
+  // viewer's own team won/lost.
+  const iWon = viewerTeam && winner !== "TIE" ? viewerTeam === winner : undefined;
+  // The trophy, its burst, and VictoryGlow are a CELEBRATION, reserved
+  // for an actual win — suppressed (not recolored) on a personalized
+  // loss, same "fort mais pas kitsch" reasoning PlayerGeoPanel's own
+  // RoundResultSummary already documents: showing the opponent's own
+  // victory trophy on the losing viewer's screen reads as congratulating
+  // them, not informing this viewer of the result.
+  const celebrate = winner !== "TIE" && iWon !== false;
+  const winnerClass = celebrate ? (winner === "TEAM_A" ? styles.winnerA : styles.winnerB) : undefined;
+  const winnerText = winner === "TIE" ? "IT'S A TIE" : iWon === undefined ? (winner === "TEAM_A" ? "TEAM A WINS" : "TEAM B WINS") : iWon ? "YOU WON" : "YOU LOST";
 
   return (
-    <div className={[styles.wrap, size === "lg" && styles.wrapLg].filter(Boolean).join(" ")}>
-      {winner !== "TIE" && <VictoryGlow team={winner} />}
+    // `role="status"`/`aria-live="polite"` — a real, audited gap: the
+    // single biggest moment in the whole app (shared by Host's results
+    // splash, Display's finished state, AND the Show's own final result)
+    // was announced to nobody using a screen reader. `LetterReveal`
+    // below already carries its own `aria-label` with the real winner
+    // text (its per-letter spans are `aria-hidden`) — this just makes
+    // this whole region a live one, so mounting it (the moment
+    // `state.status === "finished"` really happens) actually gets
+    // announced.
+    <div className={[styles.wrap, size === "lg" && styles.wrapLg].filter(Boolean).join(" ")} role="status" aria-live="polite">
+      {celebrate && <VictoryGlow team={winner as "TEAM_A" | "TEAM_B"} />}
 
       <motion.p className={styles.eyebrow} initial="hidden" animate="show" variants={fadeUp(reduced)}>
         {eyebrow}
@@ -81,7 +116,7 @@ export function WinnerReveal({ winner, teamAScore, teamBScore, size = "md", eyeb
       </motion.div>
 
       <div className={styles.winnerRow}>
-        {winner !== "TIE" && (
+        {celebrate && (
           <span className={styles.trophyWrap}>
             <motion.span
               className={styles.trophy}

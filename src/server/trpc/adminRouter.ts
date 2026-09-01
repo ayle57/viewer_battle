@@ -4,6 +4,7 @@ import { toUserTRPCError } from "@/server/trpc/userErrors";
 import { router, publicProcedure } from "@/server/trpc/trpc";
 import { resolveContentHost } from "@/server/db/contentHost";
 import { deleteUser, getPlatformStats, listUsersWithStats } from "@/server/db/user";
+import { addBlockedWord, listBlockedWords, removeBlockedWord } from "@/server/db/blockedWords";
 
 /**
  * The operator's admin dashboard — user management + platform-wide stats.
@@ -45,4 +46,26 @@ export const adminRouter = router({
       throw toUserTRPCError(error);
     }
   }),
+
+  // --- Chat word filter (src/server/db/blockedWords.ts + src/domain/chat/wordFilter.ts) ---
+
+  blockedWords: publicProcedure.input(z.object({ token: z.string().min(1) })).query(async ({ input }) => {
+    await requireHostId(input.token);
+    return listBlockedWords();
+  }),
+
+  addBlockedWord: publicProcedure
+    .input(z.object({ token: z.string().min(1), word: z.string().trim().min(1, "Enter a word").max(80, "That's too long for a single entry") }))
+    .mutation(async ({ input }) => {
+      await requireHostId(input.token);
+      return addBlockedWord(input.word);
+    }),
+
+  removeBlockedWord: publicProcedure
+    .input(z.object({ token: z.string().min(1), id: z.string().min(1) }))
+    .mutation(async ({ input }) => {
+      await requireHostId(input.token);
+      await removeBlockedWord(input.id);
+      return { ok: true as const };
+    }),
 });

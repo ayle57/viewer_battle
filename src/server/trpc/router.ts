@@ -9,14 +9,37 @@ import { joinSessionInputSchema, reclaimHostInputSchema, sessionCodeSchema, Sess
 import { verifyHostPassword } from "@/server/auth/hostPassword";
 import { sampleBoard } from "@/domain/game/boardQuestion";
 import { sampleGeoPlaylist } from "@/domain/game/geoGuessr";
+import { sampleDrawingPlaylist } from "@/domain/game/drawing";
+import { sampleMusicPlaylist } from "@/domain/game/music";
+import { sampleSteamRatingsPlaylist } from "@/domain/game/steamRatings";
+import { sampleGuessThePricePlaylist } from "@/domain/game/guessThePrice";
 import { gameKeySchema } from "@/domain/game";
-import { ContentError, getGeoPlaylistReadiness, getPlaylistReadiness, playlistToBoardQuestionConfig, playlistToGeoGuessrConfig } from "@/domain/content";
+import {
+  ContentError,
+  getDrawingPlaylistReadiness,
+  getGeoPlaylistReadiness,
+  getMusicPlaylistReadiness,
+  getPlaylistReadiness,
+  getSteamRatingsPlaylistReadiness,
+  getGuessThePricePlaylistReadiness,
+  playlistToBoardQuestionConfig,
+  playlistToDrawingConfig,
+  playlistToGeoGuessrConfig,
+  playlistToMusicConfig,
+  playlistToSteamRatingsConfig,
+  playlistToGuessThePriceConfig,
+} from "@/domain/content";
 import { startGame } from "@/server/game";
 import { broadcastGameSnapshot } from "@/server/sockets/game";
 import { broadcastParticipantKicked, broadcastSessionCodeRotated, broadcastSessionEnded } from "@/server/sockets/session";
 import { getSocketServer } from "@/server/sockets/instance";
+import { isHostConnected } from "@/server/sockets/presence";
 import { getOwnedPlaylist } from "@/server/db/content";
 import { getOwnedGeoPlaylist } from "@/server/db/contentGeo";
+import { getOwnedDrawingPlaylist } from "@/server/db/contentDrawing";
+import { getOwnedMusicPlaylist } from "@/server/db/contentMusic";
+import { getOwnedSteamPlaylist } from "@/server/db/contentSteam";
+import { getOwnedPricePlaylist } from "@/server/db/contentPrice";
 import { resolveContentHost } from "@/server/db/contentHost";
 import { toContentTRPCError } from "@/server/trpc/contentErrors";
 import { contentRouter } from "@/server/trpc/contentRouter";
@@ -286,6 +309,30 @@ async function resolveGameConfig(gameKey: string, content: { playlistId: string;
     if (!readiness.ready) throw new ContentError("PLAYLIST_NOT_READY", readiness.summary);
     return { config: playlistToGeoGuessrConfig(playlist.rounds), playlistId: playlist.id };
   }
+  if (gameKey === "drawing") {
+    const playlist = await getOwnedDrawingPlaylist(hostId, content.playlistId);
+    const readiness = getDrawingPlaylistReadiness(playlist.prompts);
+    if (!readiness.ready) throw new ContentError("PLAYLIST_NOT_READY", readiness.summary);
+    return { config: playlistToDrawingConfig(playlist.prompts), playlistId: playlist.id };
+  }
+  if (gameKey === "music") {
+    const playlist = await getOwnedMusicPlaylist(hostId, content.playlistId);
+    const readiness = getMusicPlaylistReadiness(playlist.tracks);
+    if (!readiness.ready) throw new ContentError("PLAYLIST_NOT_READY", readiness.summary);
+    return { config: playlistToMusicConfig(playlist.tracks), playlistId: playlist.id };
+  }
+  if (gameKey === "steamRatings") {
+    const playlist = await getOwnedSteamPlaylist(hostId, content.playlistId);
+    const readiness = getSteamRatingsPlaylistReadiness(playlist.steamGames);
+    if (!readiness.ready) throw new ContentError("PLAYLIST_NOT_READY", readiness.summary);
+    return { config: playlistToSteamRatingsConfig(playlist.steamGames), playlistId: playlist.id };
+  }
+  if (gameKey === "guessThePrice") {
+    const playlist = await getOwnedPricePlaylist(hostId, content.playlistId);
+    const readiness = getGuessThePricePlaylistReadiness(playlist.priceItems);
+    if (!readiness.ready) throw new ContentError("PLAYLIST_NOT_READY", readiness.summary);
+    return { config: playlistToGuessThePriceConfig(playlist.priceItems), playlistId: playlist.id };
+  }
   const playlist = await getOwnedPlaylist(hostId, content.playlistId);
   const readiness = getPlaylistReadiness(playlist.categories);
   if (!readiness.ready) throw new ContentError("PLAYLIST_NOT_READY", readiness.summary);
@@ -293,9 +340,15 @@ async function resolveGameConfig(gameKey: string, content: { playlistId: string;
   return { config: playlistToBoardQuestionConfig(playlist.categories, questions), playlistId: playlist.id };
 }
 
-/** The built-in sample content per engine, used when `content` is omitted or `{ type: "sample" }` — unchanged default for board-question (every pre-existing caller/test keeps working verbatim), sampleGeoPlaylist for geoguessr. */
+/** The built-in sample content per engine, used when `content` is omitted or `{ type: "sample" }` — unchanged default for board-question (every pre-existing caller/test keeps working verbatim), sampleGeoPlaylist for geoguessr, sampleDrawingPlaylist for drawing, sampleMusicPlaylist for music, sampleSteamRatingsPlaylist for steamRatings, sampleGuessThePricePlaylist for guessThePrice. Pointing System has no Content Studio at all (`hasContentStudio` omitted, registry.ts) — `{}` is a perfectly complete config (its own `name` is optional, engine.ts's own DEFAULT_NAME fallback), this is just the one place every engine needs SOME config to reach through. */
 function sampleConfigFor(gameKey: string): unknown {
-  return gameKey === "geoguessr" ? sampleGeoPlaylist : sampleBoard;
+  if (gameKey === "geoguessr") return sampleGeoPlaylist;
+  if (gameKey === "drawing") return sampleDrawingPlaylist;
+  if (gameKey === "music") return sampleMusicPlaylist;
+  if (gameKey === "steamRatings") return sampleSteamRatingsPlaylist;
+  if (gameKey === "guessThePrice") return sampleGuessThePricePlaylist;
+  if (gameKey === "pointingSystem") return {};
+  return sampleBoard;
 }
 
 const gameRouter = router({
@@ -320,6 +373,15 @@ const gameRouter = router({
         throw toTRPCError(error);
       }
       if (participant.role !== "HOST" && participant.role !== "DISPLAY") {
+        throw toTRPCError(new SessionError("FORBIDDEN"));
+      }
+      // The DISPLAY-initiated "Start next game" is a convenience for
+      // "no one's at the Host's keyboard right now" (see display/page.tsx's
+      // own comment) — so it's only allowed while that's genuinely true.
+      // With a Host connected, only the Host advances the show; this stops
+      // anyone who joined as an (unauthenticated) DISPLAY during the
+      // between-games window from forcing a sample-content replay.
+      if (participant.role === "DISPLAY" && isHostConnected(participant.sessionId)) {
         throw toTRPCError(new SessionError("FORBIDDEN"));
       }
       const content = participant.role === "DISPLAY" ? undefined : input.content;

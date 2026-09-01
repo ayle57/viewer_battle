@@ -40,6 +40,9 @@
   color: var(--vb-text);
   width: 100%;
   max-width: 32rem;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
   transition: background var(--vb-transition-fast), border-color var(--vb-transition-fast);
 }
 
@@ -75,6 +78,9 @@
   flex: 1;
   min-width: 10rem;
   max-width: 28rem;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
   transition: background var(--vb-transition-fast), border-color var(--vb-transition-fast);
 }
 
@@ -260,6 +266,25 @@
   font-weight: 600;
 }
 
+/* Same shape as ConfirmDialog.module.css's own `.actions` — three real
+   buttons here (Cancel / Discard / Save and continue) instead of two is
+   the one reason this dialog isn't built on `ConfirmDialog` itself. */
+.switchDialogActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--vb-space-3);
+}
+
+@media (max-width: 24rem) {
+  .switchDialogActions {
+    flex-direction: column-reverse;
+  }
+
+  .switchDialogActions > * {
+    width: 100%;
+  }
+}
+
 /* A single-line <input> can't wrap the way a heading would — at 320-375px
    a real playlist name (not just "Summer Show") clips inside itself
    rather than overflowing the page, which reads as broken even though
@@ -425,6 +450,14 @@
 .roundOrderButton:disabled {
   opacity: 0.25;
   cursor: not-allowed;
+}
+
+/* Same audited gap as BoardEditor.module.css's `.iconButton:focus-visible`
+   — a real ring, not just the hover color, so Tab-ing through several
+   identical reorder buttons in a row is actually followable. */
+.roundOrderButton:focus-visible {
+  outline: 2px solid var(--vb-accent);
+  outline-offset: 1px;
 }
 
 .main {

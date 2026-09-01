@@ -150,8 +150,8 @@ export function CinematicHero() {
             animate={heroInView ? "show" : "hidden"}
             variants={fadeUp(reduced, { delay: 0.95 })}
           >
-            A live 2v2 gameshow platform for your stream — host a round, get your community buzzing in, and watch the
-            score update in real time, together.
+            Host a gameshow your viewers actually play — two teams, real buzzers, one scoreboard on your stream. No bot
+            to wire up, no app to install.
           </motion.p>
 
           <motion.div
@@ -173,6 +173,15 @@ export function CinematicHero() {
               Watch on a Display →
             </Link>
           </motion.div>
+
+          <motion.p
+            className={styles.trustLine}
+            initial="hidden"
+            animate={heroInView ? "show" : "hidden"}
+            variants={fadeUp(reduced, { delay: 1.5 })}
+          >
+            Free to run · Works with OBS, Streamlabs, anything · No account needed to play
+          </motion.p>
         </section>
       </div>
 

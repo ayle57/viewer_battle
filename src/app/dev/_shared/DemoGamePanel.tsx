@@ -148,6 +148,7 @@ export function DemoGamePanel() {
       role,
       displayName: participant.displayName,
       token: participant.token,
+      participantId: participant.id,
     });
     window.open(path, "_blank");
   }

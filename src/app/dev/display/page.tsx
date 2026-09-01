@@ -71,7 +71,7 @@ function DisplayGame({ identity }: { identity: DevIdentity }) {
       <Card className={styles.chatCard}>
         <CardHeader title="Public chat" />
         <CardBody>
-          <GameChatPanel role="DISPLAY" displayName={identity.displayName} sendChatMessage={sendChatMessage} />
+          <GameChatPanel role="DISPLAY" displayName={identity.displayName} participantId={identity.participantId} sendChatMessage={sendChatMessage} />
         </CardBody>
       </Card>
     </>

@@ -39,7 +39,7 @@
 }
 
 .lg {
-  min-height: 48px;
+  min-height: var(--vb-tap-target-lg);
   padding: var(--vb-space-3) var(--vb-space-4);
   font-size: 1rem;
 }

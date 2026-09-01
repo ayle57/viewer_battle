@@ -1,6 +1,7 @@
-/* Warning, not danger — a disconnected host is a temporary, self-healing
-   state (the game/roster/tokens are all still exactly intact; see
-   ConnectionBadge.tsx's identical reasoning), not a broken product. */
+/* Warning, not danger, by default — a reconnecting socket is a
+   temporary, self-healing state (the game/roster/tokens are all still
+   exactly intact; see ConnectionBadge.tsx's identical reasoning), not a
+   broken product. `.danger` is the one real dead end (`unauthorized`). */
 .banner {
   display: flex;
   flex-direction: column;
@@ -13,6 +14,11 @@
   text-align: center;
 }
 
+.banner.danger {
+  background: var(--vb-danger-bg);
+  border-color: var(--vb-danger);
+}
+
 .title {
   margin: 0;
   font-size: 0.95rem;
@@ -21,8 +27,16 @@
   color: var(--vb-warning);
 }
 
+.danger .title {
+  color: var(--vb-danger);
+}
+
 .subtitle {
   margin: 0;
   font-size: 0.85rem;
   color: var(--vb-warning);
+}
+
+.danger .subtitle {
+  color: var(--vb-danger);
 }

@@ -47,6 +47,11 @@
    this component had NO visual identity marker beyond a tiny presence
    dot, the one place in the app that's on screen for an entire show's
    duration never got the avatar treatment PlayerCard already had. */
+/* Deliberately its OWN treatment, not `Avatar` (src/ui/components/Avatar
+   — AccountBadge/PlayerCard/the admin table's shared "who is this
+   person" chip): a roster seat's color means "which TEAM this is," a
+   real, different semantic fact worth keeping distinct, not an
+   oversight this pass forgot to unify. */
 .seatAvatar {
   display: flex;
   align-items: center;
@@ -104,6 +109,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative;
   width: 1.25rem;
   height: 1.25rem;
   padding: 0;
@@ -114,6 +120,22 @@
   font-size: 0.7rem;
   line-height: 1;
   cursor: pointer;
+}
+
+/* The real tap target — invisibly larger than the 20px dot, same
+   pattern ClickableImageMap.module.css's `.markerDotSelectable::before`
+   already established, up to `--vb-tap-target` (40px) rather than a
+   second one-off value. A real audited gap: this was under HALF the
+   design system's own stated minimum, on a phone-operated action. Kicks
+   always go through a confirmation dialog (host/page.tsx) before doing
+   anything, so an occasional overlap with a tightly-stacked neighboring
+   seat's own extended zone (only relevant well below the default 2-seat
+   roster) still only ever opens the wrong confirmation, never silently
+   kicks the wrong person. */
+.kickButton::before {
+  content: "";
+  position: absolute;
+  inset: -10px;
 }
 
 .kickButton:hover:not(:disabled),

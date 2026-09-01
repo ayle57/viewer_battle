@@ -416,6 +416,7 @@
 }
 
 .zoomButton {
+  position: relative;
   width: 1.75rem;
   height: 1.75rem;
   border-radius: var(--vb-radius-full);
@@ -429,6 +430,18 @@
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+/* Same extended-hit-target pattern as `.markerDotSelectable::before`
+   above, up to `--vb-tap-target` (40px) — a real audited gap: 28px, in
+   the single most precision-critical control on the whole map. Safe to
+   extend uniformly here: `.zoomLevel` between the two buttons is plain
+   text (nothing to steal a tap from), and nothing else sits inside
+   `.zoomControls` for the extended zone to collide with. */
+.zoomButton::before {
+  content: "";
+  position: absolute;
+  inset: -6px;
 }
 
 .zoomButton:hover:not(:disabled) {
@@ -632,6 +645,70 @@
    for the map underneath. The fade-out is a pure CSS transition off a
    class toggle (ClickableImageMap.tsx's own `showHint` timer), not an
    animation something could get stuck mid-way through. */
+/* The keyboard-only alternative to tap-to-place — ClickableImageMap.tsx's
+   own doc comment on `role="application"`/`handleFrameKeyDown` explains
+   the full reasoning. Deliberately NOT styled like `.markerDot` (a solid
+   circle) — a dashed ring + crosshair reads as "this is where the
+   keyboard is pointing," distinct from an actual placed marker, at any
+   zoom level. `pointer-events: none` — purely a visual readout, never
+   itself a hit target. */
+.keyboardCursor {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px dashed var(--vb-accent);
+  pointer-events: none;
+}
+
+.keyboardCursor::before,
+.keyboardCursor::after {
+  content: "";
+  position: absolute;
+  background: var(--vb-accent);
+}
+
+.keyboardCursor::before {
+  left: 50%;
+  top: -6px;
+  bottom: -6px;
+  width: 2px;
+  transform: translateX(-50%);
+}
+
+.keyboardCursor::after {
+  top: 50%;
+  left: -6px;
+  right: -6px;
+  height: 2px;
+  transform: translateY(-50%);
+}
+
+/* `position: sticky` (against `.viewport`'s own scroll — `.gestureHint`
+   below can use a real `fixed` position because it only ever renders in
+   the fullscreen instance; this renders in the INLINE instance too,
+   where `fixed` would escape a small page-embedded card straight to the
+   real screen corner) — stays in view through a pan/zoom instead of
+   scrolling out from under the cursor it's describing. */
+.keyboardCursorStatus {
+  position: sticky;
+  top: var(--vb-space-2);
+  left: var(--vb-space-2);
+  z-index: 1;
+  width: fit-content;
+  margin: var(--vb-space-2);
+  padding: var(--vb-space-2) var(--vb-space-3);
+  border-radius: var(--vb-radius-full);
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(4px);
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
 .gestureHint {
   position: fixed;
   top: var(--vb-space-4);

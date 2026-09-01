@@ -48,8 +48,13 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --prod --frozen-lockfile
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
-COPY --from=builder /app/src/generated ./src/generated
-COPY --from=builder /app/src/server ./src/server
+# The custom server runs from source via tsx at runtime (see the top-of-
+# file note on why this isn't `output: "standalone"`), so it needs the
+# whole `src` tree on disk to resolve its `@/domain`, `@/server`, … path
+# imports — not just `src/server`. `scripts/` is here for
+# `pnpm grant-admin` inside the container.
+COPY --from=builder /app/src ./src
+COPY --from=builder /app/scripts ./scripts
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/next.config.ts ./next.config.ts
 COPY --from=builder /app/prisma.config.ts ./prisma.config.ts

@@ -21,6 +21,32 @@
   color: var(--vb-success);
 }
 
+/* Player's own bigger presentation — a real `font-size` bump, not a
+   post-hoc `transform: scale()` on the wrapper (see this prop's own doc
+   comment in GameStartingSequence.tsx for the blurry-text bug that
+   replaced). */
+.stageLarge {
+  font-size: clamp(3rem, 11vw, 5.5rem);
+}
+
+/* Player's full-viewport ambient glow, portaled to `document.body` — see
+   this class's own doc comment in GameStartingSequence.tsx for the "le
+   blur doit prendre toute la page" bug this replaces (the same recipe
+   used to be a plain background on player/page.module.css's `.startingWrap`,
+   clipped to that column instead of the real viewport). `z-index: -1`,
+   same convention CinematicHero.module.css's own ambient glows use, so it
+   always paints behind the countdown text and the rest of the page
+   regardless of DOM order — this is atmosphere, never a wash on top of
+   content the way VictoryGlow's winner-reveal glow deliberately is. */
+.fullscreenGlow {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  display: block;
+  pointer-events: none;
+  background: radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--vb-primary) 22%, transparent), transparent 65%);
+}
+
 .waitingHint {
   margin: 0;
   font-size: 0.8rem;

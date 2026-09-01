@@ -119,9 +119,40 @@
   --vb-transition-fast: 120ms ease;
   --vb-transition-base: 240ms cubic-bezier(0.22, 1, 0.36, 1);
 
+  /*
+   * Breakpoint scale — documentation, NOT usable custom properties: a
+   * plain `@media (max-width: var(--foo))` doesn't work in any shipping
+   * browser (media *feature values* can't reference a custom property),
+   * so this can't be tokenized the way color/spacing above is. Written
+   * here anyway so the next `@media` someone adds reaches for one of
+   * these instead of eyeballing a new one — a real, audited gap: 26rem/
+   * 30rem/40rem were already the three values genuinely doing most of
+   * the work across this codebase (a full grep found 22/14/7 uses
+   * respectively, alongside 48rem x10, 60rem x2, and three true one-offs
+   * — 24rem, 46rem, 62rem — each used exactly once). Every EXISTING
+   * value is left exactly as it was: nudging any of them, even by a
+   * fraction of a rem, changes the literal viewport width its own layout
+   * responds at, which is a real (if narrow) behavior change this pass
+   * isn't reviewing case-by-case. Reach for one of these five going
+   * forward instead of adding a sixth:
+   *   26rem (≈416px) — a compact form/dialog/card's own single column
+   *   30rem (≈480px) — the default "this is a phone" cutoff; reach for
+   *                     this one unless a screen has a specific reason
+   *                     not to
+   *   40rem (≈640px) — a small tablet / wide-phone-landscape cutoff
+   *   48rem (≈768px) — the classic tablet breakpoint
+   *   60rem (≈960px) — "this is genuinely a desktop-width screen"
+   */
   /* Minimum interactive target — WCAG 2.5.8 AA is 24px; we go a bit
      larger since this app is meant to be played from a phone mid-buzz. */
   --vb-tap-target: 40px;
+  /* The "lg" size variant's own floor (Button/Input's `.lg`, the
+     homepage's primary CTA) — deliberately above the bare minimum above,
+     not a duplicate of it. Was three independent `48px` literals before
+     this (Button.module.css, Input.module.css, CinematicHero.module.css)
+     — a real audited drift risk (nothing kept them in sync), not a
+     behavior change now that they all read this one value. */
+  --vb-tap-target-lg: 48px;
 }
 
 /* Dark variant — same brand hues, not a naive invert. No toggle wires

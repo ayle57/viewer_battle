@@ -176,7 +176,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 48px;
+  min-height: var(--vb-tap-target-lg);
   padding: var(--vb-space-3) var(--vb-space-5);
   border: 1px solid transparent;
   border-radius: var(--vb-radius-sm);
@@ -216,6 +216,14 @@
 .ctaSecondary:hover {
   border-color: var(--vb-primary);
   color: var(--vb-primary);
+}
+
+.trustLine {
+  margin: var(--vb-space-3) 0 0;
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: var(--vb-text-muted);
 }
 
 .watchLink {

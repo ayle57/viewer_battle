@@ -80,7 +80,7 @@ function PlayerGame({ identity }: { identity: DevIdentity }) {
           <Card>
             <CardHeader title="Chat" />
             <CardBody>
-              <GameChatPanel role={role} displayName={identity.displayName} sendChatMessage={sendChatMessage} />
+              <GameChatPanel role={role} displayName={identity.displayName} participantId={identity.participantId} sendChatMessage={sendChatMessage} />
             </CardBody>
           </Card>
         </>
@@ -97,7 +97,7 @@ function PlayerGame({ identity }: { identity: DevIdentity }) {
           <Card>
             <CardHeader title="Chat" />
             <CardBody>
-              <GameChatPanel role={role} displayName={identity.displayName} sendChatMessage={sendChatMessage} />
+              <GameChatPanel role={role} displayName={identity.displayName} participantId={identity.participantId} sendChatMessage={sendChatMessage} />
             </CardBody>
           </Card>
         </>

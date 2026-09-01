@@ -262,6 +262,64 @@ describe("NEXT_ROUND", () => {
   });
 });
 
+describe("SKIP_ROUND", () => {
+  it("only the host may skip, and only during guessing", () => {
+    const revealed = lockBothTeamsTeamAWins(freshState());
+    const tooLate = apply(revealed, { type: "SKIP_ROUND", by: "HOST" });
+    expect(!tooLate.ok && tooLate.error.code).toBe("WRONG_PHASE");
+
+    const wrongRole = apply(freshState(), { type: "SKIP_ROUND", by: "TEAM_A" });
+    expect(!wrongRole.ok && wrongRole.error.code).toBe("FORBIDDEN_ROLE");
+  });
+
+  it("reveals the round as a TIE with no guesses and no score change", () => {
+    const state = freshState();
+    const next = mustOk(apply(state, { type: "SKIP_ROUND", by: "HOST" }));
+    expect(next.phase).toBe("revealed");
+    expect(next.guesses).toEqual({ TEAM_A: null, TEAM_B: null });
+    expect(next.roundResult).toEqual({
+      roundIndex: 0,
+      targetX: sampleGeoPlaylist.rounds[0]!.targetX,
+      targetY: sampleGeoPlaylist.rounds[0]!.targetY,
+      guesses: { TEAM_A: null, TEAM_B: null },
+      distances: { TEAM_A: null, TEAM_B: null },
+      roundWinner: "TIE",
+    });
+    expect(next.scores).toEqual({ TEAM_A: 0, TEAM_B: 0 });
+  });
+
+  it("discards an already-locked guess too — a skip throws the whole round out", () => {
+    let state = mustOk(apply(freshState(), { type: "SET_GUESS", by: "TEAM_A", byName: "P", x: 0.5, y: 0.5 }));
+    state = mustOk(apply(state, { type: "LOCK_GUESS", by: "TEAM_A", proposalIndex: 0 }));
+    const next = mustOk(apply(state, { type: "SKIP_ROUND", by: "HOST" }));
+    expect(next.guesses.TEAM_A).toBeNull();
+    expect(next.lockedTeams).toEqual([]);
+  });
+
+  it("cancels a running countdown", () => {
+    let state = mustOk(apply(freshState(), { type: "START_COUNTDOWN", by: "HOST", durationMs: 30_000, nowMs: 0 }));
+    const result = apply(state, { type: "SKIP_ROUND", by: "HOST" });
+    const next = mustOk(result);
+    expect(next.countdownDeadline).toBeNull();
+    expect(result.ok && result.events.map((e) => e.type)).toContain("COUNTDOWN_CANCELLED");
+  });
+
+  it("moves to the next round via NEXT_ROUND exactly like a real reveal — no score, no winner for this round", () => {
+    const skipped = mustOk(apply(freshState(manyRoundsConfig(2)), { type: "SKIP_ROUND", by: "HOST" }));
+    const next = mustOk(apply(skipped, { type: "NEXT_ROUND", by: "HOST" }));
+    expect(next.phase).toBe("guessing");
+    expect(next.currentRoundIndex).toBe(1);
+  });
+
+  it("skipping the last round finishes the game gracefully (highest score wins)", () => {
+    const state = freshState(manyRoundsConfig(1));
+    const next = mustOk(apply(state, { type: "SKIP_ROUND", by: "HOST" }));
+    expect(next.status).toBe("finished");
+    expect(next.winner).toBe("TIE"); // 0-0
+    expect(next.phase).toBe("revealed"); // the skip's own reveal stays visible, same as a real last-round finish
+  });
+});
+
 describe("first-to-N and running out of rounds", () => {
   it(`finishes the game the instant a team reaches ${GEO_WIN_THRESHOLD} round wins, mid-board`, () => {
     let state = freshState(manyRoundsConfig(GEO_WIN_THRESHOLD + 3)); // plenty of rounds left over
@@ -539,8 +597,8 @@ describe("countdownDeadline is genuinely public — never redacted, unlike every
 });
 
 describe("availableActions", () => {
-  it("HOST can END_GAME/START_COUNTDOWN any time, plus NEXT_ROUND once revealed", () => {
-    expect(availableActions(freshState(), "HOST")).toEqual(["END_GAME", "START_COUNTDOWN"]);
+  it("HOST can END_GAME/START_COUNTDOWN any time, plus SKIP_ROUND while guessing or NEXT_ROUND once revealed", () => {
+    expect(availableActions(freshState(), "HOST")).toEqual(["SKIP_ROUND", "END_GAME", "START_COUNTDOWN"]);
     const revealed = lockBothTeamsTeamAWins(freshState());
     expect(availableActions(revealed, "HOST")).toEqual(["NEXT_ROUND", "END_GAME", "START_COUNTDOWN"]);
   });
@@ -549,7 +607,7 @@ describe("availableActions", () => {
     const state = freshState();
     expect(availableActions(state, "HOST")).not.toContain("CANCEL_COUNTDOWN");
     const withCountdown = mustOk(apply(state, { type: "START_COUNTDOWN", by: "HOST", durationMs: 10_000, nowMs: 0 }));
-    expect(availableActions(withCountdown, "HOST")).toEqual(["END_GAME", "START_COUNTDOWN", "CANCEL_COUNTDOWN"]);
+    expect(availableActions(withCountdown, "HOST")).toEqual(["SKIP_ROUND", "END_GAME", "START_COUNTDOWN", "CANCEL_COUNTDOWN"]);
   });
 
   it("a team sees SET_GUESS, then LOCK_GUESS too once it has a proposal; nothing once locked", () => {

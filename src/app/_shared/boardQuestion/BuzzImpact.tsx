@@ -29,7 +29,16 @@ export function BuzzImpact({ team, children }: BuzzImpactProps) {
   const ringClass = team === "TEAM_A" ? styles.ringA : styles.ringB;
 
   return (
-    <div className={styles.wrap} key={team}>
+    // `role="status"`/`aria-live="polite"` — a real, audited gap: "who
+    // just buzzed" is one of the most time-critical facts in the whole
+    // app (Board/GeoGuessr/Music/SteamRatings/GuessThePrice all render
+    // their own buzz banner as `children` here), yet none of it was ever
+    // announced to a screen reader. `GameStartingSequence.tsx`'s own
+    // READY->3->2->1->LIVE countdown already proves the pattern exists
+    // in this codebase — this just applies it here too, at the single
+    // shared component every one of those banners already renders
+    // through, rather than patching each engine's panel separately.
+    <div className={styles.wrap} key={team} role="status" aria-live="polite">
       <motion.span
         className={[styles.flash, flashClass].join(" ")}
         aria-hidden="true"

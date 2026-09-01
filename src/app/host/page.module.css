@@ -13,6 +13,20 @@
   width: 100%;
 }
 
+/* Purely layout — pairs with `.brandMark`'s own typography/color/hover
+   styling below for the "← VIEWERBATTLE" back link at the top of a
+   `.connexion` screen (HostAccountGate / HostNotAdminNotice), same
+   reasoning as /account's own identical back link. Deliberately its own
+   class rather than making `.connexion` itself a centered flex column —
+   that would also affect the already-working logged-in state's Card,
+   which needs to stay full-width, not shrink to its own content width
+   under `align-items: center`. */
+.connexionBackLink {
+  display: block;
+  text-align: center;
+  margin-bottom: var(--vb-space-4);
+}
+
 .accountRow {
   display: flex;
   justify-content: center;
@@ -79,6 +93,12 @@
 .switchAccountLink:hover {
   color: var(--vb-text);
   text-decoration: underline;
+}
+
+.switchAccountLink:focus-visible {
+  outline: 2px solid var(--vb-primary);
+  outline-offset: 2px;
+  border-radius: var(--vb-radius-sm);
 }
 
 .errorBanner {
@@ -242,6 +262,17 @@
   color: var(--vb-text-muted);
   margin: 0;
   text-transform: uppercase;
+}
+
+/* Plain-language gloss under each score label — "Game score" / "Match
+   score" alone never said which was which (a real, flagged rough edge). */
+.showControlScoreSub {
+  font-size: 0.68rem;
+  font-weight: 500;
+  color: var(--vb-text-muted);
+  margin: 0 0 2px;
+  text-transform: none;
+  letter-spacing: 0;
 }
 
 .showControlScoreRow {
@@ -509,64 +540,10 @@
   margin-top: var(--vb-space-2);
 }
 
-.readinessWarning {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--vb-space-1);
-  margin-top: var(--vb-space-3);
-  padding: var(--vb-space-3) var(--vb-space-4);
-  background: var(--vb-warning-bg);
-  border: 1px solid var(--vb-warning);
-  border-radius: var(--vb-radius-md);
-}
-
-.readinessWarningTitle {
-  margin: 0;
-  font-weight: 800;
-  color: var(--vb-warning);
-  font-size: 0.9rem;
-}
-
-.reviewBoardLink {
-  color: var(--vb-warning);
-  font-weight: 700;
-  font-size: 0.85rem;
-  text-decoration: none;
-}
-
-.reviewBoardLink:hover {
-  text-decoration: underline;
-}
-
-.readinessOk {
-  margin: var(--vb-space-3) 0 0;
-  font-weight: 700;
-  color: var(--vb-success);
-  font-size: 0.9rem;
-}
-
-.readinessWarningActions {
-  display: flex;
-  align-items: center;
-  gap: var(--vb-space-3);
-  flex-wrap: wrap;
-}
-
-.useSampleBoardLink {
-  background: none;
-  border: none;
-  padding: 0;
-  color: var(--vb-text-muted);
-  font-weight: 700;
-  font-size: 0.85rem;
-  text-decoration: underline;
-  cursor: pointer;
-}
-
-.useSampleBoardLink:hover {
-  color: var(--vb-text);
-}
+/* The readiness-warning/ready-to-play block itself now lives in the
+   shared `@/app/_shared/ContentReadinessNotice` component (its own
+   module.css) — see that component's doc comment for why six
+   near-identical inline copies collapsed into one. */
 
 .noPlaylistsYet {
   display: flex;
@@ -622,9 +599,47 @@
   .page {
     padding: var(--vb-space-4) var(--vb-space-3);
     gap: var(--vb-space-3);
+    /* Room for the sticky Start Game bar below (`.startRow`) — without
+       this, the LAST bit of Lobby content (the Chat card) would sit
+       partly hidden behind the fixed bar once the page is scrolled all
+       the way down. Sized generously above the bar's own real height
+       (one "lg" button + its padding) so it never comes up short. */
+    padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px));
   }
 
   .connexion {
     margin: var(--vb-space-5) auto;
+  }
+
+  /* The Lobby's main CTA, pinned to the bottom of the viewport on
+     mobile — a real gap this closes: on a longer Lobby (roster + game
+     picker + content picker, all before it in document order), "Start
+     Game" could scroll well above the fold with nothing reminding the
+     Host it's still there. Scoped to this same mobile breakpoint on
+     purpose — desktop keeps the ordinary in-flow button, nothing here
+     changes there. Still respects `disabled` (Button's own styling,
+     untouched) while `startBlocked` — pinning it doesn't make it any
+     more clickable. */
+  .startRow {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 20;
+    margin: 0;
+    align-items: stretch;
+    padding: var(--vb-space-3) var(--vb-space-4);
+    padding-bottom: calc(var(--vb-space-3) + env(safe-area-inset-bottom, 0px));
+    background: var(--vb-surface);
+    border-top: 1px solid var(--vb-border);
+    box-shadow: 0 -4px 16px rgb(0 0 0 / 12%);
+  }
+
+  /* A plain element selector — not a `.class` — reaches straight through
+     Button's own CSS-module class without needing a new prop: full-width
+     only inside this one fixed bar, still its ordinary auto-sized self
+     everywhere else (including this exact same button on desktop). */
+  .startRow button {
+    width: 100%;
   }
 }

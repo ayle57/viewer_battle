@@ -92,19 +92,8 @@
   font-weight: 700;
 }
 
-.avatar {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.75rem;
-  height: 1.75rem;
-  flex: none;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--vb-primary) 16%, var(--vb-surface-raised));
-  color: var(--vb-primary);
-  font-size: 0.68rem;
-  font-weight: 800;
-}
+/* The avatar itself is now `Avatar` (src/ui/components/Avatar) — shared
+   with AccountBadge and PlayerCard, not its own copy here any more. */
 
 .adminBadge {
   padding: 0.1rem var(--vb-space-2);
@@ -124,5 +113,98 @@
 }
 
 .muted {
+  color: var(--vb-text-muted);
+}
+
+.errorBanner {
+  padding: var(--vb-space-2) var(--vb-space-3);
+  background: var(--vb-danger-bg);
+  color: var(--vb-danger);
+  border-radius: var(--vb-radius-sm);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+/* --- Chat word filter --- */
+
+.section {
+  margin-top: var(--vb-space-8);
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 800;
+}
+
+.sectionSubtitle {
+  margin: var(--vb-space-1) 0 var(--vb-space-4);
+  color: var(--vb-text-muted);
+  font-size: 0.9rem;
+}
+
+.filterCard {
+  background: var(--vb-surface);
+  border: 1px solid var(--vb-border);
+  border-radius: var(--vb-radius-md);
+  padding: var(--vb-space-4);
+}
+
+.addRow {
+  display: flex;
+  gap: var(--vb-space-2);
+  margin-bottom: var(--vb-space-4);
+}
+
+.addRow input {
+  flex: 1;
+}
+
+.wordGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--vb-space-2);
+}
+
+.wordChip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--vb-space-2);
+  padding: 0.25rem 0.5rem 0.25rem 0.7rem;
+  background: var(--vb-surface-raised);
+  border: 1px solid var(--vb-border);
+  border-radius: var(--vb-radius-full);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.wordChipRemove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.15rem;
+  height: 1.15rem;
+  border: none;
+  border-radius: var(--vb-radius-full);
+  background: transparent;
+  color: var(--vb-text-muted);
+  font-size: 0.95rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.wordChipRemove:hover {
+  background: var(--vb-danger-bg);
+  color: var(--vb-danger);
+}
+
+.wordChipRemove:focus-visible {
+  outline: 2px solid var(--vb-primary);
+  outline-offset: 1px;
+}
+
+.filterHint {
+  margin: var(--vb-space-3) 0 0;
+  font-size: 0.8rem;
   color: var(--vb-text-muted);
 }

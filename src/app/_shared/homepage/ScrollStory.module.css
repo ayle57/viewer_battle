@@ -1,18 +1,38 @@
 .story {
   display: flex;
   flex-direction: column;
-  gap: clamp(var(--vb-space-7), 10vh, 7rem);
+  gap: clamp(var(--vb-space-6), 5vh, 3.75rem);
   max-width: 64rem;
   width: 100%;
-  padding: clamp(var(--vb-space-6), 6vh, var(--vb-space-8)) 0;
+  padding: 0;
 }
 
 .section {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--vb-space-5);
+  gap: var(--vb-space-4);
   text-align: center;
+}
+
+/* A hairline above a section's kicker — a quiet, repeated visual beat
+   that makes the page read as a deliberate sequence rather than a stack
+   of loosely spaced blocks. */
+.section .kicker {
+  position: relative;
+  padding-top: var(--vb-space-4);
+}
+
+.section .kicker::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 2rem;
+  height: 2px;
+  border-radius: var(--vb-radius-full);
+  background: var(--vb-primary);
 }
 
 .kicker {
@@ -32,10 +52,65 @@
 }
 
 .tagline {
-  margin: calc(-1 * var(--vb-space-3)) 0 0;
-  max-width: 32rem;
+  margin: calc(-1 * var(--vb-space-2)) 0 var(--vb-space-2);
+  max-width: 34rem;
   color: var(--vb-text-muted);
-  font-size: 0.95rem;
+  font-size: 0.98rem;
+  line-height: 1.6;
+}
+
+/* --- Section 0: How it works --- */
+
+.steps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--vb-space-4);
+  width: 100%;
+  text-align: left;
+}
+
+.step {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-space-3);
+  padding: var(--vb-space-5);
+  background: var(--vb-surface);
+  border: 1px solid var(--vb-border);
+  border-radius: var(--vb-radius-lg);
+  box-shadow: var(--vb-shadow-sm);
+}
+
+.stepNumber {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: var(--vb-radius-md);
+  background: color-mix(in srgb, var(--vb-primary) 12%, transparent);
+  color: var(--vb-primary);
+  font-size: 1.05rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.stepTitle {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.stepBody {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  color: var(--vb-text-muted);
+}
+
+@media (max-width: 46rem) {
+  .steps {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* --- Section 1: Run the show --- */
@@ -188,11 +263,22 @@
   background: var(--vb-primary-text);
 }
 
+.displayTeams {
+  display: flex;
+  align-items: baseline;
+  gap: var(--vb-space-4);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--vb-obs-text) 55%, transparent);
+}
+
 .displayScoreRow {
   display: flex;
   align-items: center;
   gap: var(--vb-space-5);
-  font-size: clamp(1.5rem, 4vw, 2.5rem);
+  font-size: clamp(1.75rem, 5vw, 3rem);
   font-weight: 800;
   color: var(--vb-obs-text);
   font-variant-numeric: tabular-nums;
@@ -204,6 +290,13 @@
 
 .displayScoreB {
   color: var(--vb-team-b);
+}
+
+.displayQuestion {
+  margin: var(--vb-space-1) 0 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--vb-obs-text) 70%, transparent);
 }
 
 .displayLabel {
@@ -283,4 +376,82 @@
     font-size: 0.9rem;
     padding: var(--vb-space-4) var(--vb-space-2);
   }
+}
+
+/* --- Footer --- */
+
+.footer {
+  width: 100%;
+  max-width: 64rem;
+  margin-top: var(--vb-space-4);
+  padding: var(--vb-space-8) 0 var(--vb-space-4);
+  border-top: 1px solid var(--vb-border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--vb-space-3);
+  text-align: center;
+}
+
+.footerWordmark {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  color: var(--vb-primary);
+}
+
+.footerTagline {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--vb-text-muted);
+  max-width: 26rem;
+}
+
+.footerLinks {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--vb-space-2) var(--vb-space-4);
+}
+
+.footerLink {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--vb-text);
+  text-decoration: none;
+}
+
+.footerLink:hover {
+  color: var(--vb-primary);
+}
+
+.footerLink:focus-visible {
+  outline: 2px solid var(--vb-primary);
+  outline-offset: 2px;
+  border-radius: var(--vb-radius-sm);
+}
+
+.footerNote {
+  margin: var(--vb-space-2) 0 0;
+  font-size: 0.8rem;
+  color: var(--vb-text-muted);
+}
+
+/* --- shared: a small "arrives as one unit" flourish for the run-show / teams rows --- */
+
+.stealChip {
+  padding: var(--vb-space-1) var(--vb-space-2);
+  background: var(--vb-warning-bg);
+  color: var(--vb-warning);
+  border-radius: var(--vb-radius-full);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.teamsBuzzer {
+  filter: drop-shadow(0 6px 16px color-mix(in srgb, var(--vb-team-a) 30%, transparent));
 }

@@ -1,0 +1,25 @@
+.status {
+  margin: 0;
+  text-align: center;
+  font-size: 1.4rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--vb-text);
+}
+
+.teamA {
+  color: var(--vb-team-a);
+}
+
+.teamB {
+  color: var(--vb-team-b);
+}
+
+/* Same 26rem "compact phone" cutoff every other Host panel already
+   reaches for (tokens.css's own breakpoint scale doc comment). */
+@media (max-width: 26rem) {
+  .status {
+    font-size: 1.15rem;
+  }
+}

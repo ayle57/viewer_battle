@@ -88,11 +88,15 @@ export function PlayerBoardPanel({ state, role, lastEvents, sendAction }: Player
 
       {error && <p className={styles.errorBanner}>{readableGameError(error.code, error.message)}</p>}
       {!error && judgment && (
-        <p className={[styles.judgmentBanner, judgment.correct ? styles.correct : styles.incorrect].join(" ")}>
+        <p className={[styles.judgmentBanner, judgment.correct ? styles.correct : styles.incorrect].join(" ")} role="status" aria-live="polite">
           {judgment.correct ? "CORRECT" : "INCORRECT"}
         </p>
       )}
-      {!error && !judgment && otherResult && <p className={styles.resultBanner}>{otherResult}</p>}
+      {!error && !judgment && otherResult && (
+        <p className={styles.resultBanner} role="status" aria-live="polite">
+          {otherResult}
+        </p>
+      )}
 
       <BoardGrid state={state} />
 

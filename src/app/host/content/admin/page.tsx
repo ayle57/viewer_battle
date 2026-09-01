@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 import { trpc } from "@/app/_trpc/client";
-import { Button, ConfirmDialog } from "@/ui";
-import { getInitials } from "@/ui/initials";
+import { Avatar, Button, ConfirmDialog, Input } from "@/ui";
 import { useContentIdentityStore } from "../_shared/contentIdentityStore";
 import { formatRelativeTime } from "../_shared/relativeTime";
 import { StudioBreadcrumb } from "../_shared/StudioBreadcrumb";
@@ -72,9 +71,7 @@ export default function AdminPage() {
                 return (
                   <tr key={user.userId}>
                     <td className={styles.username}>
-                      <span className={styles.avatar} aria-hidden="true">
-                        {getInitials(user.username)}
-                      </span>
+                      <Avatar name={user.username} />
                       {user.username}
                       {user.isAdmin && <span className={styles.adminBadge}>Admin</span>}
                     </td>
@@ -112,13 +109,109 @@ export default function AdminPage() {
         }
         confirmLabel="Delete account"
         danger
+        confirming={deleteUser.isPending}
         onCancel={() => setPendingDeleteId(null)}
         onConfirm={() => {
-          if (pendingDeleteUser) deleteUser.mutate({ token, userId: pendingDeleteUser.userId });
-          setPendingDeleteId(null);
+          if (!pendingDeleteUser) return;
+          // Closes ONLY on success — same contract as the playlist delete
+          // flows (jeopardy/page.tsx, geoguessr/page.tsx): a server
+          // refusal keeps the dialog open with the real error showing
+          // below, instead of silently closing and letting the host
+          // believe the account is gone when it never actually was.
+          deleteUser.mutate({ token, userId: pendingDeleteUser.userId }, { onSuccess: () => setPendingDeleteId(null) });
         }}
-      />
+      >
+        {deleteUser.isError && <p className={styles.errorBanner}>{deleteUser.error.message}</p>}
+      </ConfirmDialog>
+
+      <ChatWordFilter token={token} />
     </>
+  );
+}
+
+/**
+ * The operator-curated chat blocklist (see src/domain/chat/wordFilter.ts).
+ * Applies to PLAYER chat only — a hit blocks the whole message and the
+ * sender is told why. The list is seeded with a sensible default set the
+ * first time it's empty; this is where erwin trims or extends it.
+ */
+function ChatWordFilter({ token }: { token: string }) {
+  const utils = trpc.useUtils();
+  const words = trpc.admin.blockedWords.useQuery({ token }, { enabled: Boolean(token) });
+  const add = trpc.admin.addBlockedWord.useMutation({ onSuccess: () => void utils.admin.blockedWords.invalidate() });
+  const remove = trpc.admin.removeBlockedWord.useMutation({ onSuccess: () => void utils.admin.blockedWords.invalidate() });
+  const [draft, setDraft] = useState("");
+
+  function submit() {
+    const value = draft.trim();
+    if (!value) return;
+    add.mutate(
+      { token, word: value },
+      {
+        onSuccess: () => setDraft(""),
+      },
+    );
+  }
+
+  return (
+    <section className={styles.section}>
+      <h2 className={styles.sectionTitle}>Chat word filter</h2>
+      <p className={styles.sectionSubtitle}>
+        Words on this list block a player&rsquo;s chat message before anyone sees it. Host and Display messages are never
+        filtered. Matching ignores case, accents, spacing and common letter swaps ({" "}
+        <code>c0nn4rd</code>, <code>c o n n a r d</code>).
+      </p>
+
+      <div className={styles.filterCard}>
+        <form
+          className={styles.addRow}
+          onSubmit={(event) => {
+            event.preventDefault();
+            submit();
+          }}
+        >
+          <Input
+            size="md"
+            aria-label="Add a word to the filter"
+            placeholder="Add a word…"
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            error={add.isError ? add.error.message : undefined}
+          />
+          <Button size="md" type="submit" loading={add.isPending} disabled={!draft.trim()}>
+            Add
+          </Button>
+        </form>
+
+        {words.isLoading ? (
+          <p className={styles.empty}>Loading…</p>
+        ) : !words.data || words.data.length === 0 ? (
+          <p className={styles.empty}>No words filtered — player chat is unrestricted.</p>
+        ) : (
+          <div className={styles.wordGrid}>
+            {words.data.map((entry) => (
+              <span key={entry.id} className={styles.wordChip}>
+                {entry.word}
+                <button
+                  type="button"
+                  className={styles.wordChipRemove}
+                  aria-label={`Remove "${entry.word}" from the filter`}
+                  disabled={remove.isPending}
+                  onClick={() => remove.mutate({ token, id: entry.id })}
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+
+        <p className={styles.filterHint}>
+          {words.data?.length ?? 0} word{(words.data?.length ?? 0) === 1 ? "" : "s"} on the list. Changes take effect
+          within about 15 seconds for messages already in flight.
+        </p>
+      </div>
+    </section>
   );
 }
 

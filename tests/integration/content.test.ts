@@ -36,8 +36,17 @@ describe("Content Studio", () => {
   // can be missed, from any call site, present or future.
   const suiteStartedAt = new Date();
 
+  // Playlists created directly under the ONE real, pre-existing
+  // ContentHost (via `auth.login` -> signInContentHost, not `freshHost()`)
+  // — the ContentHost timestamp-cutoff cascade below can't reach these
+  // (their host row predates this run), so they leak one junk playlist
+  // into the real Content Studio on every `pnpm test` unless tracked and
+  // deleted explicitly here. The "reattach" test is the only such case.
+  const createdRealPlaylistIds = new Set<string>();
+
   afterAll(async () => {
     await prisma.session.deleteMany({ where: { id: { in: Array.from(createdSessionIds) } } });
+    await prisma.playlist.deleteMany({ where: { id: { in: Array.from(createdRealPlaylistIds) } } });
     await prisma.contentHost.deleteMany({ where: { createdAt: { gte: suiteStartedAt } } });
     await prisma.$disconnect();
   });
@@ -78,6 +87,7 @@ describe("Content Studio", () => {
       // built.
       const { token: firstToken } = await caller.content.auth.login({ hostPassword: DEV_PLAYGROUND_HOST_PASSWORD });
       const playlist = await caller.content.playlist.create({ token: firstToken, gameKey: "board-question", name: "Reattach Test" });
+      createdRealPlaylistIds.add(playlist.id); // created under the real ContentHost — clean it up explicitly (see afterAll)
 
       const { token: secondToken } = await caller.content.auth.login({ hostPassword: DEV_PLAYGROUND_HOST_PASSWORD });
       expect(secondToken).not.toBe(firstToken);

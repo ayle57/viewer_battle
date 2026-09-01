@@ -40,11 +40,27 @@ interface GameStoreState {
    * as `sessionEnded` — see `reset()` below.
    */
   kicked: boolean;
+  /**
+   * True once THIS connection's initial catch-up snapshot attempt has
+   * genuinely completed (`game:synced`, src/server/sockets/game.ts) — NOT
+   * the same moment as `status === "connected"`. That's a real, reported
+   * bug this closes: a fresh mount/reload's very FIRST render always has
+   * `gameId: null` (nothing has arrived yet), which reads exactly like
+   * "no game running" even mid-game, and the DB read behind the real
+   * catch-up snapshot is a genuine async gap AFTER the socket transport
+   * itself connects. Any code deciding "did the game juuust start" (the
+   * READY->3->2->1->LIVE sequence — player/page.tsx, display/page.tsx)
+   * needs this, not `status`, to tell "still loading" apart from
+   * "confirmed: no game." Reset alongside everything else in `reset()`
+   * below.
+   */
+  synced: boolean;
   setSnapshot: (snapshot: { gameId: string; gameKey: string; state: Record<string, unknown>; events: unknown[] }) => void;
   setStatus: (status: GameConnectionStatus) => void;
   setError: (error: GameError | null) => void;
   setSessionEnded: () => void;
   setKicked: () => void;
+  setSynced: () => void;
   /**
    * Back to every field's true initial value — called once by
    * useGameSocket.ts at the START of its connection effect, whenever
@@ -76,6 +92,7 @@ const initialGameStoreState = {
   lastError: null as GameError | null,
   sessionEnded: false,
   kicked: false,
+  synced: false,
 };
 
 function createGameStore() {
@@ -92,6 +109,7 @@ function createGameStore() {
     setError: (error) => set({ lastError: error }),
     setSessionEnded: () => set({ sessionEnded: true }),
     setKicked: () => set({ kicked: true }),
+    setSynced: () => set({ synced: true }),
     reset: () => set({ ...initialGameStoreState }),
   }));
 }

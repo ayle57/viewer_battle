@@ -21,6 +21,7 @@ describe("chatStore — unread notifications", () => {
       channel: overrides.channel ?? "TEAM_A",
       role: overrides.role ?? "TEAM_A",
       senderName: overrides.senderName ?? "Alice",
+      senderParticipantId: overrides.senderParticipantId ?? "participant-alice",
       body: overrides.body ?? "hi",
       createdAt: overrides.createdAt ?? new Date().toISOString(),
     };

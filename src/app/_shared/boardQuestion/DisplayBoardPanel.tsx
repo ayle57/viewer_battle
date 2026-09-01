@@ -53,7 +53,7 @@ export function DisplayBoardPanel({ state, lastEvents }: DisplayBoardPanelProps)
       <CountdownBadge deadlineMs={state.countdownDeadline} label="Game ends in" className={styles.countdownBadge} />
 
       {state.status === "finished" && (
-        <p className={[styles.finishedBanner, finishedClass].filter(Boolean).join(" ")}>
+        <p className={[styles.finishedBanner, finishedClass].filter(Boolean).join(" ")} role="status" aria-live="polite">
           {state.winner === "TIE" ? "IT'S A TIE" : (
             <>
               <span aria-hidden="true">🏆</span> {TEAM_LABEL[state.winner as "TEAM_A" | "TEAM_B"]} WINS
@@ -86,11 +86,15 @@ export function DisplayBoardPanel({ state, lastEvents }: DisplayBoardPanelProps)
       )}
 
       {!state.buzzedTeam && judgment && (
-        <p className={[styles.judgmentBanner, judgment.correct ? styles.correct : styles.incorrect].join(" ")}>
+        <p className={[styles.judgmentBanner, judgment.correct ? styles.correct : styles.incorrect].join(" ")} role="status" aria-live="polite">
           {judgment.correct ? "CORRECT" : "INCORRECT"}
         </p>
       )}
-      {!state.buzzedTeam && !judgment && lastResult && <p className={styles.resultBanner}>{lastResult}</p>}
+      {!state.buzzedTeam && !judgment && lastResult && (
+        <p className={styles.resultBanner} role="status" aria-live="polite">
+          {lastResult}
+        </p>
+      )}
 
       {!activeQuestion && state.status === "in_progress" && (
         <p className={styles.statusLine}>Waiting for the next question…</p>

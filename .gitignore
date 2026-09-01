@@ -24,3 +24,6 @@ prisma/*.db
 *.tsbuildinfo
 .DS_Store
 /src/generated/prisma
+
+# local QA / scratch (Playwright scripts, screenshots)
+.qa-scratch

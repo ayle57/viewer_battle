@@ -1,0 +1,58 @@
+.readinessWarning {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--vb-space-1);
+  margin-top: var(--vb-space-3);
+  padding: var(--vb-space-3) var(--vb-space-4);
+  background: var(--vb-warning-bg);
+  border: 1px solid var(--vb-warning);
+  border-radius: var(--vb-radius-md);
+}
+
+.readinessWarningTitle {
+  margin: 0;
+  font-weight: 800;
+  color: var(--vb-warning);
+  font-size: 0.9rem;
+}
+
+.readinessWarningActions {
+  display: flex;
+  align-items: center;
+  gap: var(--vb-space-3);
+  flex-wrap: wrap;
+}
+
+.reviewLink {
+  color: var(--vb-warning);
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-decoration: none;
+}
+
+.reviewLink:hover {
+  text-decoration: underline;
+}
+
+.useSampleLink {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--vb-text-muted);
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.useSampleLink:hover {
+  color: var(--vb-text);
+}
+
+.readinessOk {
+  margin: var(--vb-space-3) 0 0;
+  font-weight: 700;
+  color: var(--vb-success);
+  font-size: 0.9rem;
+}

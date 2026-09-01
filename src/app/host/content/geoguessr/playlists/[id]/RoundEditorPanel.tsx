@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type ChangeEvent, type DragEvent, type KeyboardEvent } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState, type ChangeEvent, type DragEvent, type KeyboardEvent } from "react";
 import { motion } from "motion/react";
 import { useReducedMotionSafe } from "@/app/_shared/motion/useReducedMotionSafe";
 import { fadeUp, popIn } from "@/app/_shared/motion/variants";
@@ -59,6 +59,23 @@ export interface RoundEditorPanelProps {
 }
 
 /**
+ * What the PARENT (page.tsx) can reach into this panel and trigger
+ * directly — narrowly, just `save`, exposed via `useImperativeHandle`
+ * below. Exists for exactly one real gap the audit flagged: Jeopardy's
+ * `QuestionEditorDialog` autosaves before letting a Host navigate away
+ * from an edit; this panel's own "Discard unsaved changes?" dialog
+ * (page.tsx) used to offer only Cancel or Discard — never an actual
+ * "save it for me and continue" path, forcing a Host who just wants to
+ * switch rounds without losing an edit to cancel, manually click Save,
+ * THEN retry the switch. Deliberately not a bigger imperative API than
+ * this one method — everything else (dirty tracking, the buffer itself)
+ * stays exactly the callback-only shape it already was.
+ */
+export interface RoundEditorPanelHandle {
+  save: (mode: "stay" | "next") => Promise<boolean>;
+}
+
+/**
  * "Missing:" list order, matching the on-screen field order top to
  * bottom (Question -> Map -> Correct location, see the `.form` JSX
  * below) — the NEXT STEP hint always points at whichever gap is
@@ -102,7 +119,10 @@ const NEXT_STEP_COPY: Record<string, string> = {
  * same `token`, i.e. the streamer only) and adds the result to that same
  * pool, selected immediately.
  */
-export function RoundEditorPanel({ token, playlistId, round, roundNumber, hasNextRound, onSaved, onDuplicate, duplicating, onRequestDelete, onPreview, onDirtyChange }: RoundEditorPanelProps) {
+export const RoundEditorPanel = forwardRef<RoundEditorPanelHandle, RoundEditorPanelProps>(function RoundEditorPanel(
+  { token, playlistId, round, roundNumber, hasNextRound, onSaved, onDuplicate, duplicating, onRequestDelete, onPreview, onDirtyChange },
+  ref,
+) {
   const reduced = useReducedMotionSafe(); // hydration-safe — see that hook's own doc comment
   const utils = trpc.useUtils();
   const assets = trpc.content.geoAsset.list.useQuery();
@@ -188,39 +208,50 @@ export function RoundEditorPanel({ token, playlistId, round, roundNumber, hasNex
     // eslint-disable-next-line react-hooks/exhaustive-deps -- deliberately once per mount (a round switch, via `key={round.id}` at the call site), not on every keystroke that changes hasQuestion/hasImage
   }, []);
 
-  function save(mode: "stay" | "next") {
+  /** Resolves `true`/`false` with the outcome — the imperative handle below is what actually needs that (a plain fire-and-forget void was enough back when only this panel's own buttons ever called it). */
+  function save(mode: "stay" | "next"): Promise<boolean> {
     setPendingMode(mode);
     setSaveState("saving");
-    updateRound.mutate(
-      {
-        token,
-        roundId: round.id,
-        title: title.trim() || null,
-        question: question.trim() || null,
-        imageUrl: imageUrl || null,
-        targetX: target?.x ?? null,
-        targetY: target?.y ?? null,
-      },
-      {
-        onSuccess: () => {
-          void utils.content.geoPlaylist.get.invalidate({ token, playlistId });
-          // The buffer just saved IS the new "clean" baseline — updating
-          // this here, not from the `round` prop once it eventually
-          // catches up via the invalidate() above, is what keeps
-          // `isDirty` accurate immediately rather than staying
-          // (wrongly) true for that round-trip.
-          setSavedSnapshot({ title, question, imageUrl, target });
-          setPendingMode(null);
-          setSaveState("saved");
-          onSaved(mode);
+    return new Promise((resolve) => {
+      updateRound.mutate(
+        {
+          token,
+          roundId: round.id,
+          title: title.trim() || null,
+          question: question.trim() || null,
+          imageUrl: imageUrl || null,
+          targetX: target?.x ?? null,
+          targetY: target?.y ?? null,
         },
-        onError: () => {
-          setPendingMode(null);
-          setSaveState("error");
+        {
+          onSuccess: () => {
+            void utils.content.geoPlaylist.get.invalidate({ token, playlistId });
+            // The buffer just saved IS the new "clean" baseline — updating
+            // this here, not from the `round` prop once it eventually
+            // catches up via the invalidate() above, is what keeps
+            // `isDirty` accurate immediately rather than staying
+            // (wrongly) true for that round-trip.
+            setSavedSnapshot({ title, question, imageUrl, target });
+            setPendingMode(null);
+            setSaveState("saved");
+            onSaved(mode);
+            resolve(true);
+          },
+          onError: () => {
+            setPendingMode(null);
+            setSaveState("error");
+            resolve(false);
+          },
         },
-      },
-    );
+      );
+    });
   }
+
+  // See `RoundEditorPanelHandle`'s own doc comment — deliberately no deps
+  // array, so this always exposes the CURRENT render's `save` closure
+  // (title/question/imageUrl/target all live in it) rather than a stale
+  // one captured on first mount.
+  useImperativeHandle(ref, () => ({ save }));
 
   // Cmd/Ctrl+Enter -> the same primary action the button itself performs
   // (Save & Next, not a plain Save) — the one shortcut worth having for
@@ -232,7 +263,7 @@ export function RoundEditorPanel({ token, playlistId, round, roundNumber, hasNex
   function handlePanelKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
       event.preventDefault();
-      save("next");
+      void save("next");
     }
   }
 
@@ -538,11 +569,11 @@ export function RoundEditorPanel({ token, playlistId, round, roundNumber, hasNex
             </Button>
           </div>
           <div className={styles.footerRight}>
-            <Button variant="secondary" loading={pendingMode === "stay"} disabled={updateRound.isPending && pendingMode !== "stay"} onClick={() => save("stay")}>
+            <Button variant="secondary" loading={pendingMode === "stay"} disabled={updateRound.isPending && pendingMode !== "stay"} onClick={() => void save("stay")}>
               Save
             </Button>
             <div className={styles.saveNextGroup}>
-              <Button loading={pendingMode === "next"} disabled={updateRound.isPending && pendingMode !== "next"} onClick={() => save("next")}>
+              <Button loading={pendingMode === "next"} disabled={updateRound.isPending && pendingMode !== "next"} onClick={() => void save("next")}>
                 Save & Next Round →
               </Button>
               {!hasNextRound && <span className={styles.saveNextHint}>Creates Round {String(roundNumber + 1).padStart(2, "0")}</span>}
@@ -567,4 +598,4 @@ export function RoundEditorPanel({ token, playlistId, round, roundNumber, hasNex
       />
     </div>
   );
-}
+});

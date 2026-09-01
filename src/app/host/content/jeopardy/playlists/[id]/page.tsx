@@ -180,6 +180,7 @@ export default function PlaylistEditorPage() {
               onBlur={commitName}
               onKeyDown={(event) => event.key === "Enter" && event.currentTarget.blur()}
               aria-label="Playlist name"
+              title={name}
             />
             <div className={styles.subLine}>
               <input
@@ -190,6 +191,7 @@ export default function PlaylistEditorPage() {
                 onKeyDown={(event) => event.key === "Enter" && event.currentTarget.blur()}
                 placeholder="Add a description…"
                 aria-label="Playlist description"
+                title={description || undefined}
               />
               <SaveStatus state={saveState} />
             </div>

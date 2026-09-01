@@ -5,18 +5,23 @@ import { useRouter } from "next/navigation";
 import { trpc } from "@/app/_trpc/client";
 import { useAccountStore } from "@/app/_shared/accountStore";
 import { ActionsMenu } from "@/app/_shared/ActionsMenu";
-import { getInitials } from "@/ui/initials";
+import { Avatar } from "@/ui";
 import styles from "./AccountBadge.module.css";
 
 /**
  * The ONE visual shape "you're signed into an account" takes anywhere on
  * the site with room for it (a fixed corner, a join form, a gate screen)
- * — a small pill with an initials avatar + a green dot when signed in,
- * plain "Log in" text when not. The avatar (same `getInitials` treatment
- * as TeamRoster's seats and the admin table, not a third derivation) is
- * a real, reported fix — this pill used to be text-only, the one
- * genuinely constant piece of chrome on the whole site that had no
- * visual identity marker at all. Previously three different treatments
+ * — a small pill with an `Avatar` (shared with PlayerCard and the admin
+ * accounts table — src/ui/components/Avatar, not a fourth derivation) +
+ * a green dot when signed in, plain "Log in" text when not. This pill
+ * used to be text-only, the one genuinely constant piece of chrome on
+ * the whole site that had no visual identity marker at all. A follow-up
+ * report ("les photos de profil... sont cheum") flagged that first
+ * pass itself: every avatar rendered the exact same flat, low-contrast
+ * tint no matter who was signed in — `Avatar` now picks one of five
+ * real, vibrant colors from the app's own palette, stable per username
+ * (same person, same color, every session).
+ * Previously three different treatments
  * for the exact same fact (a
  * pill on the homepage, a plain underlined text link on /player's join
  * form, a CardHeader subtitle on /host's gate) — genuinely harder to use,
@@ -86,9 +91,7 @@ export function AccountBadge() {
       triggerClassName={styles.badge}
       trigger={
         <>
-          <span className={styles.avatar} aria-hidden="true">
-            {getInitials(account.username)}
-          </span>
+          <Avatar name={account.username} size="sm" />
           <span className={styles.name}>{account.username}</span>
           <span className={styles.dot} aria-hidden="true" title="Signed in" />
         </>

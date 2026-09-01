@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type FocusEvent as ReactFocusEvent, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent } from "react";
 import styles from "./ClickableImageMap.module.css";
 
 /** A pointerdown->pointerup movement below this counts as a tap (place), not a drag (pan) — see the fullscreen pointer handler's own doc comment. */
@@ -595,6 +595,68 @@ function MapFrame({ imageUrl, alt, markers, lines, onPick, onMarkerClick, disabl
     onPick(x, y);
   }
 
+  // A real, audited gap this closes: placing a guess/target had NO
+  // keyboard path at all — `.frame` used to carry `role="button"` (a
+  // leaf widget role) while genuinely CONTAINING real `<button>` marker
+  // dots, which is invalid ARIA nesting on top of not even being
+  // focusable (no `tabIndex`, so that role did nothing for a keyboard
+  // user anyway). `role="application"` below is the correct fix for
+  // BOTH problems at once — it's a container role explicitly meant to
+  // hold interactive descendants (the marker buttons stay independently
+  // Tab-reachable, unaffected), and it tells assistive tech to hand
+  // arrow keys to THIS component instead of intercepting them for its
+  // own browse-mode navigation, which the crosshair scheme below needs.
+  // Deliberately NOT a drag/pointer reimplementation — a simple, always-
+  // available alternative: Enter/Space drops a keyboard cursor at the
+  // center, arrow keys nudge it (Shift for a bigger step), Enter/Space
+  // again places at wherever it's sitting. Purely additive — the
+  // existing pointer/click paths above are completely untouched.
+  const [keyboardCursor, setKeyboardCursor] = useState<{ x: number; y: number } | null>(null);
+  const keyboardActive = Boolean(onPick) && !disabled;
+
+  function handleFrameKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
+    if (!onPick || disabled) return;
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      if (keyboardCursor) onPick(keyboardCursor.x, keyboardCursor.y);
+      else setKeyboardCursor({ x: 0.5, y: 0.5 });
+      return;
+    }
+    if (!keyboardCursor) return;
+    const step = event.shiftKey ? 0.08 : 0.02;
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      setKeyboardCursor({ x: clamp01(keyboardCursor.x - step), y: keyboardCursor.y });
+    } else if (event.key === "ArrowRight") {
+      event.preventDefault();
+      setKeyboardCursor({ x: clamp01(keyboardCursor.x + step), y: keyboardCursor.y });
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setKeyboardCursor({ x: keyboardCursor.x, y: clamp01(keyboardCursor.y - step) });
+    } else if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setKeyboardCursor({ x: keyboardCursor.x, y: clamp01(keyboardCursor.y + step) });
+    } else if (event.key === "Escape") {
+      // Cancels the keyboard cursor first, without also closing the
+      // fullscreen overlay on the same keypress (Dialog.tsx-style
+      // Escape is wired at `document` level, in the bubble phase, which
+      // this stopPropagation reaches before it does) — a second Escape
+      // still closes the overlay normally.
+      event.preventDefault();
+      event.stopPropagation();
+      setKeyboardCursor(null);
+    }
+  }
+
+  // Only clears when focus genuinely leaves the whole `.frame` subtree
+  // — `onBlur`/`focusout` also fires when focus moves from `.frame`
+  // onto one of ITS OWN marker buttons (a normal Tab step), which must
+  // never be mistaken for "the user left the map."
+  function handleFrameBlur(event: ReactFocusEvent<HTMLDivElement>) {
+    if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
+    setKeyboardCursor(null);
+  }
+
   return (
     <div
       className={[styles.viewport, fullscreen && styles.overlayViewport].filter(Boolean).join(" ")}
@@ -613,8 +675,12 @@ function MapFrame({ imageUrl, alt, markers, lines, onPick, onMarkerClick, disabl
           .join(" ")}
         style={{ width: `${effectiveZoom * 100}%` }}
         onClick={zoomInteractive ? undefined : handleClick} // the fullscreen instance places from its own pointerup handler above instead — see that effect's own doc comment
-        role={onPick ? "button" : undefined}
-        aria-label={onPick ? "Click the map to place your guess" : undefined}
+        role={keyboardActive ? "application" : undefined}
+        aria-roledescription={keyboardActive ? "map" : undefined}
+        aria-label={keyboardActive ? "Map. Click or tap anywhere to place your guess, or press Enter to place it with the keyboard." : undefined}
+        tabIndex={keyboardActive ? 0 : undefined}
+        onKeyDown={keyboardActive ? handleFrameKeyDown : undefined}
+        onBlur={keyboardActive ? handleFrameBlur : undefined}
       >
         {/* eslint-disable-next-line @next/next/no-img-element -- see this component's doc comment on why a plain <img>, not next/image, is the deliberate choice here */}
         <img src={imageUrl} alt={alt} className={styles.image} draggable={false} loading="lazy" decoding="async" />
@@ -699,6 +765,10 @@ function MapFrame({ imageUrl, alt, markers, lines, onPick, onMarkerClick, disabl
             </span>
           );
         })}
+
+        {keyboardCursor && (
+          <span className={styles.keyboardCursor} style={{ left: `${keyboardCursor.x * 100}%`, top: `${keyboardCursor.y * 100}%` }} aria-hidden="true" />
+        )}
       </div>
 
       {/* Inline instance: a single explicit trigger into the fullscreen
@@ -734,6 +804,12 @@ function MapFrame({ imageUrl, alt, markers, lines, onPick, onMarkerClick, disabl
       {showHint && zoomInteractive && (
         <p className={styles.gestureHint} aria-hidden="true">
           Scroll or pinch to zoom · Drag to pan · Tap to place
+        </p>
+      )}
+
+      {keyboardCursor && (
+        <p className={styles.keyboardCursorStatus} role="status" aria-live="polite">
+          Keyboard cursor: {Math.round(keyboardCursor.x * 100)}%, {Math.round(keyboardCursor.y * 100)}% — Enter to place · Esc to cancel
         </p>
       )}
     </div>

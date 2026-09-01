@@ -145,11 +145,23 @@ function scheduleCountdownIfAny(io: SocketIOServer, sessionId: string, gameId: s
   void gameKey; // kept in the signature for symmetry with broadcastGameSnapshot's own call shape, not read here — see this function's own doc comment on staying engine-agnostic
 }
 
+/**
+ * `game:synced` always fires after this, whether or not a game exists —
+ * see gameStore.ts's `synced` field for the real, reported bug this
+ * closes: a client can't otherwise tell "haven't heard from the server
+ * yet" apart from "confirmed: no game running," and the two read
+ * IDENTICALLY (`gameId: null`) on a fresh mount/reload before this async
+ * DB read resolves. `status === "connected"` (the socket transport
+ * itself) fires strictly before this can — it's a separate, earlier
+ * moment, not a substitute.
+ */
 async function sendCurrentSnapshot(socket: Socket, identity: SocketIdentity) {
   const game = await getCurrentGame(identity.sessionId);
-  if (!game) return; // no game running yet for this session — nothing to send
-  const state = publicStateFor(game.gameKey, game.internalState, identity.role);
-  socket.emit("game:state", { gameId: game.id, gameKey: game.gameKey, state, events: [] });
+  if (game) {
+    const state = publicStateFor(game.gameKey, game.internalState, identity.role);
+    socket.emit("game:state", { gameId: game.id, gameKey: game.gameKey, state, events: [] });
+  }
+  socket.emit("game:synced");
 }
 
 /**

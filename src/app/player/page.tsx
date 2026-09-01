@@ -8,11 +8,18 @@ import { Button, ConfirmDialog, Input, TeamRoster } from "@/ui";
 import { PlayerBoardPanel } from "@/app/_shared/boardQuestion/PlayerBoardPanel";
 import { WinnerReveal } from "@/app/_shared/boardQuestion/WinnerReveal";
 import { PlayerGeoPanel } from "@/app/_shared/geoGuessr/PlayerGeoPanel";
+import { PlayerDrawingPanel } from "@/app/_shared/drawing/PlayerDrawingPanel";
+import { PlayerMusicPanel } from "@/app/_shared/music/PlayerMusicPanel";
+import { PlayerSteamPanel } from "@/app/_shared/steamRatings/PlayerSteamPanel";
+import { PlayerPricePanel } from "@/app/_shared/guessThePrice/PlayerPricePanel";
+import { PlayerPointingPanel } from "@/app/_shared/pointingSystem/PlayerPointingPanel";
 import { GameChatPanel } from "@/app/_shared/GameChatPanel";
 import { useChatStore } from "@/app/_shared/chatStore";
 import { channelsForRole, type ChatChannel } from "@/domain/chat";
 import { GameStartingSequence } from "@/app/_shared/GameStartingSequence";
 import { HostDisconnectedBanner } from "@/app/_shared/HostDisconnectedBanner";
+import { StatusBanner } from "@/app/_shared/StatusBanner";
+import { ConnectionBadge } from "@/app/_shared/ConnectionBadge";
 import { SessionEndedNotice } from "@/app/_shared/SessionEndedNotice";
 import { KickedNotice } from "@/app/_shared/KickedNotice";
 import { useGameStore } from "@/app/_shared/gameStore";
@@ -20,8 +27,9 @@ import { useGameSocket } from "@/app/_shared/useGameSocket";
 import { usePresenceStore } from "@/app/_shared/presenceStore";
 import { toRosterSeats } from "@/app/_shared/roster";
 import { deriveSessionPhase, readGameStatus } from "@/app/_shared/sessionPhase";
+import { useGameStartingSequence } from "@/app/_shared/useGameStartingSequence";
 import { useIdentityStore, type Identity } from "@/app/_shared/identityStore";
-import { getLastDisplayName, saveLastDisplayName, clearLastDisplayName } from "@/app/_shared/lastDisplayName";
+import { getLastDisplayName, saveLastDisplayName, clearLastDisplayName, playerScope, getLastTeam, saveLastTeam } from "@/app/_shared/lastDisplayName";
 import { RememberedNameHint } from "@/app/_shared/RememberedNameHint";
 import { useAccountStore } from "@/app/_shared/accountStore";
 import { AccountBadge } from "@/app/_shared/AccountBadge";
@@ -31,6 +39,11 @@ import type { TeamRole } from "@/domain/session";
 import styles from "./page.module.css";
 import type { BoardQuestionState } from "@/domain/game/boardQuestion";
 import type { GeoGuessrState } from "@/domain/game/geoGuessr";
+import type { DrawingState } from "@/domain/game/drawing";
+import type { MusicState } from "@/domain/game/music";
+import type { SteamRatingsState } from "@/domain/game/steamRatings";
+import type { GuessThePriceState } from "@/domain/game/guessThePrice";
+import type { PointingSystemState } from "@/domain/game/pointingSystem";
 
 /** See host/page.tsx's identical type — the generic slice WinnerReveal needs, without either engine's full state type. */
 type GenericGameState = { scores: Scoreboard; winner: TeamRole | "TIE" | null };
@@ -79,6 +92,23 @@ function PlayerJoin() {
   // real bug ("j'ai le même pseudo partout") this closes.
   const [remembered, setRemembered] = useState<string | null>(null);
 
+  // Real, reported friction: finishing a game and starting a fresh one
+  // always reset the team picker back to Team A by default, even for
+  // someone who'd been playing Team B all night — a `useEffect`, not a
+  // `useState` initializer, for the exact same SSR-hydration reason the
+  // name prefill below is one too (localStorage isn't available during
+  // SSR, and reading it in the initializer would make the server-rendered
+  // markup disagree with the client's first real render). Mount-only —
+  // this is a one-time default, not something that should keep re-forcing
+  // itself if the player then clicks the other team button themselves.
+  useEffect(() => {
+    const lastTeam = getLastTeam();
+    if (lastTeam) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setTeam(lastTeam);
+    }
+  }, []);
+
   // Real, reported friction: finishing a game and joining a fresh one
   // (or just coming back another day) meant retyping the exact same
   // name every single time. `useEffect`, not a `useState` initializer —
@@ -86,9 +116,20 @@ function PlayerJoin() {
   // initializer would make the server-rendered markup (always empty)
   // disagree with the client's first real render, a hydration mismatch
   // (same class of bug this app's own `useReducedMotionSafe` exists to
-  // avoid). Only overwrites the field if it's still genuinely empty —
-  // never clobbers something the player already started typing before
-  // this effect's own microtask got a chance to run.
+  // avoid).
+  //
+  // Also re-runs on every TEAM switch, not just on mount — a REAL,
+  // REPORTED bug this closes ("j'ai joué en tant que test3 et... ça a
+  // mis test2"): solo testing both seats from the same browser (or a
+  // streamer prepping Team A then Team B before real players arrive)
+  // used to leak whichever team was joined LAST into the OTHER team's
+  // own field, because both taught the same single "player" scope (see
+  // lastDisplayName.ts's own doc comment). The overwrite guard is now
+  // "still empty, OR still holding exactly what was remembered for the
+  // team just switched AWAY from" — that second clause is what makes a
+  // team switch actually SWAP the prefill instead of only ever filling
+  // an empty field once; anything else means the player genuinely typed
+  // their own name, which a team click must never clobber.
   useEffect(() => {
     // A real account (accountStore.ts) supersedes the plain "remembered
     // name" convenience entirely — a logged-in viewer's pseudo IS their
@@ -102,19 +143,18 @@ function PlayerJoin() {
       setDisplayName((current) => current || account.username);
       return;
     }
-    const stored = getLastDisplayName("player");
-    // A genuine one-time read of an external system (localStorage) on
-    // mount — not a subscription with an ongoing value to track, so
-    // there's no render-phase equivalent (PageChangeCurtain.tsx's own
-    // comment on that pattern) to reach for instead here.
-    if (stored) {
-      setRemembered(stored);
-      setDisplayName((current) => current || stored);
-    }
-  }, [account]);
+    // A genuine read of an external system (localStorage) on mount AND
+    // on every team switch — not a subscription with an ongoing value to
+    // track, so there's no render-phase equivalent (PageChangeCurtain.tsx's
+    // own comment on that pattern) to reach for instead here.
+    const stored = getLastDisplayName(playerScope(team));
+    setDisplayName((current) => (!current || current === remembered ? stored || "" : current));
+    setRemembered(stored || null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `remembered` deliberately excluded: read here as the PREVIOUS render's value (whichever team was just switched away from) to detect an untouched prefill; including it would make this effect re-fire on its own write
+  }, [account, team]);
 
   function logOutRememberedName() {
-    clearLastDisplayName("player");
+    clearLastDisplayName(playerScope(team));
     setRemembered(null);
     setDisplayName("");
   }
@@ -129,8 +169,9 @@ function PlayerJoin() {
     setError(null);
     try {
       const result = await joinSession.mutateAsync({ sessionCode: code, role: team, displayName: name, accountToken: account?.token });
-      saveLastDisplayName("player", name);
-      setIdentity({ sessionCode: code, role: team, displayName: result.displayName, token: result.token });
+      saveLastDisplayName(playerScope(team), name);
+      saveLastTeam(team);
+      setIdentity({ sessionCode: code, role: team, displayName: result.displayName, token: result.token, participantId: result.id });
     } catch (err) {
       const code = err instanceof TRPCClientError ? err.data?.sessionErrorCode : undefined;
       setError(readableSessionError(code, err instanceof Error ? err.message : "Couldn't join — try again."));
@@ -209,7 +250,7 @@ function PlayerGame({ identity }: { identity: Identity }) {
   const rosterVariant: Record<"TEAM_A" | "TEAM_B", "teamA" | "teamB"> = { TEAM_A: "teamA", TEAM_B: "teamB" };
   const clearIdentity = useIdentityStore((state) => state.clearIdentity);
   const account = useAccountStore((state) => state.account);
-  const { sendAction, sendChatMessage } = useGameSocket(identity.token);
+  const { sendAction, sendChatMessage, sendStroke, sendDrawingClear, sendDrawingUndo, requestDrawingSnapshot, requestDrawingPrompt } = useGameSocket(identity.token);
   const gameId = useGameStore((state) => state.gameId);
   const gameKey = useGameStore((state) => state.gameKey);
   const rawGameState = useGameStore((state) => state.gameState);
@@ -218,6 +259,7 @@ function PlayerGame({ identity }: { identity: Identity }) {
   const lastEvents = useGameStore((state) => state.lastEvents);
   const liveSessionEnded = useGameStore((state) => state.sessionEnded);
   const kicked = useGameStore((state) => state.kicked);
+  const synced = useGameStore((state) => state.synced);
   const presence = usePresenceStore((state) => state.participants);
   const hostConnected = presence.some((p) => p.role === "HOST");
 
@@ -246,12 +288,7 @@ function PlayerGame({ identity }: { identity: Identity }) {
   // timeline regardless of when `live` actually flips true (see that
   // component's doc comment), so this reads the exact same countdown
   // the host already sees, not a shortened one.
-  const [prevPhase, setPrevPhase] = useState(phase);
-  const [sequenceActive, setSequenceActive] = useState(false);
-  if (prevPhase !== phase) {
-    if (phase === "GAME_IN_PROGRESS" && prevPhase !== "GAME_IN_PROGRESS") setSequenceActive(true);
-    setPrevPhase(phase);
-  }
+  const { sequenceActive, setSequenceActive } = useGameStartingSequence(phase, synced);
 
   // Real, reported feedback: an always-open chat — even one with
   // genuinely nothing more important competing with it (the Lobby) —
@@ -288,6 +325,15 @@ function PlayerGame({ identity }: { identity: Identity }) {
           <span className={[styles.identityChip, styles[rosterVariant[role]]].join(" ")}>{identity.displayName}</span>
         </div>
         <div className={styles.topBarEnd}>
+          {/* Silent on a healthy connection (same "quiet chrome" posture
+              as the account link/menu button right next to it) — a real,
+              audited gap: `status` used to be read from gameStore but
+              never actually rendered anywhere on this screen, so a
+              reconnecting/dead socket was invisible while the Buzz button
+              stayed lit and tappable. Reuses ConnectionBadge as-is (the
+              same component Host already shows unconditionally) rather
+              than a second connection-status system. */}
+          {status !== "connected" && <ConnectionBadge status={status} />}
           {matchScore && matchScore.TEAM_A + matchScore.TEAM_B > 0 && (
             <span className={styles.showScoreLabel}>
               MATCH <strong>{matchScore.TEAM_A}–{matchScore.TEAM_B}</strong>
@@ -345,7 +391,9 @@ function PlayerGame({ identity }: { identity: Identity }) {
     return (
       <div className={styles.shell}>
         {topBar}
-        <KickedNotice onRejoin={clearIdentity} />
+        <div className={styles.centerBody}>
+          <KickedNotice onRejoin={clearIdentity} />
+        </div>
       </div>
     );
   }
@@ -354,11 +402,39 @@ function PlayerGame({ identity }: { identity: Identity }) {
     return (
       <div className={styles.shell}>
         {topBar}
-        <SessionEndedNotice sessionCode={identity.sessionCode} />
-        <div className={styles.startRow}>
-          <Button variant="ghost" onClick={clearIdentity}>
-            Join a different game
-          </Button>
+        <div className={styles.centerBody}>
+          <SessionEndedNotice sessionCode={identity.sessionCode} />
+          <div className={styles.startRow}>
+            <Button variant="ghost" onClick={clearIdentity}>
+              Join a different game
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // A REAL, REPORTED gap this closes ("tu as juste enlevé le loader"):
+  // `useGameStartingSequence`'s own fix for the reload-replays-the-intro
+  // bug means `synced` (gameStore.ts) is false for a real, if brief,
+  // window on every mount/reload before the game's true state is known —
+  // and without this guard, that gap fell through to the phase-driven
+  // tree below computed off placeholder data (`gameId`/`gameState` both
+  // still null), flashing the WRONG screen (an empty "waiting for the
+  // game to start" Lobby, even mid-game) before snapping to the real
+  // board the instant the catch-up snapshot landed. This is the
+  // replacement: a genuine "still syncing" beat instead of either the
+  // old, wrong replayed countdown OR nothing/wrong-content at all.
+  if (!synced) {
+    return (
+      <div className={styles.shell}>
+        {topBar}
+        <div className={styles.centerBody}>
+          <div className={styles.centerStatus}>
+            <span className={styles.centerStatusPulse} aria-hidden="true" />
+            <p className={styles.centerStatusLabel}>Connecting</p>
+            <p className={styles.centerStatusHeadline}>Syncing your game…</p>
+          </div>
         </div>
       </div>
     );
@@ -370,16 +446,47 @@ function PlayerGame({ identity }: { identity: Identity }) {
 
       {!hostConnected && <HostDisconnectedBanner />}
 
+      {/* THIS tab's own socket, not the host's — the case the audit
+          flagged as most dangerous: a player mid-buzz whose connection
+          just dropped had zero indication that the Buzz button below was
+          no longer really live. `disconnected` is socket.io's own
+          reconnect loop (self-healing); `unauthorized` is a genuine dead
+          end (a rejected/expired token) that, unlike `disconnected`,
+          never gets a second chance to arrive as `session:ended`/
+          `participant:kicked` — those are events THIS SAME dead socket
+          can no longer deliver, so this banner is the only signal at all
+          for that case. */}
+      {status === "disconnected" && (
+        <StatusBanner title="RECONNECTING…" subtitle="Your connection dropped — actions may not go through until it's back." />
+      )}
+      {status === "unauthorized" && (
+        <StatusBanner tone="danger" title="CONNECTION LOST" subtitle="This session is no longer valid on this device — rejoin to keep playing." />
+      )}
+
       {sequenceActive ? (
         <div className={styles.startingWrap}>
-          <GameStartingSequence live={phase === "GAME_IN_PROGRESS"} onDone={() => setSequenceActive(false)} />
+          <GameStartingSequence live={phase === "GAME_IN_PROGRESS"} onDone={() => setSequenceActive(false)} size="large" />
         </div>
       ) : (
         /* `key={phase}` remounts this wrapper whenever the real derived
             phase changes, replaying the fade-in — a CSS side-effect of a
             real state transition, never itself a decision about what to
-            show (see AGENTS.md "Session vs. Game phases"). */
-        <div key={phase} className={styles.phaseIn}>
+            show (see AGENTS.md "Session vs. Game phases").
+            `.centerBody` applies here regardless of phase — including live
+            GAME_IN_PROGRESS panels, not just the short Lobby/status
+            screens `.centerBody`'s own doc comment focuses on. Safe for a
+            TALL panel (GeoGuessr's map, Drawing's canvas, an opened chat
+            drawer) precisely because of how CSS flexbox centering
+            actually degrades: `justify-content: center` only redistributes
+            LEFTOVER space once a flex item's content already fills its
+            container — a flex item taller than what's left just grows
+            past its "fair share" (normal document flow, page scrolls), it
+            never gets center-clipped with its own top hidden above the
+            fold. So a short buzzer panel (most of this session's own
+            recently-built games) gets the same real "not stuck at the top
+            of a big screen" fix the Lobby did, and a tall one simply
+            behaves exactly as it already did before this. */
+        <div key={phase} className={[styles.phaseIn, styles.centerBody].join(" ")}>
           {(phase === "SESSION_LOBBY" || phase === "GAME_FINISHED") && (
             <>
               {/* Real, reported gap: the "GAME OVER — Team X wins" splash
@@ -395,7 +502,7 @@ function PlayerGame({ identity }: { identity: Identity }) {
                   from the same broadcast `game:state`, never a local guess. */}
               {phase === "GAME_FINISHED" && gameState && (
                 <>
-                  <WinnerReveal winner={gameState.winner ?? "TIE"} teamAScore={gameState.scores.TEAM_A} teamBScore={gameState.scores.TEAM_B} />
+                  <WinnerReveal winner={gameState.winner ?? "TIE"} teamAScore={gameState.scores.TEAM_A} teamBScore={gameState.scores.TEAM_B} viewerTeam={role} />
                   {/* Real, findable practicality — the exact moment this
                       account's own stats (getUserStats, src/server/db/
                       user.ts) just changed is precisely the moment a
@@ -442,7 +549,7 @@ function PlayerGame({ identity }: { identity: Identity }) {
                 </div>
               )}
 
-              <ChatDrawer role={role} displayName={identity.displayName} sendChatMessage={sendChatMessage} unread={totalUnread} />
+              <ChatDrawer role={role} displayName={identity.displayName} participantId={identity.participantId} sendChatMessage={sendChatMessage} unread={totalUnread} />
             </>
           )}
 
@@ -450,10 +557,30 @@ function PlayerGame({ identity }: { identity: Identity }) {
             <>
               {gameKey === "geoguessr" ? (
                 <PlayerGeoPanel state={rawGameState as unknown as GeoGuessrState} role={role} displayName={identity.displayName} sendAction={sendAction} />
+              ) : gameKey === "drawing" ? (
+                <PlayerDrawingPanel
+                  state={rawGameState as unknown as DrawingState}
+                  role={role}
+                  displayName={identity.displayName}
+                  sendAction={sendAction}
+                  sendStroke={sendStroke}
+                  sendDrawingClear={sendDrawingClear}
+                  sendDrawingUndo={sendDrawingUndo}
+                  requestDrawingSnapshot={requestDrawingSnapshot}
+                  requestDrawingPrompt={requestDrawingPrompt}
+                />
+              ) : gameKey === "music" ? (
+                <PlayerMusicPanel state={rawGameState as unknown as MusicState} role={role} lastEvents={lastEvents} sendAction={sendAction} />
+              ) : gameKey === "steamRatings" ? (
+                <PlayerSteamPanel state={rawGameState as unknown as SteamRatingsState} role={role} lastEvents={lastEvents} sendAction={sendAction} />
+              ) : gameKey === "guessThePrice" ? (
+                <PlayerPricePanel state={rawGameState as unknown as GuessThePriceState} role={role} lastEvents={lastEvents} sendAction={sendAction} />
+              ) : gameKey === "pointingSystem" ? (
+                <PlayerPointingPanel state={rawGameState as unknown as PointingSystemState} />
               ) : (
                 <PlayerBoardPanel state={rawGameState as unknown as BoardQuestionState} role={role} lastEvents={lastEvents} sendAction={sendAction} />
               )}
-              <ChatDrawer role={role} displayName={identity.displayName} sendChatMessage={sendChatMessage} unread={totalUnread} />
+              <ChatDrawer role={role} displayName={identity.displayName} participantId={identity.participantId} sendChatMessage={sendChatMessage} unread={totalUnread} />
             </>
           )}
         </div>
@@ -479,11 +606,13 @@ function PlayerGame({ identity }: { identity: Identity }) {
 function ChatDrawer({
   role,
   displayName,
+  participantId,
   sendChatMessage,
   unread,
 }: {
   role: "TEAM_A" | "TEAM_B";
   displayName: string;
+  participantId: string;
   sendChatMessage: (channel: ChatChannel, body: string) => void;
   unread: number;
 }) {
@@ -502,7 +631,7 @@ function ChatDrawer({
           ▾
         </span>
       </summary>
-      <GameChatPanel role={role} displayName={displayName} sendChatMessage={sendChatMessage} />
+      <GameChatPanel role={role} displayName={displayName} participantId={participantId} sendChatMessage={sendChatMessage} />
     </details>
   );
 }

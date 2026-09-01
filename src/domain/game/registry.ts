@@ -1,6 +1,11 @@
 import { z } from "zod";
 import { boardQuestionEngine } from "./boardQuestion";
 import { geoGuessrEngine } from "./geoGuessr";
+import { drawingEngine } from "./drawing";
+import { musicEngine } from "./music";
+import { steamRatingsEngine } from "./steamRatings";
+import { guessThePriceEngine } from "./guessThePrice";
+import { pointingSystemEngine } from "./pointingSystem";
 import type { GameEngine } from "./kernel";
 
 /**
@@ -19,6 +24,11 @@ import type { GameEngine } from "./kernel";
 export const gameEngines: Record<string, GameEngine<any, any, any, any>> = {
   [boardQuestionEngine.id]: boardQuestionEngine,
   [geoGuessrEngine.id]: geoGuessrEngine,
+  [drawingEngine.id]: drawingEngine,
+  [musicEngine.id]: musicEngine,
+  [steamRatingsEngine.id]: steamRatingsEngine,
+  [guessThePriceEngine.id]: guessThePriceEngine,
+  [pointingSystemEngine.id]: pointingSystemEngine,
 };
 
 export type GameKey = keyof typeof gameEngines;

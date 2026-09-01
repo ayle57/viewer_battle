@@ -9,6 +9,10 @@ const TRPC_CODE: Record<ContentErrorCode, TRPCError["code"]> = {
   QUESTION_NOT_FOUND: "NOT_FOUND",
   CATEGORY_NOT_EMPTY: "CONFLICT",
   ROUND_NOT_FOUND: "NOT_FOUND",
+  PROMPT_NOT_FOUND: "NOT_FOUND",
+  TRACK_NOT_FOUND: "NOT_FOUND",
+  STEAM_GAME_NOT_FOUND: "NOT_FOUND",
+  PRICE_ITEM_NOT_FOUND: "NOT_FOUND",
   VALIDATION: "BAD_REQUEST",
   // Distinct from VALIDATION (a single bad field on ONE mutation) —
   // this means "the playlist as a whole can't be used to start a game

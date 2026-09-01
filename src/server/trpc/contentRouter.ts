@@ -22,6 +22,10 @@ import {
   updateQuestion,
 } from "@/server/db/content";
 import { contentGeoRouter } from "@/server/trpc/contentGeoRouter";
+import { contentDrawingRouter } from "@/server/trpc/contentDrawingRouter";
+import { contentMusicRouter } from "@/server/trpc/contentMusicRouter";
+import { contentSteamRouter } from "@/server/trpc/contentSteamRouter";
+import { contentPriceRouter } from "@/server/trpc/contentPriceRouter";
 
 /**
  * Content Studio's tRPC surface — everything a Host uses to prepare a
@@ -253,4 +257,30 @@ export const contentRouter = router({
   geoPlaylist: contentGeoRouter.playlist,
   geoRound: contentGeoRouter.round,
   geoAsset: contentGeoRouter.asset,
+  // Drawing's own content shape (a flat prompt list, text + duration) —
+  // same "own namespace, own file, don't touch the others" posture as
+  // GeoGuessr's above. See contentDrawingRouter.ts.
+  drawingPlaylist: contentDrawingRouter.playlist,
+  drawingPrompt: contentDrawingRouter.prompt,
+  // Music's own content shape (a flat track list, audio + title +
+  // optional artist) — same "own namespace, own file, don't touch the
+  // others" posture as GeoGuessr's/Drawing's above. See
+  // contentMusicRouter.ts.
+  musicPlaylist: contentMusicRouter.playlist,
+  musicTrack: contentMusicRouter.track,
+  musicAsset: contentMusicRouter.asset,
+  // Steam Ratings' own content shape (a flat game list, title + cover +
+  // an ordered ratings array) — same "own namespace, own file, don't
+  // touch the others" posture as GeoGuessr's/Drawing's/Music's above.
+  // See contentSteamRouter.ts.
+  steamPlaylist: contentSteamRouter.playlist,
+  steamGame: contentSteamRouter.game,
+  steamAsset: contentSteamRouter.asset,
+  // Guess the Price's own content shape (a flat item list, title +
+  // photo + price + optional margin) — same "own namespace, own file,
+  // don't touch the others" posture as GeoGuessr's/Drawing's/Music's/
+  // Steam Ratings' above. See contentPriceRouter.ts.
+  pricePlaylist: contentPriceRouter.playlist,
+  priceItem: contentPriceRouter.item,
+  priceAsset: contentPriceRouter.asset,
 });
